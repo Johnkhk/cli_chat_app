@@ -83,10 +83,16 @@ func handleCommand(command string, client auth.AuthServiceClient, tokenManager *
 		fmt.Println("Exiting the application.")
 		os.Exit(0) // Exit the application
 
-		// authed commands
+	// authed commands
 	// case "/logout":
 	// case "/add_friend":
 	// app.AddFriend(client, tokenManager) // Token manager used to retrieve token from local
+
+	/*
+		TODO:
+		1. with the new auth try to streamline the client cli's entry point (main.go)
+		2. implement /logout and /add_friend commands
+	*/
 
 	default:
 		fmt.Println("Unknown command:", command)
