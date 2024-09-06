@@ -18,8 +18,8 @@ func InitLogger() {
 
 	// Optional: Output to stdout instead of stderr (default)
 	Log.SetOutput(os.Stdout)
-	// Log.SetLevel(logrus.InfoLevel)
-	Log.SetLevel(logrus.PanicLevel) // Disable all logs below PanicLevel
+	Log.SetLevel(logrus.InfoLevel)
+	// Log.SetLevel(logrus.PanicLevel) // Disable all logs below PanicLevel
 
 }
 

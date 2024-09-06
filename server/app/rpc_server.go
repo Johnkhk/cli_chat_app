@@ -9,6 +9,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/johnkhk/cli_chat_app/genproto/auth"
+	"github.com/johnkhk/cli_chat_app/server/logger"
 	"github.com/johnkhk/cli_chat_app/server/storage"
 )
 
@@ -70,8 +71,42 @@ func (s *AuthServer) LoginUser(ctx context.Context, req *auth.LoginRequest) (*au
 		}, nil
 	}
 
+	// Generate new access and refresh tokens using user ID as the subject
+	accessToken, err := generateAccessToken(user.ID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate access token: %v", err)
+	}
+
+	refreshToken, err := generateRefreshToken(user.ID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate refresh token: %v", err)
+	}
+
 	return &auth.LoginResponse{
-		Success: true,
-		Message: "Login successful",
+		Success:      true,
+		Message:      "Login successful",
+		AccessToken:  accessToken,
+		RefreshToken: refreshToken,
 	}, nil
+}
+
+// RefreshToken handles token refresh requests.
+func (s *AuthServer) RefreshToken(ctx context.Context, req *auth.RefreshTokenRequest) (*auth.RefreshTokenResponse, error) {
+	logger.Log.Info("Received refresh token request")
+	refreshToken := req.RefreshToken
+
+	// Validate and parse the refresh token
+	userID, err := parseAndValidateRefreshToken(refreshToken)
+	if err != nil {
+		return nil, fmt.Errorf("invalid refresh token: %v", err)
+	}
+
+	// Generate a new access token using the extracted user ID
+	newAccessToken, err := generateAccessToken(userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate access token: %v", err)
+	}
+
+	// Return the new access token
+	return &auth.RefreshTokenResponse{AccessToken: newAccessToken}, nil
 }

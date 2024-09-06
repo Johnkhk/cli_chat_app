@@ -20,8 +20,8 @@ func InitLogger() {
 	})
 
 	// Optionally set log level
-	// Log.SetLevel(logrus.InfoLevel)
-	Log.SetLevel(logrus.PanicLevel)
+	Log.SetLevel(logrus.InfoLevel)
+	// Log.SetLevel(logrus.PanicLevel)
 
 	// Optionally log to file
 	// file, err := os.OpenFile("client.log", os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0666)

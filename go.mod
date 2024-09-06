@@ -6,6 +6,8 @@ require golang.org/x/crypto v0.27.0
 
 require (
 	filippo.io/edwards25519 v1.1.0 // indirect
+	github.com/golang-jwt/jwt v3.2.2+incompatible // indirect
+	github.com/golang-jwt/jwt/v4 v4.5.0 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
 )
 
