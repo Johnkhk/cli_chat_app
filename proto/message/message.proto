@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+package message;
+
+option go_package = "github.com/johnkhk/cli_chat_app/proto/message";
+
+
+service MessageService {
+  rpc SendMessage (SendMessageRequest) returns (SendMessageResponse) {}
+}
+
+message SendMessageRequest {
+  string sender = 1;
+  string recipient = 2;
+  string content = 3;
+}
+
+message SendMessageResponse {
+  bool success = 1;
+  string message = 2;
+}

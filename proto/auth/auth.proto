@@ -1,0 +1,47 @@
+syntax = "proto3";
+
+package auth;
+option go_package = "github.com/johnkhk/cli_chat_app/proto/auth";
+// protoc --go_out=./genproto/auth --go-grpc_out=./genproto/auth --go_opt=paths=source_relative --go-grpc_opt=paths=source_relative ./proto/auth/auth.proto
+
+
+
+// Define the authentication service.
+service AuthService {
+  rpc RegisterUser (RegisterRequest) returns (RegisterResponse) {}
+  rpc LoginUser (LoginRequest) returns (LoginResponse) {}
+  rpc RefreshToken (RefreshTokenRequest) returns (RefreshTokenResponse) {}  // New method for token refresh
+}
+
+// Define the request and response messages for registration.
+message RegisterRequest {
+  string username = 1;
+  string password = 2;
+}
+
+message RegisterResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+// Define the request and response messages for login.
+message LoginRequest {
+  string username = 1;
+  string password = 2;
+}
+
+message LoginResponse {
+  bool success = 1;
+  string message = 2;
+  string access_token = 3;  // Add access_token to the response
+  string refresh_token = 4; // Add refresh_token to the response
+}
+
+// Define the request and response messages for refreshing the token.
+message RefreshTokenRequest {
+  string refresh_token = 1; // The refresh token provided by the client
+}
+
+message RefreshTokenResponse {
+  string access_token = 1;  // The new access token issued by the server
+}
