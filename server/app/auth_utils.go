@@ -67,7 +67,7 @@ func parseAndValidateRefreshToken(tokenString string) (int64, error) {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}
 		// Return the key for verification
-		return []byte("your-secret-key"), nil // Replace with your actual secret key
+		return []byte(os.Getenv("CLI_CHAT_APP_JWT_SECRET_KEY")), nil
 	})
 
 	if err != nil {
