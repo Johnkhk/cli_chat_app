@@ -2,40 +2,31 @@ package storage
 
 import (
 	"database/sql"
+	"fmt"
 	"os"
 
 	_ "github.com/go-sql-driver/mysql" // Import MySQL driver
-
-	"github.com/johnkhk/cli_chat_app/server/logger"
 )
 
-var DB *sql.DB
-
 // InitDB initializes the database connection.
-func InitDB() {
+func InitDB() (*sql.DB, error) {
 	// Get the database URL from environment variables
 	dsn := os.Getenv("DATABASE_URL")
-	logger.Log.Debug("Database URL:", dsn)
-
-	var err error
-	DB, err = sql.Open("mysql", dsn)
-	if err != nil {
-		logger.Log.Fatalf("Failed to open database connection: %v", err)
+	if dsn == "" {
+		return nil, fmt.Errorf("DATABASE_URL environment variable is not set")
 	}
 
-	// // Defer closing the database connection until the program exits
-	// // This will ensure the connection is properly closed
-	// // when the main function returns
-	// defer func() {
-	// 	if err := DB.Close(); err != nil {
-	// 		logger.Log.Fatalf("Failed to close database connection: %v", err)
-	// 	}
-	// }()
+	// Open the database connection
+	db, err := sql.Open("mysql", dsn)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open database connection: %w", err)
+	}
 
 	// Test the database connection
-	if err := DB.Ping(); err != nil {
-		logger.Log.Fatalf("Failed to ping database: %v", err)
+	if err := db.Ping(); err != nil {
+		db.Close() // Close the database connection on error
+		return nil, fmt.Errorf("failed to ping database: %w", err)
 	}
 
-	logger.Log.Info("Database connection established successfully")
+	return db, nil
 }

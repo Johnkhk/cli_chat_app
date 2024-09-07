@@ -8,41 +8,41 @@ import (
 	"google.golang.org/grpc"
 )
 
-var Log *logrus.Logger
-
-func InitLogger() {
-	Log = logrus.New()
-	Log.SetFormatter(&logrus.TextFormatter{
+// InitLogger initializes a new logger instance and returns it.
+func InitLogger() *logrus.Logger {
+	log := logrus.New()
+	log.SetFormatter(&logrus.TextFormatter{
 		FullTimestamp: true,
 	})
 
 	// Optional: Output to stdout instead of stderr (default)
-	Log.SetOutput(os.Stdout)
-	Log.SetLevel(logrus.InfoLevel)
-	// Log.SetLevel(logrus.PanicLevel) // Disable all logs below PanicLevel
+	log.SetOutput(os.Stdout)
+	log.SetLevel(logrus.InfoLevel)
+	// log.SetLevel(logrus.PanicLevel) // Disable all logs below PanicLevel
 
+	return log
 }
 
+// UnaryInterceptor is a gRPC interceptor that logs incoming RPC calls.
 func UnaryInterceptor(
-	ctx context.Context,
-	req interface{},
-	info *grpc.UnaryServerInfo,
-	handler grpc.UnaryHandler,
-) (interface{}, error) {
-	// Ensure logger is initialized before use
-	if Log == nil {
-		logrus.Fatal("Logger is not initialized.")
-	}
+	log *logrus.Logger, // Pass logger as a parameter
+) grpc.UnaryServerInterceptor {
+	return func(
+		ctx context.Context,
+		req interface{},
+		info *grpc.UnaryServerInfo,
+		handler grpc.UnaryHandler,
+	) (interface{}, error) {
+		// Log incoming RPC call
+		log.Infof("Incoming RPC call: %s", info.FullMethod)
 
-	// Log incoming RPC call
-	Log.Infof("Incoming RPC call: %s", info.FullMethod)
-
-	// Call the handler to complete the normal execution of the RPC call
-	resp, err := handler(ctx, req)
-	if err != nil {
-		Log.Errorf("Error handling RPC: %v", err)
-	} else {
-		Log.Infof("RPC call completed successfully: %s", info.FullMethod)
+		// Call the handler to complete the normal execution of the RPC call
+		resp, err := handler(ctx, req)
+		if err != nil {
+			log.Errorf("Error handling RPC: %v", err)
+		} else {
+			log.Infof("RPC call completed successfully: %s", info.FullMethod)
+		}
+		return resp, err
 	}
-	return resp, err
 }

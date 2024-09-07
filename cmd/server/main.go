@@ -27,25 +27,29 @@ func main() {
 	}
 
 	// Initialize the logger
-	logger.InitLogger()
+	log := logger.InitLogger()
 
 	// Connect to the database
-	storage.InitDB()
+	db, err := storage.InitDB()
+	if err != nil {
+		log.Fatalf("Failed to initialize the database: %v", err)
+	}
+	defer db.Close() // Ensure the database connection is closed when the application exits
 
-	// Create a new gRPC server
-	grpcServer := grpc.NewServer(grpc.UnaryInterceptor(logger.UnaryInterceptor))
-	authServer := &app.AuthServer{DB: storage.DB}
+	// Create a new gRPC server with a logging interceptor
+	grpcServer := grpc.NewServer(grpc.UnaryInterceptor(logger.UnaryInterceptor(log)))
+	authServer := app.NewAuthServer(db, log)
 	auth.RegisterAuthServiceServer(grpcServer, authServer)
 
 	// Listen specifically on localhost
 	listener, err := net.Listen("tcp", "localhost:"+port)
 	if err != nil {
-		logger.Log.Fatalf("Failed to listen on localhost:%s: %v", port, err)
+		log.Fatalf("Failed to listen on localhost:%s: %v", port, err)
 	}
 
-	logger.Log.Infof("gRPC server is listening on localhost:%s", port)
+	log.Infof("gRPC server is listening on localhost:%s", port)
 
 	if err := grpcServer.Serve(listener); err != nil {
-		logger.Log.Fatalf("Failed to serve: %v", err)
+		log.Fatalf("Failed to serve: %v", err)
 	}
 }

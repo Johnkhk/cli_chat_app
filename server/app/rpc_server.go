@@ -5,23 +5,32 @@ import (
 	"database/sql"
 	"fmt"
 
-	// Import the storage package
-
+	"github.com/sirupsen/logrus"
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/johnkhk/cli_chat_app/genproto/auth"
-	"github.com/johnkhk/cli_chat_app/server/logger"
 	"github.com/johnkhk/cli_chat_app/server/storage"
 )
 
 // AuthServer implements the AuthService.
 type AuthServer struct {
 	auth.UnimplementedAuthServiceServer
-	DB *sql.DB
+	DB     *sql.DB
+	Logger *logrus.Logger
+}
+
+// NewAuthServer creates a new AuthServer with the given dependencies.
+func NewAuthServer(db *sql.DB, logger *logrus.Logger) *AuthServer {
+	return &AuthServer{
+		DB:     db,
+		Logger: logger,
+	}
 }
 
 // RegisterUser handles user registration requests.
 func (s *AuthServer) RegisterUser(ctx context.Context, req *auth.RegisterRequest) (*auth.RegisterResponse, error) {
+	s.Logger.Infof("Registering new user: %s", req.Username)
+
 	// Check if the user already exists
 	var count int
 	err := s.DB.QueryRow("SELECT COUNT(*) FROM chat_users WHERE username = ?", req.Username).Scan(&count)
@@ -56,6 +65,8 @@ func (s *AuthServer) RegisterUser(ctx context.Context, req *auth.RegisterRequest
 
 // LoginUser handles user login requests.
 func (s *AuthServer) LoginUser(ctx context.Context, req *auth.LoginRequest) (*auth.LoginResponse, error) {
+	s.Logger.Infof("User login attempt: %s", req.Username)
+
 	// Retrieve the user data from the database
 	var user storage.User
 	err := s.DB.QueryRow("SELECT id, username, password_hash FROM chat_users WHERE username = ?", req.Username).Scan(&user.ID, &user.Username, &user.Password)
@@ -93,7 +104,7 @@ func (s *AuthServer) LoginUser(ctx context.Context, req *auth.LoginRequest) (*au
 
 // RefreshToken handles token refresh requests.
 func (s *AuthServer) RefreshToken(ctx context.Context, req *auth.RefreshTokenRequest) (*auth.RefreshTokenResponse, error) {
-	logger.Log.Info("Received refresh token request")
+	s.Logger.Info("Received refresh token request")
 	refreshToken := req.RefreshToken
 
 	// Validate and parse the refresh token
