@@ -43,7 +43,6 @@ func (tm *TokenManager) TryAutoLogin() bool {
 		// Attempt to refresh the access token
 		newAccessToken, err := tm.RefreshAccessToken(refreshToken)
 		if err != nil {
-			logger.Log.Errorf("Failed to refresh access token: %v", err)
 			return false
 		}
 
@@ -158,7 +157,7 @@ func (tm *TokenManager) RefreshAccessToken(refreshToken string) (string, error) 
 	// Make the gRPC call to refresh the token
 	resp, err := tm.client.RefreshToken(ctx, &auth.RefreshTokenRequest{RefreshToken: refreshToken})
 	if err != nil {
-		logger.Log.Errorf("Failed to refresh token: %v", err)
+		logger.Log.Errorf("Failed to refresh access token: %v", err)
 		return "", err
 	}
 
