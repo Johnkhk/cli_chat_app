@@ -18,11 +18,12 @@ func isValidRefreshToken(token string) bool {
 }
 
 // Helper function to generate a new access token
-func generateAccessToken(userID int64) (string, error) {
+func generateAccessToken(userID int64, username string) (string, error) {
 	// Define token claims, using the user ID as the subject
 	claims := jwt.MapClaims{
-		"sub": fmt.Sprintf("%d", userID),            // Use user ID as subject
-		"exp": time.Now().Add(time.Hour * 1).Unix(), // Token expires in 1 hour
+		"sub":      fmt.Sprintf("%d", userID),            // Use user ID as subject
+		"username": username,                             // Add username to claims
+		"exp":      time.Now().Add(time.Hour * 1).Unix(), // Token expires in 1 hour
 		// "exp": time.Now().Add(time.Second * 5).Unix(), // Token expires in 1 hour WORKS!
 	}
 
@@ -39,11 +40,12 @@ func generateAccessToken(userID int64) (string, error) {
 }
 
 // Helper function to generate a new refresh token
-func generateRefreshToken(userID int64) (string, error) {
+func generateRefreshToken(userID int64, username string) (string, error) {
 	// Define refresh token claims using the user ID as the subject
 	claims := jwt.MapClaims{
-		"sub": fmt.Sprintf("%d", userID),                 // Use user ID as subject
-		"exp": time.Now().Add(time.Hour * 24 * 7).Unix(), // Refresh token expires in 7 days
+		"sub":      fmt.Sprintf("%d", userID),                 // Use user ID as subject
+		"username": username,                                  // Add username to claims
+		"exp":      time.Now().Add(time.Hour * 24 * 7).Unix(), // Refresh token expires in 7 days
 	}
 
 	// Create a new token object using the signing method and claims
@@ -59,7 +61,7 @@ func generateRefreshToken(userID int64) (string, error) {
 }
 
 // Helper function to validate and parse the refresh token
-func parseAndValidateRefreshToken(tokenString string) (int64, error) {
+func parseAndValidateRefreshToken(tokenString string) (int64, string, error) {
 	// Parse the token
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 		// Ensure the signing method is correct
@@ -71,33 +73,39 @@ func parseAndValidateRefreshToken(tokenString string) (int64, error) {
 	})
 
 	if err != nil {
-		return 0, err
+		return 0, "", err
 	}
 
 	// Check if the token is valid
 	if !token.Valid {
-		return 0, fmt.Errorf("invalid token")
+		return 0, "", fmt.Errorf("invalid token")
 	}
 
-	// Extract the user ID from the token claims
+	// Extract the claims from the token
 	claims, ok := token.Claims.(jwt.MapClaims)
 	if !ok || !token.Valid {
-		return 0, fmt.Errorf("invalid token claims")
+		return 0, "", fmt.Errorf("invalid token claims")
 	}
 
-	// Convert the user ID from the claims to int64
+	// Extract the user ID from the claims
 	userID, ok := claims["sub"].(string)
 	if !ok {
-		return 0, fmt.Errorf("invalid user ID in token claims")
+		return 0, "", fmt.Errorf("invalid user ID in token claims")
 	}
 
 	// Parse the user ID string to int64
 	parsedUserID, err := parseInt64(userID)
 	if err != nil {
-		return 0, fmt.Errorf("failed to parse user ID: %v", err)
+		return 0, "", fmt.Errorf("failed to parse user ID: %v", err)
 	}
 
-	return parsedUserID, nil
+	// Extract the email from the claims (if added)
+	username, ok := claims["username"].(string)
+	if !ok {
+		return 0, "", fmt.Errorf("invalid username in token claims")
+	}
+
+	return parsedUserID, username, nil
 }
 
 // Helper function to parse string to int64

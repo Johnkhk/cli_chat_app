@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+
 	// Import the storage package
 
 	"golang.org/x/crypto/bcrypt"
@@ -72,12 +73,12 @@ func (s *AuthServer) LoginUser(ctx context.Context, req *auth.LoginRequest) (*au
 	}
 
 	// Generate new access and refresh tokens using user ID as the subject
-	accessToken, err := generateAccessToken(user.ID)
+	accessToken, err := generateAccessToken(user.ID, user.Username)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate access token: %v", err)
 	}
 
-	refreshToken, err := generateRefreshToken(user.ID)
+	refreshToken, err := generateRefreshToken(user.ID, user.Username)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate refresh token: %v", err)
 	}
@@ -96,13 +97,13 @@ func (s *AuthServer) RefreshToken(ctx context.Context, req *auth.RefreshTokenReq
 	refreshToken := req.RefreshToken
 
 	// Validate and parse the refresh token
-	userID, err := parseAndValidateRefreshToken(refreshToken)
+	userID, username, err := parseAndValidateRefreshToken(refreshToken)
 	if err != nil {
 		return nil, fmt.Errorf("invalid refresh token: %v", err)
 	}
 
 	// Generate a new access token using the extracted user ID
-	newAccessToken, err := generateAccessToken(userID)
+	newAccessToken, err := generateAccessToken(userID, username)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate access token: %v", err)
 	}
