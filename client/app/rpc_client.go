@@ -25,7 +25,8 @@ type AuthClient struct {
 // NewAuthClient initializes a new AuthClient with the necessary dependencies.
 func NewAuthClient(serverAddress string, logger *logrus.Logger, tokenManager *TokenManager) (*AuthClient, error) {
 	// Establish a gRPC connection to the server
-	conn, err := grpc.Dial(serverAddress, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithBlock())
+	// conn, err := grpc.Dial(serverAddress, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithBlock())
+	conn, err := grpc.NewClient(serverAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		logger.Errorf("Failed to connect to server: %v", err)
 		return nil, err
