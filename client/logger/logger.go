@@ -6,27 +6,28 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-var Log *logrus.Logger
-
-func InitLogger() {
-	Log = logrus.New()
+// InitLogger initializes a new logger instance.
+func InitLogger() *logrus.Logger {
+	log := logrus.New()
 
 	// Set log output to standard output (console)
-	Log.SetOutput(os.Stdout)
+	log.SetOutput(os.Stdout)
 
 	// Set log format
-	Log.SetFormatter(&logrus.TextFormatter{
+	log.SetFormatter(&logrus.TextFormatter{
 		FullTimestamp: true,
 	})
 
 	// Optionally set log level
-	Log.SetLevel(logrus.InfoLevel)
-	// Log.SetLevel(logrus.PanicLevel)
+	log.SetLevel(logrus.InfoLevel)
+	// log.SetLevel(logrus.PanicLevel)
 
 	// Optionally log to file
 	// file, err := os.OpenFile("client.log", os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0666)
 	// if err != nil {
-	// 	Log.Fatalf("Failed to open log file: %v", err)
+	// 	log.Fatalf("Failed to open log file: %v", err)
 	// }
-	// Log.SetOutput(file)
+	// log.SetOutput(file)
+
+	return log
 }

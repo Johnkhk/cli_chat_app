@@ -1,5 +1,3 @@
-// client/app/token_manager.go
-
 package app
 
 import (
@@ -12,7 +10,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/johnkhk/cli_chat_app/client/logger"
 	"github.com/johnkhk/cli_chat_app/genproto/auth"
 )
 
@@ -28,36 +25,33 @@ func NewTokenManager(filePath string, client auth.AuthServiceClient) *TokenManag
 }
 
 // TryAutoLogin attempts to automatically log in the user using stored tokens.
-func (tm *TokenManager) TryAutoLogin() bool {
+func (tm *TokenManager) TryAutoLogin() error {
 	// Read the current tokens
 	accessToken, refreshToken, err := tm.ReadTokens()
 	if err != nil {
-		logger.Log.Errorf("Failed to read tokens: %v", err)
-		return false
+		return fmt.Errorf("failed to read tokens: %w", err)
 	}
 
 	// Check if the access token is expired
-	if isTokenExpired(accessToken) {
-		logger.Log.Info("Access token expired, attempting to refresh.")
+	expired, err := isTokenExpired(accessToken)
+	if err != nil {
+		return fmt.Errorf("failed to check if token is expired: %w", err)
+	}
 
+	if expired {
 		// Attempt to refresh the access token
 		newAccessToken, err := tm.RefreshAccessToken(refreshToken)
 		if err != nil {
-			return false
+			return fmt.Errorf("failed to refresh access token: %w", err)
 		}
 
 		// Store the new access token and reuse the refresh token
 		if err := tm.StoreTokens(newAccessToken, refreshToken); err != nil {
-			logger.Log.Errorf("Failed to store refreshed tokens: %v", err)
-			return false
+			return fmt.Errorf("failed to store refreshed tokens: %w", err)
 		}
-
-		logger.Log.Info("Access token refreshed successfully, user logged in automatically.")
-		return true
 	}
 
-	logger.Log.Info("Access token is valid, user logged in automatically.")
-	return true
+	return nil // No error means success
 }
 
 // StoreTokens stores the access and refresh tokens in a local file.
@@ -84,19 +78,17 @@ func (tm *TokenManager) ReadTokens() (string, string, error) {
 }
 
 // Helper function to check if a token is expired by decoding the JWT payload.
-func isTokenExpired(tokenString string) bool {
+func isTokenExpired(tokenString string) (bool, error) {
 	// Split the JWT into its parts: header, payload, signature
 	parts := strings.Split(tokenString, ".")
 	if len(parts) != 3 {
-		logger.Log.Errorf("Invalid token format: expected 3 parts but got %d", len(parts))
-		return true // Invalid token format
+		return true, fmt.Errorf("invalid token format: expected 3 parts but got %d", len(parts))
 	}
 
 	// Decode the payload part (Base64URL encoded)
 	payload, err := decodeSegment(parts[1])
 	if err != nil {
-		logger.Log.Errorf("Failed to decode token payload: %v", err)
-		return true
+		return true, fmt.Errorf("failed to decode token payload: %w", err)
 	}
 
 	// Define a struct with a custom Unmarshal function to handle both string and int
@@ -106,8 +98,7 @@ func isTokenExpired(tokenString string) bool {
 
 	// Parse the JSON payload to extract the "exp" field
 	if err := json.Unmarshal(payload, &claims); err != nil {
-		logger.Log.Errorf("Failed to unmarshal token claims: %v", err)
-		return true
+		return true, fmt.Errorf("failed to unmarshal token claims: %w", err)
 	}
 
 	// Convert the "exp" field to int64, handling both string and int cases
@@ -119,23 +110,19 @@ func isTokenExpired(tokenString string) bool {
 		var err error
 		exp, err = strconv.ParseInt(v, 10, 64)
 		if err != nil {
-			logger.Log.Errorf("Failed to parse expiration time from string: %v", err)
-			return true
+			return true, fmt.Errorf("failed to parse expiration time from string: %w", err)
 		}
 	default:
-		logger.Log.Errorf("Unexpected type for expiration time: %T", v)
-		return true
+		return true, fmt.Errorf("unexpected type for expiration time: %T", v)
 	}
 
 	// Check if the token is expired
 	expirationTime := time.Unix(exp, 0)
 	if expirationTime.Before(time.Now()) {
-		logger.Log.Warnf("Token is expired: expiration time was %v", expirationTime)
-		return true
+		return true, nil // Token is expired
 	}
 
-	logger.Log.Infof("Token is valid: expiration time is %v", expirationTime)
-	return false
+	return false, nil // Token is valid
 }
 
 // Helper function to decode a Base64URL-encoded segment.
@@ -143,7 +130,7 @@ func decodeSegment(seg string) ([]byte, error) {
 	// Base64URL decode the segment
 	decoded, err := base64.RawURLEncoding.DecodeString(seg)
 	if err != nil {
-		return nil, fmt.Errorf("error decoding segment: %v", err)
+		return nil, fmt.Errorf("error decoding segment: %w", err)
 	}
 	return decoded, nil
 }
@@ -157,10 +144,14 @@ func (tm *TokenManager) RefreshAccessToken(refreshToken string) (string, error) 
 	// Make the gRPC call to refresh the token
 	resp, err := tm.client.RefreshToken(ctx, &auth.RefreshTokenRequest{RefreshToken: refreshToken})
 	if err != nil {
-		logger.Log.Errorf("Failed to refresh access token: %v", err)
-		return "", err
+		return "", fmt.Errorf("failed to refresh access token: %w", err)
 	}
 
 	// Return the new access token received from the server
 	return resp.AccessToken, nil
+}
+
+// SetClient allows updating the gRPC client.
+func (tm *TokenManager) SetClient(client auth.AuthServiceClient) {
+	tm.client = client
 }

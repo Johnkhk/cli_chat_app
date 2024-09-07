@@ -8,10 +8,10 @@ import (
 	"strings"
 
 	"github.com/joho/godotenv"
+	"github.com/sirupsen/logrus"
 
 	"github.com/johnkhk/cli_chat_app/client/app"
 	"github.com/johnkhk/cli_chat_app/client/logger"
-	"github.com/johnkhk/cli_chat_app/genproto/auth"
 )
 
 func main() {
@@ -20,85 +20,89 @@ func main() {
 
 	// Load environment variables from .env file
 	if err := godotenv.Load(); err != nil {
-		logger.Log.Fatalf("Error loading .env file: %v", err)
+		fmt.Printf("Error loading .env file: %v\n", err)
+		os.Exit(1)
 	}
 
 	// Initialize the client logger
-	logger.InitLogger()
-	logger.Log.Info("Client application started")
-
-	// Initialize the gRPC client and connection
-	client, conn, err := app.InitializeRPCClient()
-	if err != nil {
-		logger.Log.Fatalf("Failed to initialize gRPC client: %v", err)
-	}
-	defer conn.Close() // Ensure the connection is closed when the application exits
-
-	logger.Log.Info("gRPC client initialized and connected to server.")
+	log := logger.InitLogger()
+	log.Info("Client application started")
 
 	// Initialize the TokenManager with file path for token storage
 	filePath := filepath.Join(os.Getenv("HOME"), ".cli_chat_app", "jwt_tokens") // For Linux/macOS
 	// filePath := filepath.Join(os.Getenv("USERPROFILE"), ".cli_chat_app", "jwt_tokens") // For Windows
-	tokenManager := app.NewTokenManager(filePath, client)
+	tokenManager := app.NewTokenManager(filePath, nil) // Will set the client later
 
-	// Attempt to automatically log in using stored tokens
-	if tokenManager.TryAutoLogin() {
-		logger.Log.Info("User automatically logged in with stored tokens.")
+	// Initialize the gRPC client and create an AuthClient instance
+	client, err := app.NewAuthClient("localhost:50051", log, tokenManager)
+	if err != nil {
+		log.Fatalf("Failed to initialize gRPC client: %v", err)
+	}
+	defer client.CloseConnection() // Ensure the connection is closed when the application exits
+
+	log.Info("gRPC client initialized and connected to server.")
+
+	// Set the AuthClient in the TokenManager
+	tokenManager.SetClient(client.Client)
+
+	err = tokenManager.TryAutoLogin()
+	if err != nil {
+		log.Infof("Automatic login failed or no valid token found: %v", err)
 	} else {
-		logger.Log.Info("Automatic login failed or no valid token found.")
+		log.Info("User automatically logged in with stored tokens.")
 	}
 
 	// Start the Bubble Tea UI in a separate goroutine
 	// go ui.StartUI()
 
 	// Start client loop
-	runClientLoop(client, tokenManager)
+	runClientLoop(client, log)
 }
 
 // Main client loop to handle user input
-func runClientLoop(client auth.AuthServiceClient, tokenManager *app.TokenManager) {
+func runClientLoop(client *app.AuthClient, log *logrus.Logger) {
 	reader := bufio.NewReader(os.Stdin)
 
 	for {
 		fmt.Print("\n> ")
 		input, err := reader.ReadString('\n')
 		if err != nil {
-			fmt.Println("Error reading input:", err)
+			log.Error("Error reading input:", err)
 			continue
 		}
 
 		command := strings.TrimSpace(input)
-		handleCommand(command, client, tokenManager)
+		handleCommand(command, client, log)
 	}
 }
 
 // Handle user commands
-func handleCommand(command string, client auth.AuthServiceClient, tokenManager *app.TokenManager) {
+func handleCommand(command string, client *app.AuthClient, log *logrus.Logger) {
 	switch command {
-	// unauthenticated commands
+	// Unauthenticated commands
 	case "/register":
-		app.RegisterUser(client)
+		client.RegisterUser()
 	case "/login":
-		app.LoginUser(client, tokenManager) // Token manager used to store token upon successful login
+		client.LoginUser()
 	case "/help":
 		app.DisplayBanner() // Display help or banner
 	case "/quit":
 		fmt.Println("Exiting the application.")
-		os.Exit(0) // Exit the application
+		os.Exit(0)
 
-	// authed commands
+	// Authenticated commands
 	// case "/logout":
 	// case "/add_friend":
-	// app.AddFriend(client, tokenManager) // Token manager used to retrieve token from local
+	// client.AddFriend() // Example usage with AuthClient
 
 	/*
 		TODO:
-		1. with the new auth try to streamline the client cli's entry point (main.go)
-		2. implement /logout and /add_friend commands
+		1. With the new auth, try to streamline the client CLI's entry point (main.go)
+		2. Implement /logout and /add_friend commands
 	*/
 
 	default:
-		fmt.Println("Unknown command:", command)
+		log.Warn("Unknown command: ", command)
 		fmt.Println("Type '/help' to see a list of available commands.")
 	}
 }

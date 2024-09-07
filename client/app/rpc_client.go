@@ -7,30 +7,43 @@ import (
 	"os"
 	"strings"
 
+	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
-	"github.com/johnkhk/cli_chat_app/client/logger"
 	"github.com/johnkhk/cli_chat_app/genproto/auth"
 )
 
-// InitializeRPCClient initializes the gRPC client and establishes a connection to the server.
-func InitializeRPCClient() (auth.AuthServiceClient, *grpc.ClientConn, error) {
+// AuthClient encapsulates the gRPC client and logger.
+type AuthClient struct {
+	Client       auth.AuthServiceClient
+	Connection   *grpc.ClientConn
+	Logger       *logrus.Logger
+	TokenManager *TokenManager
+}
+
+// NewAuthClient initializes a new AuthClient with the necessary dependencies.
+func NewAuthClient(serverAddress string, logger *logrus.Logger, tokenManager *TokenManager) (*AuthClient, error) {
 	// Establish a gRPC connection to the server
-	conn, err := grpc.Dial("localhost:50051", grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithBlock())
+	conn, err := grpc.Dial(serverAddress, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithBlock())
 	if err != nil {
-		logger.Log.Errorf("Failed to connect to server: %v", err)
-		return nil, nil, err
+		logger.Errorf("Failed to connect to server: %v", err)
+		return nil, err
 	}
 
 	// Create a new AuthService client using the established connection
 	client := auth.NewAuthServiceClient(conn)
 
-	return client, conn, nil
+	return &AuthClient{
+		Client:       client,
+		Connection:   conn,
+		Logger:       logger,
+		TokenManager: tokenManager,
+	}, nil
 }
 
 // RegisterUser sends a registration request to the server.
-func RegisterUser(client auth.AuthServiceClient) {
+func (c *AuthClient) RegisterUser() {
 	// Prompt the user for credentials
 	reader := bufio.NewReader(os.Stdin)
 	fmt.Print("Enter username: ")
@@ -48,22 +61,22 @@ func RegisterUser(client auth.AuthServiceClient) {
 	}
 
 	// Send the request to the server.
-	resp, err := client.RegisterUser(context.Background(), req)
+	resp, err := c.Client.RegisterUser(context.Background(), req)
 	if err != nil {
-		logger.Log.Errorf("Failed to register user: %v", err)
+		c.Logger.Errorf("Failed to register user: %v", err)
 		return
 	}
 
 	// Check if registration was successful
 	if resp.Success {
-		logger.Log.Infof("Registration successful: %s", resp.Message)
+		c.Logger.Infof("Registration successful: %s", resp.Message)
 	} else {
-		logger.Log.Infof("Registration failed: %s", resp.Message)
+		c.Logger.Infof("Registration failed: %s", resp.Message)
 	}
 }
 
 // LoginUser sends a login request to the server.
-func LoginUser(client auth.AuthServiceClient, tokenManager *TokenManager) {
+func (c *AuthClient) LoginUser() {
 	// Prompt the user for credentials
 	reader := bufio.NewReader(os.Stdin)
 	fmt.Print("Enter username: ")
@@ -81,24 +94,31 @@ func LoginUser(client auth.AuthServiceClient, tokenManager *TokenManager) {
 	}
 
 	// Send the request to the server.
-	resp, err := client.LoginUser(context.Background(), req)
+	resp, err := c.Client.LoginUser(context.Background(), req)
 	if err != nil {
-		logger.Log.Errorf("Failed to login: %v", err)
+		c.Logger.Errorf("Failed to login: %v", err)
 		return
 	}
 
 	// Check if login was successful
 	if resp.Success {
-		logger.Log.Infof("Login successful: %s", resp.Message)
+		c.Logger.Infof("Login successful: %s", resp.Message)
 
 		// Store the tokens in the TokenManager
-		if err := tokenManager.StoreTokens(resp.AccessToken, resp.RefreshToken); err != nil {
-			logger.Log.Errorf("Failed to store tokens: %v", err)
+		if err := c.TokenManager.StoreTokens(resp.AccessToken, resp.RefreshToken); err != nil {
+			c.Logger.Errorf("Failed to store tokens: %v", err)
 			return
 		}
 
-		logger.Log.Info("Tokens stored successfully.")
+		c.Logger.Info("Tokens stored successfully.")
 	} else {
-		logger.Log.Infof("Login failed: %s", resp.Message)
+		c.Logger.Infof("Login failed: %s", resp.Message)
+	}
+}
+
+// CloseConnection closes the gRPC connection.
+func (c *AuthClient) CloseConnection() {
+	if err := c.Connection.Close(); err != nil {
+		c.Logger.Errorf("Failed to close the connection: %v", err)
 	}
 }
