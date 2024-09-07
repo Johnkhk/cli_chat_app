@@ -48,6 +48,9 @@ func main() {
 		logger.Log.Info("Automatic login failed or no valid token found.")
 	}
 
+	// Start the Bubble Tea UI in a separate goroutine
+	// go ui.StartUI()
+
 	// Start client loop
 	runClientLoop(client, tokenManager)
 }
