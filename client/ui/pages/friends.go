@@ -1,94 +1,118 @@
 package pages
 
 import (
-	"fmt"
-
+	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
 
-// Style for the friend list panel
+// Style for the friend list panel without border
 var friendListStyle = lipgloss.NewStyle().
-	BorderStyle(lipgloss.NormalBorder()).
-	BorderForeground(lipgloss.Color("63")).
+	// Margin(1, 2). // Add margins to the style without a border
 	Align(lipgloss.Left)
+
+// Define a struct to represent a friend as an item in the list
+type friendItem struct {
+	title, desc string
+}
+
+func (i friendItem) Title() string       { return i.title }
+func (i friendItem) Description() string { return i.desc }
+func (i friendItem) FilterValue() string { return i.title }
 
 // friendsModel structure with state for the friend list
 type friendsModel struct {
-	friends        []string
-	selectedFriend int
+	list list.Model
 }
 
 func (m friendsModel) Init() tea.Cmd {
-	// Get the friends list
-	// m.friends = []string{"Alice", "Bob", "Charlie"}
 	return nil
 }
 
-// Initialize the friends model
+// Initialize the friends model with a list of friends
 func NewFriendsModel() friendsModel {
-	return friendsModel{
-		friends:        []string{"Alice", "Bob", "Charlie"},
-		selectedFriend: 0, // Default to the first friend
+	items := []list.Item{
+		friendItem{title: "Alice", desc: "Alice is a good friend"},
+		friendItem{title: "Bob", desc: "Bob is a great friend"},
+		friendItem{title: "Charlie", desc: "Charlie is a close friend"},
+		friendItem{title: "Alice", desc: "Alice is a good friend"},
+		friendItem{title: "Bob", desc: "Bob is a great friend"},
+		friendItem{title: "Charlie", desc: "Charlie is a close friend"},
+		friendItem{title: "Alice", desc: "Alice is a good friend"},
+		friendItem{title: "Alice", desc: "Alice is a good friend"},
+		friendItem{title: "Alice", desc: "Alice is a good friend"},
+		friendItem{title: "Alice", desc: "Alice is a good friend"},
+		friendItem{title: "Bob", desc: "Bob is a great friend"},
+		friendItem{title: "Charlie", desc: "Charlie is a close friend"},
+		friendItem{title: "Alice", desc: "Alice is a good friend"},
+		friendItem{title: "Bob", desc: "Bob is a great friend"},
+		friendItem{title: "Charlie", desc: "Charlie is a close friend"},
+		friendItem{title: "Bob", desc: "Bob is a great friend"},
+		friendItem{title: "Charlie", desc: "Charlie is a close friend"},
+		friendItem{title: "Alice", desc: "Alice is a good friend"},
+		friendItem{title: "Bob", desc: "Bob is a great friend"},
+		friendItem{title: "Charlie", desc: "Charlie is a close friend"},
+		friendItem{title: "Bob", desc: "Bob is a great friend"},
+		friendItem{title: "Charlie", desc: "Charlie is a close friend"},
+		friendItem{title: "Alice", desc: "Alice is a good friend"},
+		friendItem{title: "Bob", desc: "Bob is a great friend"},
+		friendItem{title: "Charlie", desc: "Charlie is a close friend"},
+		friendItem{title: "Bob", desc: "Bob is a great friend"},
+		friendItem{title: "Charlie", desc: "Charlie is a close friend"},
+		friendItem{title: "Alice", desc: "Alice is a good friend"},
+		friendItem{title: "Bob", desc: "Bob is a great friend"},
+		friendItem{title: "Charlie", desc: "Charlie is a close friend"},
 	}
+
+	// Create a new list model with the friend items
+	l := list.New(items, list.NewDefaultDelegate(), 0, 0) // Initial size set to zero; will adjust dynamically
+	l.Title = "Friends List"
+	l.SetStatusBarItemName("Friend", "Friends")
+	l.SetShowHelp(false)
+	// l.SetItems(items)
+	l.SetShowFilter(true)
+
+	return friendsModel{list: l}
 }
 
 // Update function to handle key inputs for the friend list
-func (m friendsModel) Update(msg tea.Msg) (friendsModel, tea.Cmd) {
+func (m friendsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	var cmd tea.Cmd
+
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
-		case "up":
-			// Navigate up the friend list
-			if m.selectedFriend > 0 {
-				m.selectedFriend--
-			}
-
-		case "down":
-			// Navigate down the friend list
-			if m.selectedFriend < len(m.friends)-1 {
-				m.selectedFriend++
-			}
-
 		case "enter":
-			// Select friend for DM (You might trigger a callback or other action here)
-			fmt.Printf("Selected friend: %s\n", m.friends[m.selectedFriend])
+			// Select friend for DM (trigger some action or callback)
+			selectedItem := m.list.SelectedItem()
+			if selectedItem != nil {
+				friend := selectedItem.(friendItem)
+				// Perform action with the selected friend, e.g., open chat
+				m.list.NewStatusMessage("Selected friend: " + friend.title)
+			}
 		}
 	}
 
-	return m, nil
+	// Let the list model handle its own updates
+	m.list, cmd = m.list.Update(msg)
+	return m, cmd
 }
 
 // View function renders the friend list UI
-func (m friendsModel) View(width, height int) string {
-	// Render the friend list with selection highlighting
-	friendList := "Friends List:\n"
-	for i, friend := range m.friends {
-		if i == m.selectedFriend {
-			friendList += "> " + friend + " (selected)\n"
-		} else {
-			friendList += "  " + friend + "\n"
-		}
-	}
-
-	// Apply the style with dynamic width and height
-	return friendListStyle.
-		Width(width).
-		Height(height).
-		Render(friendList)
+func (m friendsModel) View() string {
+	// Apply the style and render the list without an additional border
+	return friendListStyle.Render(m.list.View())
+	// return m.list.View()
 }
 
-// // Add a new friend to the friend list
-// func (m *friendsModel) AddFriend(name string) {
-// 	m.friends = append(m.friends, name)
-// }
+// Add a new friend to the friend list
+func (m *friendsModel) AddFriend(name string) {
+	m.list.InsertItem(len(m.list.Items()), friendItem{title: name})
+}
 
-// // Remove a friend from the friend list
-// func (m *friendsModel) RemoveFriend(index int) {
-// 	if index >= 0 && index < len(m.friends) {
-// 		m.friends = append(m.friends[:index], m.friends[index+1:]...)
-// 		if m.selectedFriend >= len(m.friends) {
-// 			m.selectedFriend = len(m.friends) - 1
-// 		}
-// 	}
-// }
+// Remove a friend from the friend list
+func (m *friendsModel) RemoveFriend(index int) {
+	if index >= 0 && index < len(m.list.Items()) {
+		m.list.RemoveItem(index)
+	}
+}

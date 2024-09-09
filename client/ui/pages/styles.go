@@ -39,10 +39,12 @@ var (
 			Align(lipgloss.Center)
 	grayBorderStyle = lipgloss.NewStyle().
 			BorderStyle(lipgloss.NormalBorder()).
-			BorderForeground(lipgloss.Color("240")) // Gray color for inactive borders
+			BorderForeground(lipgloss.Color("240")). // Gray color for inactive borders
+			Padding(0, 2)                            // Optional padding to avoid cutting off content
 
 	blueBorderStyle = lipgloss.NewStyle().
 			BorderStyle(lipgloss.NormalBorder()).
-			BorderForeground(lipgloss.Color("63")) // Blue color for active borders
+			BorderForeground(lipgloss.Color("63")). // Blue color for active borders
+			Padding(0, 2)                           // Optional padding to avoid cutting off content
 
 )
