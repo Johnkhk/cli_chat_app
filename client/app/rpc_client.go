@@ -39,38 +39,6 @@ func NewAuthClient(serverAddress string, logger *logrus.Logger, tokenManager *To
 	}, nil
 }
 
-// // RegisterUser sends a registration request to the server.
-// func (c *AuthClient) RegisterUser() {
-// 	// Prompt the user for credentials
-// 	reader := bufio.NewReader(os.Stdin)
-// 	fmt.Print("Enter username: ")
-// 	username, _ := reader.ReadString('\n')
-// 	username = strings.TrimSpace(username)
-
-// 	fmt.Print("Enter password: ")
-// 	password, _ := reader.ReadString('\n')
-// 	password = strings.TrimSpace(password)
-
-// 	// Create a new request with user details.
-// 	req := &auth.RegisterRequest{
-// 		Username: username,
-// 		Password: password, // In a real application, passwords should be hashed before sending.
-// 	}
-
-// 	// Send the request to the server.
-// 	resp, err := c.Client.RegisterUser(context.Background(), req)
-// 	if err != nil {
-// 		c.Logger.Errorf("Failed to register user: %v", err)
-// 		return
-// 	}
-
-//		// Check if registration was successful
-//		if resp.Success {
-//			c.Logger.Infof("Registration successful: %s", resp.Message)
-//		} else {
-//			c.Logger.Infof("Registration failed: %s", resp.Message)
-//		}
-//	}
 func (c *AuthClient) RegisterUser(username, password string) error {
 
 	// Create a new request with user details.
