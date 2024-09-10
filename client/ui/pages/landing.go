@@ -20,11 +20,11 @@ type model struct {
 	cursor    Choice
 	choices   []string
 	selected  Choice
-	rpcClient *app.AuthClient
+	rpcClient *app.RpcClient
 }
 
 // Initialize the model
-func NewLandingModel(rpcClient *app.AuthClient) model {
+func NewLandingModel(rpcClient *app.RpcClient) model {
 	return model{
 		choices:   []string{"Register", "Login"},
 		cursor:    ChoiceRegister,

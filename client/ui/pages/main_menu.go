@@ -9,7 +9,7 @@ import (
 
 // mainMenuModel structure with terminal size fields and state
 type mainMenuModel struct {
-	rpcClient      *app.AuthClient
+	rpcClient      *app.RpcClient
 	terminalWidth  int
 	terminalHeight int
 	focusState     focusState
@@ -26,7 +26,7 @@ const (
 )
 
 // Initialize the main menu model
-func NewMainMenuModel(rpcClient *app.AuthClient) mainMenuModel {
+func NewMainMenuModel(rpcClient *app.RpcClient) mainMenuModel {
 	return mainMenuModel{
 		rpcClient:    rpcClient,
 		friendsModel: NewFriendsModel(rpcClient),

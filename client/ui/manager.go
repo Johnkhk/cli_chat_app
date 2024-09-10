@@ -12,7 +12,7 @@ import (
 )
 
 // Run the appropriate Bubble Tea program based on the login status
-func RunUIBasedOnAuthStatus(isLoggedIn bool, log *logrus.Logger, rpcClient *app.AuthClient) {
+func RunUIBasedOnAuthStatus(isLoggedIn bool, log *logrus.Logger, rpcClient *app.RpcClient) {
 	if isLoggedIn {
 		// log.Info("User automatically logged in with stored tokens.")
 		runTeaProgram(pages.NewMainMenuModel(rpcClient)) // Start the main menu if auto-login succeeds

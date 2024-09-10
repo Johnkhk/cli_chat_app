@@ -26,14 +26,14 @@ type friendsModel struct {
 	list      list.Model
 	showInput bool
 	textInput textinput.Model
-	rpcClient *app.AuthClient
+	rpcClient *app.RpcClient
 }
 
 func (m friendsModel) Init() tea.Cmd {
 	return nil
 }
 
-func NewFriendsModel(rpcClient *app.AuthClient) friendsModel {
+func NewFriendsModel(rpcClient *app.RpcClient) friendsModel {
 	items := []list.Item{
 		friendItem{title: "Alice", desc: "Alice is a good friend"},
 		friendItem{title: "Bob", desc: "Bob is a great friend"},

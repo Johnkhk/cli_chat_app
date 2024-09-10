@@ -16,11 +16,11 @@ type loginModel struct {
 	focusIndex int
 	inputs     []textinput.Model
 	cursorMode cursor.Mode
-	rpcClient  *app.AuthClient
+	rpcClient  *app.RpcClient
 }
 
 // NewloginModel initializes the login component
-func NewLoginModel(rpcClient *app.AuthClient) loginModel {
+func NewLoginModel(rpcClient *app.RpcClient) loginModel {
 	m := loginModel{
 		inputs:    make([]textinput.Model, 2),
 		rpcClient: rpcClient,
@@ -185,9 +185,9 @@ func (m loginModel) View() string {
 	return b.String()
 }
 
-func logInUserCmd(rpcClient *app.AuthClient, username, password string) tea.Cmd {
+func logInUserCmd(rpcClient *app.RpcClient, username, password string) tea.Cmd {
 	return func() tea.Msg {
-		err := rpcClient.LoginUser(username, password)
+		err := rpcClient.AuthClient.LoginUser(username, password)
 		if err != nil {
 			return errMsg{err}
 		}

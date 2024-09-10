@@ -15,11 +15,11 @@ type registerModel struct {
 	focusIndex int
 	inputs     []textinput.Model
 	cursorMode cursor.Mode
-	rpcClient  *app.AuthClient
+	rpcClient  *app.RpcClient
 }
 
 // NewRegisterModel initializes the register component
-func NewRegisterModel(rpcClient *app.AuthClient) registerModel {
+func NewRegisterModel(rpcClient *app.RpcClient) registerModel {
 	m := registerModel{
 		inputs:    make([]textinput.Model, 2),
 		rpcClient: rpcClient,
@@ -183,9 +183,9 @@ func (m registerModel) View() string {
 	return b.String()
 }
 
-func registerUserCmd(rpcClient *app.AuthClient, username, password string) tea.Cmd {
+func registerUserCmd(rpcClient *app.RpcClient, username, password string) tea.Cmd {
 	return func() tea.Msg {
-		err := rpcClient.RegisterUser(username, password)
+		err := rpcClient.AuthClient.RegisterUser(username, password)
 		if err != nil {
 			return errMsg{err}
 		}
