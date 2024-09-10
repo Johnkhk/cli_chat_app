@@ -6,6 +6,17 @@ CREATE TABLE chat_users (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Create the friends table to store friendships between users
+CREATE TABLE friends (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    friend_id INT NOT NULL,
+    most_recent_message_id INT DEFAULT NULL, -- New field to store the most recent message ID
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES chat_users(id),
+    FOREIGN KEY (friend_id) REFERENCES chat_users(id),
+    UNIQUE (user_id, friend_id)
+);
 -- Create the messages table
 CREATE TABLE messages (
     id INT AUTO_INCREMENT PRIMARY KEY,

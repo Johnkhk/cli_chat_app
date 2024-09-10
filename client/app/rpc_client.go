@@ -39,6 +39,13 @@ func NewAuthClient(serverAddress string, logger *logrus.Logger, tokenManager *To
 	}, nil
 }
 
+// CloseConnection closes the gRPC connection.
+func (c *AuthClient) CloseConnection() {
+	if err := c.Connection.Close(); err != nil {
+		c.Logger.Errorf("Failed to close the connection: %v", err)
+	}
+}
+
 func (c *AuthClient) RegisterUser(username, password string) error {
 
 	// Create a new request with user details.
@@ -97,9 +104,36 @@ func (c *AuthClient) LoginUser(username, password string) error {
 	}
 }
 
-// CloseConnection closes the gRPC connection.
-func (c *AuthClient) CloseConnection() {
-	if err := c.Connection.Close(); err != nil {
-		c.Logger.Errorf("Failed to close the connection: %v", err)
+func (c *AuthClient) AddFriend(username string) error {
+	// Retrieve the current access token from the TokenManager
+	accessToken, err := c.TokenManager.GetAccessToken()
+	if err != nil {
+		c.Logger.Errorf("Failed to get access token: %v", err)
+		return err
+	}
+
+	// Create a new AddFriend request with the friend's username
+	req := &auth.AddFriendRequest{
+		Username: username,
+	}
+
+	// Set up the context with the access token for authentication
+	ctx := context.Background()
+	ctx = context.WithValue(ctx, "authorization", "Bearer "+accessToken)
+
+	// Send the request to the server
+	resp, err := c.Client.AddFriend(ctx, req)
+	if err != nil {
+		c.Logger.Errorf("Failed to add friend: %v", err)
+		return fmt.Errorf("Failed to add friend: %v", err)
+	}
+
+	// Check if the friend addition was successful
+	if resp.Success {
+		c.Logger.Infof("Friend added successfully: %s", resp.Message)
+		return nil
+	} else {
+		c.Logger.Infof("Failed to add friend: %s", resp.Message)
+		return fmt.Errorf("Failed to add friend: %s", resp.Message)
 	}
 }

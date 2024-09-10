@@ -1,0 +1,43 @@
+syntax = "proto3";
+
+package friends;
+option go_package = "github.com/johnkhk/cli_chat_app/proto/friends";
+// protoc --go_out=./genproto/auth --go-grpc_out=./genproto/auth --go_opt=paths=source_relative --go-grpc_opt=paths=source_relative ./proto/auth/auth.proto
+
+// Define the friends service.
+service FriendsService {
+  rpc AddFriend (AddFriendRequest) returns (AddFriendResponse) {}
+  rpc GetRecentMessages (RecentMessagesRequest) returns (RecentMessagesResponse) {}
+}
+
+// Define the request and response messages for adding a friend.
+message AddFriendRequest {
+  string username = 1; // The username of the friend to add
+}
+
+message AddFriendResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+// Define the request and response messages for fetching recent messages.
+message RecentMessagesRequest {
+  string user_id = 1;                 // ID of the requesting user
+  string friend_id = 2;               // ID of the friend to fetch recent messages for
+  int32 most_recent_message_id = 3;   // Optional: Fetch messages after this ID
+}
+
+message RecentMessagesResponse {
+  repeated Message messages = 1;      // List of recent messages
+  bool success = 2;
+  string message = 3;
+}
+
+// Define a message structure for individual messages.
+message Message {
+  int32 id = 1;                       // ID of the message
+  string sender_id = 2;               // ID of the message sender
+  string receiver_id = 3;             // ID of the message receiver
+  string content = 4;                 // Content of the message
+  string created_at = 5;              // Timestamp when the message was created
+}
