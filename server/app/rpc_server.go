@@ -3,19 +3,28 @@ package app
 import (
 	"database/sql"
 	"net"
+	"os"
 
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 
 	"github.com/johnkhk/cli_chat_app/genproto/auth"
 	"github.com/johnkhk/cli_chat_app/genproto/friends"
-	"github.com/johnkhk/cli_chat_app/server/logger"
 )
 
 // RunGRPCServer initializes and runs the gRPC server.
 func RunGRPCServer(port string, db *sql.DB, log *logrus.Logger) error {
-	// Create a new gRPC server with a logging interceptor
-	grpcServer := grpc.NewServer(grpc.UnaryInterceptor(logger.UnaryInterceptor(log)))
+	// Initialize the token validator
+	secretKey := os.Getenv("CLI_CHAT_APP_JWT_SECRET_KEY")
+	if secretKey == "" {
+		log.Fatal("JWT secret key is not set.")
+	}
+	tokenValidator := NewJWTTokenValidator(secretKey)
+
+	// Create a new gRPC server with the authentication interceptor
+	grpcServer := grpc.NewServer(
+		grpc.UnaryInterceptor(UnaryServerInterceptor(tokenValidator, log)),
+	)
 
 	// Register the AuthServer
 	authServer := NewAuthServer(db, log)

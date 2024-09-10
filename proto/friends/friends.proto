@@ -2,42 +2,92 @@ syntax = "proto3";
 
 package friends;
 option go_package = "github.com/johnkhk/cli_chat_app/proto/friends";
-// protoc --go_out=./genproto/auth --go-grpc_out=./genproto/auth --go_opt=paths=source_relative --go-grpc_opt=paths=source_relative ./proto/auth/auth.proto
 
 // Define the friends service.
 service FriendsService {
-  rpc AddFriend (AddFriendRequest) returns (AddFriendResponse) {}
-  rpc GetRecentMessages (RecentMessagesRequest) returns (RecentMessagesResponse) {}
+  rpc SendFriendRequest (SendFriendRequestRequest) returns (SendFriendRequestResponse) {} // Send a friend request
+  rpc GetFriendRequests (GetFriendRequestsRequest) returns (GetFriendRequestsResponse) {} // Get pending friend requests
+  rpc RespondToFriendRequest (RespondToFriendRequestRequest) returns (RespondToFriendRequestResponse) {} // Accept or reject a friend request
+  rpc GetFriend (GetFriendRequest) returns (GetFriendResponse) {} // Fetch a specific friend's details
+  rpc GetFriends (GetFriendsRequest) returns (GetFriendsResponse) {} // Fetch all friends
+  rpc RemoveFriend (RemoveFriendRequest) returns (RemoveFriendResponse) {} // Remove a friend
 }
 
-// Define the request and response messages for adding a friend.
-message AddFriendRequest {
-  string username = 1; // The username of the friend to add
+// Define the request and response messages for sending a friend request.
+message SendFriendRequestRequest {
+  string recipient_username = 1; // Username of the user receiving the friend request
 }
 
-message AddFriendResponse {
+message SendFriendRequestResponse {
   bool success = 1;
   string message = 2;
 }
 
-// Define the request and response messages for fetching recent messages.
-message RecentMessagesRequest {
-  string user_id = 1;                 // ID of the requesting user
-  string friend_id = 2;               // ID of the friend to fetch recent messages for
-  int32 most_recent_message_id = 3;   // Optional: Fetch messages after this ID
+// Define the request and response messages for getting pending friend requests.
+message GetFriendRequestsRequest {
+  // No fields required because requester info will be derived from the token
 }
 
-message RecentMessagesResponse {
-  repeated Message messages = 1;      // List of recent messages
+message GetFriendRequestsResponse {
+  repeated FriendRequest friend_requests = 1; // List of pending friend requests
   bool success = 2;
   string message = 3;
 }
 
-// Define a message structure for individual messages.
-message Message {
-  int32 id = 1;                       // ID of the message
-  string sender_id = 2;               // ID of the message sender
-  string receiver_id = 3;             // ID of the message receiver
-  string content = 4;                 // Content of the message
-  string created_at = 5;              // Timestamp when the message was created
+// Define the request and response messages for responding to a friend request.
+message RespondToFriendRequestRequest {
+  string requester_id = 1; // ID of the user who sent the friend request
+  bool accept = 2;         // True if accepting the request, false if rejecting
+}
+
+message RespondToFriendRequestResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+// Define the request and response messages for fetching a specific friend's details.
+message GetFriendRequest {
+  string friend_id = 1; // ID of the friend to fetch
+}
+
+message GetFriendResponse {
+  bool success = 1;
+  string message = 2;
+  Friend friend = 3; // Friend details
+}
+
+// Define the request and response messages for fetching all friends.
+message GetFriendsRequest {
+  // No fields required because requester info will be derived from the token
+}
+
+message GetFriendsResponse {
+  repeated Friend friends = 1; // List of friends
+  bool success = 2;
+  string message = 3;
+}
+
+// Define the request and response messages for removing a friend.
+message RemoveFriendRequest {
+  string friend_id = 1; // ID of the friend to remove
+}
+
+message RemoveFriendResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+// Define a structure for friend details.
+message Friend {
+  string id = 1;          // ID of the friend
+  string username = 2;    // Username of the friend
+  string status = 3;      // Status (e.g., online, offline, away)
+  string added_at = 4;    // Timestamp when the friend was added
+}
+
+// Define a structure for friend requests.
+message FriendRequest {
+  string requester_id = 1;        // ID of the user who sent the request
+  string requester_username = 2;  // Username of the user who sent the request
+  string requested_at = 3;        // Timestamp when the request was made
 }

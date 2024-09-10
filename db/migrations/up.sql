@@ -6,24 +6,22 @@ CREATE TABLE chat_users (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Create the friends table to store friendships between users
-CREATE TABLE friends (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    user_id INT NOT NULL,
-    friend_id INT NOT NULL,
-    most_recent_message_id INT DEFAULT NULL, -- New field to store the most recent message ID
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES chat_users(id),
-    FOREIGN KEY (friend_id) REFERENCES chat_users(id),
-    UNIQUE (user_id, friend_id)
+CREATE TABLE friend_requests (
+    id SERIAL PRIMARY KEY,
+    requester_id INT NOT NULL, -- User ID of the requester
+    recipient_id INT NOT NULL, -- User ID of the recipient
+    requested_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, -- When the request was made
+    status VARCHAR(20) DEFAULT 'pending', -- Status of the request (pending, accepted, rejected)
+    FOREIGN KEY (requester_id) REFERENCES users(id),
+    FOREIGN KEY (recipient_id) REFERENCES users(id)
 );
--- Create the messages table
-CREATE TABLE messages (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    sender_id INT,
-    receiver_id INT,
-    message TEXT NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (sender_id) REFERENCES chat_users(id),
-    FOREIGN KEY (receiver_id) REFERENCES chat_users(id)
+
+CREATE TABLE friends (
+    id SERIAL PRIMARY KEY,
+    user_id INT NOT NULL, -- ID of the user
+    friend_id INT NOT NULL, -- ID of the friend
+    added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, -- When the friendship was established (when the friend request was accepted)
+    FOREIGN KEY (user_id) REFERENCES users(id),
+    FOREIGN KEY (friend_id) REFERENCES users(id),
+    UNIQUE(user_id, friend_id) -- Ensure that each friendship is unique
 );
