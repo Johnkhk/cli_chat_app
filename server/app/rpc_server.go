@@ -1,124 +1,38 @@
 package app
 
 import (
-	"context"
 	"database/sql"
-	"fmt"
+	"net"
 
 	"github.com/sirupsen/logrus"
-	"golang.org/x/crypto/bcrypt"
+	"google.golang.org/grpc"
 
 	"github.com/johnkhk/cli_chat_app/genproto/auth"
-	"github.com/johnkhk/cli_chat_app/server/storage"
+	"github.com/johnkhk/cli_chat_app/genproto/friends"
+	"github.com/johnkhk/cli_chat_app/server/logger"
 )
 
-// AuthServer implements the AuthService.
-type AuthServer struct {
-	auth.UnimplementedAuthServiceServer
-	DB     *sql.DB
-	Logger *logrus.Logger
-}
+// RunGRPCServer initializes and runs the gRPC server.
+func RunGRPCServer(port string, db *sql.DB, log *logrus.Logger) error {
+	// Create a new gRPC server with a logging interceptor
+	grpcServer := grpc.NewServer(grpc.UnaryInterceptor(logger.UnaryInterceptor(log)))
 
-// NewAuthServer creates a new AuthServer with the given dependencies.
-func NewAuthServer(db *sql.DB, logger *logrus.Logger) *AuthServer {
-	return &AuthServer{
-		DB:     db,
-		Logger: logger,
-	}
-}
+	// Register the AuthServer
+	authServer := NewAuthServer(db, log)
+	auth.RegisterAuthServiceServer(grpcServer, authServer)
 
-// RegisterUser handles user registration requests.
-func (s *AuthServer) RegisterUser(ctx context.Context, req *auth.RegisterRequest) (*auth.RegisterResponse, error) {
-	s.Logger.Infof("Registering new user: %s", req.Username)
+	// Register the FriendsServer
+	friendsServer := NewFriendsServer(db, log)
+	friends.RegisterFriendsServiceServer(grpcServer, friendsServer)
 
-	// Check if the user already exists
-	var count int
-	err := s.DB.QueryRow("SELECT COUNT(*) FROM chat_users WHERE username = ?", req.Username).Scan(&count)
+	// Listen on the specified port
+	listener, err := net.Listen("tcp", "localhost:"+port)
 	if err != nil {
-		return nil, fmt.Errorf("error checking user existence: %w", err)
-	}
-	if count > 0 {
-		return &auth.RegisterResponse{
-			Success: false,
-			Message: "Username already exists",
-		}, nil
+		return err
 	}
 
-	// Hash the password
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
-	if err != nil {
-		return nil, fmt.Errorf("error hashing password: %w", err)
-	}
+	log.Infof("gRPC server is listening on localhost:%s", port)
 
-	// Save the user data to the database
-	_, err = s.DB.Exec("INSERT INTO chat_users (username, password_hash, created_at) VALUES (?, ?, NOW())",
-		req.Username, string(hashedPassword))
-	if err != nil {
-		return nil, fmt.Errorf("error saving user to database: %w", err)
-	}
-
-	return &auth.RegisterResponse{
-		Success: true,
-		Message: "User registered successfully",
-	}, nil
-}
-
-// LoginUser handles user login requests.
-func (s *AuthServer) LoginUser(ctx context.Context, req *auth.LoginRequest) (*auth.LoginResponse, error) {
-	s.Logger.Infof("User login attempt: %s", req.Username)
-
-	// Retrieve the user data from the database
-	var user storage.User
-	err := s.DB.QueryRow("SELECT id, username, password_hash FROM chat_users WHERE username = ?", req.Username).Scan(&user.ID, &user.Username, &user.Password)
-	if err != nil {
-		return nil, fmt.Errorf("error retrieving user data: %w", err)
-	}
-
-	// Compare the password hash
-	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password))
-	if err != nil {
-		return &auth.LoginResponse{
-			Success: false,
-			Message: "Invalid username or password",
-		}, nil
-	}
-
-	// Generate new access and refresh tokens using user ID as the subject
-	accessToken, err := generateAccessToken(user.ID, user.Username)
-	if err != nil {
-		return nil, fmt.Errorf("failed to generate access token: %v", err)
-	}
-
-	refreshToken, err := generateRefreshToken(user.ID, user.Username)
-	if err != nil {
-		return nil, fmt.Errorf("failed to generate refresh token: %v", err)
-	}
-
-	return &auth.LoginResponse{
-		Success:      true,
-		Message:      "Login successful",
-		AccessToken:  accessToken,
-		RefreshToken: refreshToken,
-	}, nil
-}
-
-// RefreshToken handles token refresh requests.
-func (s *AuthServer) RefreshToken(ctx context.Context, req *auth.RefreshTokenRequest) (*auth.RefreshTokenResponse, error) {
-	s.Logger.Info("Received refresh token request")
-	refreshToken := req.RefreshToken
-
-	// Validate and parse the refresh token
-	userID, username, err := parseAndValidateRefreshToken(refreshToken)
-	if err != nil {
-		return nil, fmt.Errorf("invalid refresh token: %v", err)
-	}
-
-	// Generate a new access token using the extracted user ID
-	newAccessToken, err := generateAccessToken(userID, username)
-	if err != nil {
-		return nil, fmt.Errorf("failed to generate access token: %v", err)
-	}
-
-	// Return the new access token
-	return &auth.RefreshTokenResponse{AccessToken: newAccessToken}, nil
+	// Start serving
+	return grpcServer.Serve(listener)
 }

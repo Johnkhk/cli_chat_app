@@ -39,14 +39,12 @@ func (m mainMenuModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.terminalWidth = msg.Width
 		m.terminalHeight = msg.Height
-		// m.friendsModel.list.SetSize(msg.Width/5, msg.Height/2)
-		leftPanelWidth := int(float64(msg.Width) * 0.30) // 20% of the total width
-		// m.friendsModel.list.SetSize(leftPanelWidth-10, msg.Height-4) // Adjust the height as needed
+		leftPanelWidth := int(float64(msg.Width) * 0.30)                             // 30% of the total width
 		m.friendsModel.list.SetSize(leftPanelWidth-10, int(float64(msg.Height)*0.8)) // Adjust the height as needed
 
 	case tea.KeyMsg:
-		switch msg.String() {
-		case "tab":
+		// Handle Tab key for switching focus, regardless of current focus state
+		if msg.String() == "tab" {
 			switch m.focusState {
 			case mainPanel:
 				m.focusState = leftPanel
@@ -55,12 +53,22 @@ func (m mainMenuModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case rightPanel:
 				m.focusState = mainPanel
 			}
-		case "ctrl+c", "q":
-			return m, tea.Quit
+			return m, nil
+		}
+
+		// Only handle global key commands if not focused on leftPanel
+		if m.focusState != leftPanel {
+			switch msg.String() {
+			case "ctrl+c", "q":
+				m.rpcClient.Logger.Info("Exiting the application from main menu")
+				return m, tea.Quit
+			}
 		}
 	}
+
 	var cmd tea.Cmd
 	if m.focusState == leftPanel {
+		// Delegate update to friendsModel when in leftPanel focus state
 		updatedModel, subCmd := m.friendsModel.Update(msg)
 		m.friendsModel = updatedModel.(friendsModel) // Type assertion to friendsModel
 		cmd = tea.Batch(cmd, subCmd)
@@ -94,13 +102,11 @@ func (m mainMenuModel) View() string {
 		rightPanelStyle = blueBorderStyle
 	}
 
-	_ = leftPanelStyle
 	// Render the left panel (friend list) without nested border
 	leftPanel := leftPanelStyle.
 		Width(leftPanelWidth).
 		Height(m.terminalHeight - (margin * 2)).
 		Render(m.friendsModel.View())
-	// leftPanel := m.friendsModel.View()
 
 	// Render the right panel (chat view)
 	rightPanelContent := "Chat View:\nHello, world! Press any key to quit."
@@ -116,7 +122,6 @@ func (m mainMenuModel) View() string {
 	helpBar := lipgloss.NewStyle().Foreground(lipgloss.Color("241")).Render("\nPress Tab to switch panels | esc/ctrl+c: quit")
 
 	return finalView + helpBar
-
 }
 
 // Init function initializes the main menu model

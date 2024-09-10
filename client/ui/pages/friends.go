@@ -71,13 +71,10 @@ func (m friendsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
-		switch msg.String() {
-		case "a":
-			m.showInput = true
-			m.textInput.Focus()
-			return m, textinput.Blink
-		case "enter":
-			if m.showInput {
+		if m.showInput {
+			// If the text input is focused, forward all key events to the text input
+			m.textInput, cmd = m.textInput.Update(msg)
+			if msg.String() == "enter" {
 				// Trigger AddFriend request
 				newFriendName := m.textInput.Value()
 				if newFriendName != "" {
@@ -88,12 +85,20 @@ func (m friendsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 				m.showInput = false
 				return m, nil
-			}
-		case "esc":
-			if m.showInput {
+			} else if msg.String() == "esc" {
 				m.showInput = false
 				return m, nil
 			}
+			// Return immediately to prevent further key handling
+			return m, cmd
+		}
+
+		// Handle other key events only if text input is not active
+		switch msg.String() {
+		case "a":
+			m.showInput = true
+			m.textInput.Focus()
+			return m, textinput.Blink
 		}
 
 	case friendAddedMsg: // Handle the response of the AddFriend request

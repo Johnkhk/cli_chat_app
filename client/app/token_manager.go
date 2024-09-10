@@ -25,7 +25,10 @@ func NewTokenManager(filePath string, client auth.AuthServiceClient) *TokenManag
 }
 
 // TryAutoLogin attempts to automatically log in the user using stored tokens.
+// Actually, only refreshes the access token if it is expired.
+// Otherwise, does nothing.
 func (tm *TokenManager) TryAutoLogin() error {
+
 	// Read the current tokens
 	accessToken, refreshToken, err := tm.ReadTokens()
 	if err != nil {

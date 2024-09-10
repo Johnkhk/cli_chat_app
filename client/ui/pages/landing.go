@@ -58,6 +58,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return handleSelection(m) // Call a function to handle the selection
 
 		case "ctrl+c", "q":
+			m.rpcClient.Logger.Info("Exiting the application from landing page")
 			return m, tea.Quit
 		}
 	}
