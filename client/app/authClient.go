@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/sirupsen/logrus"
-	"google.golang.org/grpc"
 
 	"github.com/johnkhk/cli_chat_app/genproto/auth"
 )
@@ -13,7 +12,6 @@ import (
 // AuthClient encapsulates the gRPC client and logger for authentication services.
 type AuthClient struct {
 	Client       auth.AuthServiceClient
-	Connection   *grpc.ClientConn
 	Logger       *logrus.Logger
 	TokenManager *TokenManager
 }
