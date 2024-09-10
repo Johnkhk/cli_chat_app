@@ -129,7 +129,10 @@ func (m friendsModel) View() string {
 // Command to add a friend by making a gRPC call
 func addFriendCmd(rpcClient *app.RpcClient, username string) tea.Cmd {
 	return func() tea.Msg {
-		err := rpcClient.FriendsClient.AddFriend(username)
+		// err := rpcClient.FriendsClient.AddFriend(username)
+		// err := fmt.Errorf("Failed to add friend: %s", username)
+		// err := rpcClient.FriendsClient.SendFriendRequest(username)
+		err := rpcClient.FriendsClient.SendFriendRequest(username)
 		if err != nil {
 			return friendAddedMsg{Success: false, Message: err.Error()}
 		}

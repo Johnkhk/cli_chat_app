@@ -24,37 +24,43 @@ func NewTokenManager(filePath string, client auth.AuthServiceClient) *TokenManag
 	return &TokenManager{filePath: filePath, client: client}
 }
 
-// TryAutoLogin attempts to automatically log in the user using stored tokens.
-// Actually, only refreshes the access token if it is expired.
-// Otherwise, does nothing.
-func (tm *TokenManager) TryAutoLogin() error {
-
+// GetAccessToken returns a valid access token, refreshing it if necessary.
+func (tm *TokenManager) GetAccessToken() (string, error) {
 	// Read the current tokens
 	accessToken, refreshToken, err := tm.ReadTokens()
 	if err != nil {
-		return fmt.Errorf("failed to read tokens: %w", err)
+		return "", fmt.Errorf("failed to read tokens: %w", err)
 	}
 
 	// Check if the access token is expired
 	expired, err := isTokenExpired(accessToken)
 	if err != nil {
-		return fmt.Errorf("failed to check if token is expired: %w", err)
+		return "", fmt.Errorf("failed to check if token is expired: %w", err)
 	}
 
 	if expired {
 		// Attempt to refresh the access token
-		newAccessToken, err := tm.RefreshAccessToken(refreshToken)
+		accessToken, err = tm.RefreshAccessToken(refreshToken)
 		if err != nil {
-			return fmt.Errorf("failed to refresh access token: %w", err)
+			return "", fmt.Errorf("failed to refresh access token: %w", err)
 		}
 
 		// Store the new access token and reuse the refresh token
-		if err := tm.StoreTokens(newAccessToken, refreshToken); err != nil {
-			return fmt.Errorf("failed to store refreshed tokens: %w", err)
+		if err := tm.StoreTokens(accessToken, refreshToken); err != nil {
+			return "", fmt.Errorf("failed to store refreshed tokens: %w", err)
 		}
 	}
 
-	return nil // No error means success
+	// Return the valid access token
+	return accessToken, nil
+}
+
+// TryAutoLogin attempts to automatically log in the user using stored tokens.
+// Actually, only refreshes the access token if it is expired.
+// Otherwise, does nothing.
+func (tm *TokenManager) TryAutoLogin() error {
+	_, err := tm.GetAccessToken() // Attempt to get a valid access token
+	return err
 }
 
 // StoreTokens stores the access and refresh tokens in a local file.

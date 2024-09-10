@@ -20,7 +20,8 @@ type RpcClient struct {
 // NewRpcClient initializes all service clients with a shared gRPC connection.
 func NewRpcClient(serverAddress string, logger *logrus.Logger, tokenManager *TokenManager) (*RpcClient, error) {
 	// Establish a single gRPC connection to the server
-	conn, err := grpc.Dial(serverAddress, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.Dial(serverAddress, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithUnaryInterceptor(UnaryInterceptor(tokenManager))) // Add the interceptor here
+
 	if err != nil {
 		logger.Errorf("Failed to connect to server: %v", err)
 		return nil, err
@@ -29,15 +30,13 @@ func NewRpcClient(serverAddress string, logger *logrus.Logger, tokenManager *Tok
 	// Initialize individual clients with the shared connection
 	authClient := &AuthClient{
 		Client:       auth.NewAuthServiceClient(conn),
-		Connection:   conn,
 		Logger:       logger,
 		TokenManager: tokenManager,
 	}
 
 	friendsClient := &FriendsClient{
-		Client:     friends.NewFriendsServiceClient(conn),
-		Connection: conn,
-		Logger:     logger,
+		Client: friends.NewFriendsServiceClient(conn),
+		Logger: logger,
 	}
 
 	return &RpcClient{
