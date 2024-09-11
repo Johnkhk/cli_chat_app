@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -21,6 +23,11 @@ type TokenManager struct {
 
 // NewTokenManager creates a new TokenManager with the specified file path and gRPC client.
 func NewTokenManager(filePath string, client auth.AuthServiceClient) *TokenManager {
+	// Ensure the directory exists
+	dir := filepath.Dir(filePath)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		panic(fmt.Sprintf("Failed to create directory %s: %v", dir, err))
+	}
 	return &TokenManager{filePath: filePath, client: client}
 }
 
