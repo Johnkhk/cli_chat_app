@@ -1,6 +1,7 @@
 package app
 
 import (
+	"context"
 	"database/sql"
 	"net"
 	"os"
@@ -13,7 +14,7 @@ import (
 )
 
 // RunGRPCServer initializes and runs the gRPC server.
-func RunGRPCServer(port string, db *sql.DB, log *logrus.Logger) error {
+func RunGRPCServer(ctx context.Context, port string, db *sql.DB, log *logrus.Logger) error {
 	// Initialize the token validator
 	secretKey := os.Getenv("CLI_CHAT_APP_JWT_SECRET_KEY")
 	if secretKey == "" {
@@ -42,6 +43,21 @@ func RunGRPCServer(port string, db *sql.DB, log *logrus.Logger) error {
 
 	log.Infof("gRPC server is listening on localhost:%s", port)
 
-	// Start serving
-	return grpcServer.Serve(listener)
+	// Start the server in a separate goroutine
+	go func() {
+		if err := grpcServer.Serve(listener); err != nil {
+			log.Errorf("Failed to serve gRPC server: %v", err)
+		}
+	}()
+
+	// Wait for context cancellation for graceful shutdown
+	<-ctx.Done()
+
+	log.Info("Received shutdown signal, shutting down gRPC server...")
+
+	// Gracefully stop the gRPC server
+	grpcServer.GracefulStop()
+
+	log.Info("gRPC server stopped.")
+	return nil
 }
