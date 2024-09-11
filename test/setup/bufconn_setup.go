@@ -4,8 +4,10 @@ package setup
 import (
 	"context"
 	"database/sql"
+	"log"
 	"net"
 	"testing"
+	"time"
 
 	"github.com/joho/godotenv"
 	"github.com/sirupsen/logrus"
@@ -21,15 +23,22 @@ const BufSize = 1024 * 1024
 
 var lis *bufconn.Listener
 
+type TestServerConfig struct {
+	DbName               string
+	Log                  *logrus.Logger
+	AccessTokenDuration  time.Duration
+	RefreshTokenDuration time.Duration
+}
+
 // InitBufconn initializes the in-memory gRPC server for testing.
 // we dont return the server, just the conn and db and that's good enough for the client to interact with
-func InitBufconn(t *testing.T, log *logrus.Logger) (*grpc.ClientConn, *sql.DB) {
+func InitBufconn(t *testing.T, serverConfig TestServerConfig) (*grpc.ClientConn, *sql.DB) {
 	// Load environment variables from .env file
 	if err := godotenv.Load("../../.env"); err != nil {
 		if t != nil {
 			t.Fatalf("Error loading .env file: %v", err)
 		} else {
-			log.Panicf("Error loading .env file: %v", err)
+			serverConfig.Log.Panicf("Error loading .env file: %v", err)
 		}
 	}
 
@@ -37,20 +46,20 @@ func InitBufconn(t *testing.T, log *logrus.Logger) (*grpc.ClientConn, *sql.DB) {
 	s := grpc.NewServer()
 
 	// Set up the database for testing
-	db, err := SetupTestDatabase()
+	db, err := SetupTestDatabase(serverConfig.DbName)
 	if err != nil {
 		if t != nil {
 			t.Fatalf("Failed to set up test database: %v", err)
 		} else {
-			log.Panicf("Failed to set up test database: %v", err)
+			serverConfig.Log.Panicf("Failed to set up test database: %v", err)
 		}
 	}
 
 	// Initialize the servers with the test database
-	authServer := app.NewAuthServer(db, log)
+	authServer := app.NewAuthServer(db, serverConfig.Log, serverConfig.AccessTokenDuration, serverConfig.RefreshTokenDuration)
 	auth.RegisterAuthServiceServer(s, authServer)
 
-	friendsServer := app.NewFriendsServer(db, log)
+	friendsServer := app.NewFriendsServer(db, serverConfig.Log)
 	friends.RegisterFriendsServiceServer(s, friendsServer)
 
 	// Start serving the in-memory server

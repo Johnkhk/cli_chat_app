@@ -40,7 +40,7 @@ func (tm *TokenManager) GetAccessToken() (string, error) {
 	}
 
 	// Check if the access token is expired
-	expired, err := isTokenExpired(accessToken)
+	expired, err := IsTokenExpired(accessToken)
 	if err != nil {
 		return "", fmt.Errorf("failed to check if token is expired: %w", err)
 	}
@@ -94,7 +94,7 @@ func (tm *TokenManager) ReadTokens() (string, string, error) {
 }
 
 // Helper function to check if a token is expired by decoding the JWT payload.
-func isTokenExpired(tokenString string) (bool, error) {
+func IsTokenExpired(tokenString string) (bool, error) {
 	// Split the JWT into its parts: header, payload, signature
 	parts := strings.Split(tokenString, ".")
 	if len(parts) != 3 {

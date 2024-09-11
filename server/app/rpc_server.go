@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"net"
 	"os"
+	"time"
 
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
@@ -28,7 +29,7 @@ func RunGRPCServer(ctx context.Context, port string, db *sql.DB, log *logrus.Log
 	)
 
 	// Register the AuthServer
-	authServer := NewAuthServer(db, log)
+	authServer := NewAuthServer(db, log, time.Hour, time.Hour*24*7)
 	auth.RegisterAuthServiceServer(grpcServer, authServer)
 
 	// Register the FriendsServer

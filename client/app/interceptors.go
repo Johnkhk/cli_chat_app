@@ -31,6 +31,7 @@ func UnaryInterceptor(tokenManager *TokenManager) grpc.UnaryClientInterceptor {
 		// Check if the method requires authentication
 		if !isPublicMethod(method) {
 			// Retrieve the access token
+			// This also attempts to refresh the token if it has expired
 			token, err := tokenManager.GetAccessToken()
 			if err != nil {
 				return fmt.Errorf("failed to get access token: %v", err)

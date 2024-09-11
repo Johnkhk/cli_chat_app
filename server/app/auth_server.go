@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"time"
 
 	"github.com/sirupsen/logrus"
 	"golang.org/x/crypto/bcrypt"
@@ -15,15 +16,19 @@ import (
 // AuthServer implements the AuthService.
 type AuthServer struct {
 	auth.UnimplementedAuthServiceServer
-	DB     *sql.DB
-	Logger *logrus.Logger
+	DB                     *sql.DB
+	Logger                 *logrus.Logger
+	AccessTokenExpiration  time.Duration
+	RefreshTokenExpiration time.Duration
 }
 
 // NewAuthServer creates a new AuthServer with the given dependencies.
-func NewAuthServer(db *sql.DB, logger *logrus.Logger) *AuthServer {
+func NewAuthServer(db *sql.DB, logger *logrus.Logger, accessTokenExpiration, refreshTokenExpiration time.Duration) *AuthServer {
 	return &AuthServer{
-		DB:     db,
-		Logger: logger,
+		DB:                     db,
+		Logger:                 logger,
+		AccessTokenExpiration:  accessTokenExpiration,
+		RefreshTokenExpiration: refreshTokenExpiration,
 	}
 }
 
@@ -84,12 +89,12 @@ func (s *AuthServer) LoginUser(ctx context.Context, req *auth.LoginRequest) (*au
 	}
 
 	// Generate new access and refresh tokens using user ID as the subject
-	accessToken, err := generateAccessToken(user.ID, user.Username)
+	accessToken, err := generateAccessToken(user.ID, user.Username, s.AccessTokenExpiration)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate access token: %v", err)
 	}
 
-	refreshToken, err := generateRefreshToken(user.ID, user.Username)
+	refreshToken, err := generateRefreshToken(user.ID, user.Username, s.RefreshTokenExpiration)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate refresh token: %v", err)
 	}
@@ -114,7 +119,7 @@ func (s *AuthServer) RefreshToken(ctx context.Context, req *auth.RefreshTokenReq
 	}
 
 	// Generate a new access token using the extracted user ID
-	newAccessToken, err := generateAccessToken(userID, username)
+	newAccessToken, err := generateAccessToken(userID, username, s.AccessTokenExpiration)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate access token: %v", err)
 	}

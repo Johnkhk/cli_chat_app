@@ -72,8 +72,8 @@ func isValidRefreshToken(token string) bool {
 	return true // Simplified for demonstration
 }
 
-// Helper function to generate a new access token.
-func generateAccessToken(userID int64, username string) (string, error) {
+// Helper function to generate a new access token with a specified expiration duration.
+func generateAccessToken(userID int64, username string, expirationDuration time.Duration) (string, error) {
 	secretKey := os.Getenv("CLI_CHAT_APP_JWT_SECRET_KEY")
 	if secretKey == "" {
 		return "", fmt.Errorf("JWT secret key is not set")
@@ -81,9 +81,9 @@ func generateAccessToken(userID int64, username string) (string, error) {
 
 	// Define token claims using the user ID as the subject.
 	claims := jwt.MapClaims{
-		"sub":      fmt.Sprintf("%d", userID),            // Use user ID as subject
-		"username": username,                             // Add username to claims
-		"exp":      time.Now().Add(time.Hour * 1).Unix(), // Token expires in 1 hour
+		"sub":      fmt.Sprintf("%d", userID),                 // Use user ID as subject
+		"username": username,                                  // Add username to claims
+		"exp":      time.Now().Add(expirationDuration).Unix(), // Token expires based on the given duration
 	}
 
 	// Create a new token object using the signing method and claims.
@@ -98,8 +98,8 @@ func generateAccessToken(userID int64, username string) (string, error) {
 	return accessToken, nil
 }
 
-// Helper function to generate a new refresh token.
-func generateRefreshToken(userID int64, username string) (string, error) {
+// Helper function to generate a new refresh token with a specified expiration duration.
+func generateRefreshToken(userID int64, username string, expirationDuration time.Duration) (string, error) {
 	secretKey := os.Getenv("CLI_CHAT_APP_JWT_SECRET_KEY")
 	if secretKey == "" {
 		return "", fmt.Errorf("JWT secret key is not set")
@@ -109,7 +109,7 @@ func generateRefreshToken(userID int64, username string) (string, error) {
 	claims := jwt.MapClaims{
 		"sub":      fmt.Sprintf("%d", userID),                 // Use user ID as subject
 		"username": username,                                  // Add username to claims
-		"exp":      time.Now().Add(time.Hour * 24 * 7).Unix(), // Refresh token expires in 7 days
+		"exp":      time.Now().Add(expirationDuration).Unix(), // Refresh token expires based on the given duration
 	}
 
 	// Create a new token object using the signing method and claims.

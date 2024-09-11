@@ -11,16 +11,14 @@ import (
 )
 
 // SetupTestDatabase initializes the test database.
-func SetupTestDatabase() (*sql.DB, error) {
-	testDBName := "test_db"
-
+func SetupTestDatabase(testDBName string) (*sql.DB, error) {
 	// Get the Data Source Name (DSN) from environment variables
 	dsn := os.Getenv("TEST_DATABASE_URL")
 	if dsn == "" {
 		return nil, fmt.Errorf("TEST_DATABASE_URL is not set")
 	}
 
-	// Connect to the MySQL server (without specifying a database)
+	// Connect to the MySQL server (without specifying a database initially)
 	db, err := sql.Open("mysql", dsn)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to connect to MySQL server: %v", err)
@@ -35,10 +33,14 @@ func SetupTestDatabase() (*sql.DB, error) {
 		return nil, fmt.Errorf("Failed to create test database: %v", err)
 	}
 
-	// Switch to the test database
-	if _, err := db.Exec(fmt.Sprintf("USE %s", testDBName)); err != nil {
-		db.Close()
-		return nil, fmt.Errorf("Failed to switch to test database: %v", err)
+	// Close the initial connection
+	db.Close()
+
+	// Reconnect to the MySQL server with the specific test database
+	testDSN := fmt.Sprintf("%s%s", dsn, testDBName) // Append database name to DSN
+	db, err = sql.Open("mysql", testDSN)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to connect to the test database: %v", err)
 	}
 
 	// Drop all tables in the test database
@@ -58,7 +60,7 @@ func SetupTestDatabase() (*sql.DB, error) {
 }
 
 // TeardownTestDatabase cleans up the test database.
-func TeardownTestDatabase(db *sql.DB) error {
+func TeardownTestDatabase(db *sql.DB, testDBName string) error {
 	// Optionally run the teardown SQL script if needed
 	downSQLPath := getAbsolutePath("db/migrations/down.sql")
 	if err := runSQLFile(db, downSQLPath); err != nil {
@@ -66,7 +68,7 @@ func TeardownTestDatabase(db *sql.DB) error {
 	}
 
 	// Drop the entire test database to ensure a clean state
-	if _, err := db.Exec("DROP DATABASE IF EXISTS test_db"); err != nil {
+	if _, err := db.Exec("DROP DATABASE IF EXISTS " + testDBName); err != nil {
 		return fmt.Errorf("Failed to drop test database: %v", err)
 	}
 
@@ -130,7 +132,6 @@ func checkMySQLVersion(db *sql.DB) {
 		fmt.Printf("Failed to retrieve MySQL version: %v", err)
 		return
 	}
-	fmt.Printf("Connected to MySQL version: %s\n", version)
 }
 
 // getAbsolutePath constructs an absolute path for a given relative file path.

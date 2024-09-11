@@ -47,7 +47,7 @@ func (c *AuthClient) LoginUser(username, password string) error {
 
 	resp, err := c.Client.LoginUser(context.Background(), req)
 	if err != nil {
-		c.Logger.Errorf("Failed to login: %v", err)
+		c.Logger.Warnf("Failed to login: %v", err)
 		return fmt.Errorf("Failed to login: %v", err)
 	}
 
