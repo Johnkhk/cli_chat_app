@@ -33,7 +33,7 @@ func (s *AuthServer) RegisterUser(ctx context.Context, req *auth.RegisterRequest
 
 	// Check if the user already exists
 	var count int
-	err := s.DB.QueryRow("SELECT COUNT(*) FROM chat_users WHERE username = ?", req.Username).Scan(&count)
+	err := s.DB.QueryRow("SELECT COUNT(*) FROM users WHERE username = ?", req.Username).Scan(&count)
 	if err != nil {
 		return nil, fmt.Errorf("error checking user existence: %w", err)
 	}
@@ -51,7 +51,7 @@ func (s *AuthServer) RegisterUser(ctx context.Context, req *auth.RegisterRequest
 	}
 
 	// Save the user data to the database
-	_, err = s.DB.Exec("INSERT INTO chat_users (username, password_hash, created_at) VALUES (?, ?, NOW())",
+	_, err = s.DB.Exec("INSERT INTO users (username, password_hash, created_at) VALUES (?, ?, NOW())",
 		req.Username, string(hashedPassword))
 	if err != nil {
 		return nil, fmt.Errorf("error saving user to database: %w", err)
@@ -69,7 +69,7 @@ func (s *AuthServer) LoginUser(ctx context.Context, req *auth.LoginRequest) (*au
 
 	// Retrieve the user data from the database
 	var user storage.User
-	err := s.DB.QueryRow("SELECT id, username, password_hash FROM chat_users WHERE username = ?", req.Username).Scan(&user.ID, &user.Username, &user.Password)
+	err := s.DB.QueryRow("SELECT id, username, password_hash FROM users WHERE username = ?", req.Username).Scan(&user.ID, &user.Username, &user.Password)
 	if err != nil {
 		return nil, fmt.Errorf("error retrieving user data: %w", err)
 	}

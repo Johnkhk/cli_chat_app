@@ -1,5 +1,5 @@
--- Create the chat_users table
-CREATE TABLE chat_users (
+-- Create the users table
+CREATE TABLE users (
     id INT AUTO_INCREMENT PRIMARY KEY,
     username VARCHAR(255) NOT NULL UNIQUE,
     password_hash VARCHAR(255) NOT NULL,

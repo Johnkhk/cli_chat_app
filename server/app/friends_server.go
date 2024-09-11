@@ -44,14 +44,16 @@ func (s *FriendsServer) SendFriendRequest(ctx context.Context, req *friends.Send
 
 	// Step 1: Retrieve the recipient's ID from the username
 	var recipientID int
-	err := s.DB.QueryRow("SELECT id FROM chat_users WHERE username = ?", req.RecipientUsername).Scan(&recipientID)
+	err := s.DB.QueryRow("SELECT id FROM users WHERE username = ?", req.RecipientUsername).Scan(&recipientID)
 	if err != nil {
 		if err == sql.ErrNoRows {
+			s.Logger.Warnf("Recipient username does not exist: %s", req.RecipientUsername)
 			return &friends.SendFriendRequestResponse{
 				Success: false,
 				Message: "Recipient username does not exist",
 			}, nil
 		}
+		s.Logger.Errorf("Error retrieving recipient ID: %v", err)
 		return nil, fmt.Errorf("error retrieving recipient ID: %w", err)
 	}
 
