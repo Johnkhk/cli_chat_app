@@ -21,8 +21,9 @@ type registerModel struct {
 // NewRegisterModel initializes the register component
 func NewRegisterModel(rpcClient *app.RpcClient) registerModel {
 	m := registerModel{
-		inputs:    make([]textinput.Model, 2),
-		rpcClient: rpcClient,
+		inputs:     make([]textinput.Model, 2),
+		rpcClient:  rpcClient,
+		cursorMode: cursor.CursorBlink,
 	}
 
 	var t textinput.Model
@@ -69,18 +70,6 @@ func (m registerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "ctrl+c", "esc":
 			return m, tea.Quit
 
-		// Change cursor mode
-		case "ctrl+r":
-			m.cursorMode++
-			if m.cursorMode > cursor.CursorHide {
-				m.cursorMode = cursor.CursorBlink
-			}
-			cmds := make([]tea.Cmd, len(m.inputs))
-			for i := range m.inputs {
-				cmds[i] = m.inputs[i].Cursor.SetMode(m.cursorMode)
-			}
-			return m, tea.Batch(cmds...)
-
 		// Set focus to next input or button
 		case "tab", "shift+tab", "enter", "up", "down":
 			s := msg.String()
@@ -95,7 +84,6 @@ func (m registerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					// return m, tea.Quit
 				} else if m.focusIndex == len(m.inputs)+1 {
 					// Back button logic here
-					fmt.Println("Going back to the previous screen!")
 					return NewLandingModel(m.rpcClient), nil
 				}
 			}

@@ -22,8 +22,9 @@ type loginModel struct {
 // NewloginModel initializes the login component
 func NewLoginModel(rpcClient *app.RpcClient) loginModel {
 	m := loginModel{
-		inputs:    make([]textinput.Model, 2),
-		rpcClient: rpcClient,
+		inputs:     make([]textinput.Model, 2),
+		cursorMode: cursor.CursorBlink,
+		rpcClient:  rpcClient,
 	}
 
 	var t textinput.Model
@@ -69,18 +70,6 @@ func (m loginModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.String() {
 		case "ctrl+c", "esc":
 			return m, tea.Quit
-
-		// Change cursor mode
-		case "ctrl+r":
-			m.cursorMode++
-			if m.cursorMode > cursor.CursorHide {
-				m.cursorMode = cursor.CursorBlink
-			}
-			cmds := make([]tea.Cmd, len(m.inputs))
-			for i := range m.inputs {
-				cmds[i] = m.inputs[i].Cursor.SetMode(m.cursorMode)
-			}
-			return m, tea.Batch(cmds...)
 
 		// Set focus to next input or button
 		case "tab", "shift+tab", "enter", "up", "down":
