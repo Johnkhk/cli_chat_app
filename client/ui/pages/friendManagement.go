@@ -22,17 +22,14 @@ type mainMenuModel struct {
 // Initialize the main menu model with tabs
 func NewMainMenuModel(rpcClient *app.RpcClient) mainMenuModel {
 	// Create dummy models for the tab contents
-	chatModel := NewDummyModel() // Replace with your actual Chat tab model
-	friendsModel := NewFriendsModel(rpcClient)
+	friendsModel := NewOutgoingRequestsModel(rpcClient)
+	incomingModel := NewIncomingRequestsModel(rpcClient)
 
 	return mainMenuModel{
-		rpcClient: rpcClient,
-		tabs:      []string{"Chat", "Friends"},
-		activeTab: 0, // Default to the first tab (Chat)
-		// tabContent: []tea.Model{chatModel, friendsModel},
-		tabContent: []tea.Model{&chatModel, &friendsModel}, // Store friendsModel as a pointer
-
-		// tabContent: []string{chatModel, friendsModel},
+		rpcClient:  rpcClient,
+		tabs:       []string{"Incoming", "Outgoing"},
+		activeTab:  0,                                          // Default to the first tab (Chat)
+		tabContent: []tea.Model{&incomingModel, &friendsModel}, // Store friendsModel as a pointer
 	}
 }
 
@@ -48,14 +45,14 @@ func (m mainMenuModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.terminalHeight = msg.Height
 		// Update the size of all child models
 		for i, content := range m.tabContent {
-			if friendsContent, ok := content.(*friendsModel); ok {
+			if friendsContent, ok := content.(*outgoingRequestsModel); ok {
 				m.rpcClient.Logger.Infof("Updating tab %d with width %d and height %d", i, m.terminalWidth, m.terminalHeight)
 				// friendsContent.list.SetSize(m.terminalWidth, m.terminalHeight)
-				w := int(0.8 * float64(m.terminalWidth))
-				h := int(0.6 * float64(m.terminalHeight))
+				// w := int(0.8 * float64(m.terminalWidth))
+				// h := int(0.6 * float64(m.terminalHeight))
 				// w := int(1 * float64(m.terminalWidth))
 				// h := int(1 * float64(m.terminalHeight))
-				friendsContent.list.SetSize(w, h)
+				// friendsContent.list.SetSize(w, h)
 
 				m.tabContent[i] = friendsContent
 			}

@@ -26,7 +26,7 @@ var (
 			Foreground(lipgloss.Color("205")). // Example color for the logo
 			Bold(true).                        // Makes the logo bold
 			Underline(true).                   // Optionally underline the logo
-			Align(lipgloss.Center).Blink(true)
+			Align(lipgloss.Center)
 
 	// Buttons
 	focusedSubmitButton = focusedStyle.Render("[ Submit ]")
