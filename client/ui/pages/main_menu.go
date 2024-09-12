@@ -52,7 +52,9 @@ func (m mainMenuModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.rpcClient.Logger.Infof("Updating tab %d with width %d and height %d", i, m.terminalWidth, m.terminalHeight)
 				// friendsContent.list.SetSize(m.terminalWidth, m.terminalHeight)
 				w := int(0.8 * float64(m.terminalWidth))
-				h := int(0.5 * float64(m.terminalHeight))
+				h := int(0.6 * float64(m.terminalHeight))
+				// w := int(1 * float64(m.terminalWidth))
+				// h := int(1 * float64(m.terminalHeight))
 				friendsContent.list.SetSize(w, h)
 
 				m.tabContent[i] = friendsContent
@@ -66,10 +68,10 @@ func (m mainMenuModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.rpcClient.Logger.Info("Exiting the application from main menu")
 			return m, tea.Quit
 
-		case "right", "l", "n", "tab":
+		case "tab":
 			m.activeTab = min(m.activeTab+1, len(m.tabs)-1)
 
-		case "left", "h", "p", "shift+tab":
+		case "shift+tab":
 			m.activeTab = max(m.activeTab-1, 0)
 		}
 	}

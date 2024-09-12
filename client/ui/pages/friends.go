@@ -11,6 +11,9 @@ import (
 	"github.com/johnkhk/cli_chat_app/client/app"
 )
 
+// var friendListStyle = lipgloss.NewStyle().
+//
+//	Align(lipgloss.Left)
 var friendListStyle = lipgloss.NewStyle().
 	Align(lipgloss.Left)
 
@@ -42,6 +45,21 @@ func (m friendsModel) Init() tea.Cmd {
 func NewFriendsModel(rpcClient *app.RpcClient) friendsModel {
 	items := []friendList.Item{
 		friendItem{title: "Alice", desc: "Alice is a good friend"},
+		friendItem{title: "Bob", desc: "Bob is a great friend"},
+		friendItem{title: "Charlie", desc: "Charlie is a close friend"},
+		friendItem{title: "Alice", desc: "Alice is a good friend"},
+		friendItem{title: "Alice", desc: "Alice is a good friend"},
+		friendItem{title: "Alice", desc: "Alice is a good friend"},
+		friendItem{title: "Alice", desc: "Alice is a good friend"},
+		friendItem{title: "Alice", desc: "Alice is a good friend"},
+		friendItem{title: "Bob", desc: "Bob is a great friend"},
+		friendItem{title: "Charlie", desc: "Charlie is a close friend"},
+		friendItem{title: "Bob", desc: "Bob is a great friend"},
+		friendItem{title: "Charlie", desc: "Charlie is a close friend"},
+		friendItem{title: "Bob", desc: "Bob is a great friend"},
+		friendItem{title: "Charlie", desc: "Charlie is a close friend"},
+		friendItem{title: "Bob", desc: "Bob is a great friend"},
+		friendItem{title: "Charlie", desc: "Charlie is a close friend"},
 		friendItem{title: "Bob", desc: "Bob is a great friend"},
 		friendItem{title: "Charlie", desc: "Charlie is a close friend"},
 		// Initial friend items...
@@ -122,10 +140,12 @@ func (m friendsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m friendsModel) View() string {
 	if m.showInput {
+		// return friendListStyle.Border(lipgloss.RoundedBorder()).Render(m.list.View()) + "\n" + m.textInput.View()
 		return friendListStyle.Render(m.list.View()) + "\n" + m.textInput.View()
 	}
 	// return friendListStyle.Render(m.list.View()) + "\n[ Press 'a' to Add Friend ]"
-	return friendListStyle.Border(lipgloss.RoundedBorder()).Render(m.list.View())
+	// return friendListStyle.Border(lipgloss.RoundedBorder()).Render(m.list.View())
+	return friendListStyle.Render(m.list.View())
 }
 
 // Command to add a friend by making a gRPC call
