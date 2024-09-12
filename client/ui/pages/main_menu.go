@@ -26,10 +26,12 @@ func NewMainMenuModel(rpcClient *app.RpcClient) mainMenuModel {
 	friendsModel := NewFriendsModel(rpcClient)
 
 	return mainMenuModel{
-		rpcClient:  rpcClient,
-		tabs:       []string{"Chat", "Friends"},
-		activeTab:  0, // Default to the first tab (Chat)
-		tabContent: []tea.Model{chatModel, friendsModel},
+		rpcClient: rpcClient,
+		tabs:      []string{"Chat", "Friends"},
+		activeTab: 0, // Default to the first tab (Chat)
+		// tabContent: []tea.Model{chatModel, friendsModel},
+		tabContent: []tea.Model{&chatModel, &friendsModel}, // Store friendsModel as a pointer
+
 		// tabContent: []string{chatModel, friendsModel},
 	}
 }
@@ -51,35 +53,67 @@ var (
 	inactiveTabStyle  = lipgloss.NewStyle().Border(inactiveTabBorder, true).BorderForeground(highlightColor).Padding(0, 1)
 	activeTabStyle    = inactiveTabStyle.Border(activeTabBorder, true)
 	windowStyle       = lipgloss.NewStyle().BorderForeground(highlightColor).Padding(2, 0).Align(lipgloss.Center).Border(lipgloss.NormalBorder()).UnsetBorderTop()
+	// windowStyle = lipgloss.NewStyle().BorderForeground(highlightColor).Padding(2, 0).Align(lipgloss.Top).Border(lipgloss.NormalBorder()).UnsetBorderTop()
+	// windowStyle = lipgloss.NewStyle().BorderForeground(highlightColor).Padding(2, 0).Align(lipgloss.Left).Border(lipgloss.NormalBorder()).UnsetBorderTop()
 	// windowStyle = lipgloss.NewStyle().BorderForeground(highlightColor).Padding(2, 0).Align(lipgloss.Center).Border(lipgloss.NormalBorder())
 )
 
 // Update function for main menu to handle key inputs and window resizing
 func (m mainMenuModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	var cmd tea.Cmd
+	var cmds []tea.Cmd
+
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
+		// Handle window resizing
 		m.terminalWidth = msg.Width
 		m.terminalHeight = msg.Height
+		// Update the size of all child models
+		for i, content := range m.tabContent {
+			if friendsContent, ok := content.(*friendsModel); ok {
+				m.rpcClient.Logger.Infof("Updating tab %d with width %d and height %d", i, m.terminalWidth, m.terminalHeight)
+				// friendsContent.list.SetSize(m.terminalWidth, m.terminalHeight)
+				w := int(0.8 * float64(m.terminalWidth))
+				h := int(0.5 * float64(m.terminalHeight))
+				friendsContent.list.SetSize(w, h)
+
+				m.tabContent[i] = friendsContent
+			}
+		}
+		// if friendsContent, ok := m.tabContent[m.activeTab].(*friendsModel); ok {
+
+		// 	m.rpcClient.Logger.Infof("Updating active tab %d with width %d and height %d", m.activeTab, m.terminalWidth, m.terminalHeight)
+		// 	w := int(0.8 * float64(m.terminalWidth))
+		// 	h := int(0.5 * float64(m.terminalHeight))
+		// 	friendsContent.list.SetSize(w, h)
+		// 	m.tabContent[m.activeTab] = friendsContent
+		// }
 
 	case tea.KeyMsg:
+		// Handle key inputs
 		switch keypress := msg.String(); keypress {
 		case "ctrl+c", "q":
 			m.rpcClient.Logger.Info("Exiting the application from main menu")
 			return m, tea.Quit
+
 		case "right", "l", "n", "tab":
 			m.activeTab = min(m.activeTab+1, len(m.tabs)-1)
-			return m, nil
+
 		case "left", "h", "p", "shift+tab":
 			m.activeTab = max(m.activeTab-1, 0)
-			return m, nil
 		}
 	}
 
 	// Update the currently active tab's content
-	updatedModel, cmd := m.tabContent[m.activeTab].Update(msg)
-	m.tabContent[m.activeTab] = updatedModel
+	updatedModel, subCmd := m.tabContent[m.activeTab].Update(msg)
+	if updatedContent, ok := updatedModel.(tea.Model); ok {
+		m.tabContent[m.activeTab] = updatedContent
+	}
+	cmds = append(cmds, subCmd)
 
-	// Return the updated mainMenuModel and any command to be executed
+	// Combine all commands using tea.Batch
+	cmd = tea.Batch(cmds...)
+
 	return m, cmd
 }
 
@@ -122,7 +156,18 @@ func (m mainMenuModel) View() string {
 	row := lipgloss.JoinHorizontal(lipgloss.Top, renderedTabs...)
 	doc.WriteString(row)
 	doc.WriteString("\n")
-	doc.WriteString(windowStyle.Width((lipgloss.Width(row) - windowStyle.GetHorizontalFrameSize())).Height(m.terminalHeight - 5).Render(m.tabContent[m.activeTab].View()))
+
+	// Calculate available width and height for child components
+	availableWidth := (lipgloss.Width(row) - windowStyle.GetHorizontalFrameSize())
+	availableHeight := m.terminalHeight - 5 // Adjust height as needed
+
+	// Render the content of the active tab within the calculated dimensions
+	doc.WriteString(
+		windowStyle.
+			Width(availableWidth).
+			Height(availableHeight).
+			Render(m.tabContent[m.activeTab].View()),
+	)
 
 	return docStyle.Align(lipgloss.Center).Width(m.terminalWidth).Height(m.terminalHeight).
 		Render(doc.String())

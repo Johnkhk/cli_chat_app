@@ -3,7 +3,7 @@ package pages
 import (
 	"fmt"
 
-	"github.com/charmbracelet/bubbles/list"
+	friendList "github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -29,7 +29,7 @@ type friendAddedMsg struct {
 }
 
 type friendsModel struct {
-	list      list.Model
+	list      friendList.Model
 	showInput bool
 	textInput textinput.Model
 	rpcClient *app.RpcClient
@@ -40,14 +40,15 @@ func (m friendsModel) Init() tea.Cmd {
 }
 
 func NewFriendsModel(rpcClient *app.RpcClient) friendsModel {
-	items := []list.Item{
+	items := []friendList.Item{
 		friendItem{title: "Alice", desc: "Alice is a good friend"},
 		friendItem{title: "Bob", desc: "Bob is a great friend"},
 		friendItem{title: "Charlie", desc: "Charlie is a close friend"},
 		// Initial friend items...
 	}
 
-	l := list.New(items, list.NewDefaultDelegate(), 0, 0)
+	// l := friendList.New(items, friendList.NewDefaultDelegate(), 30, 30)
+	l := friendList.New(items, friendList.NewDefaultDelegate(), 0, 0)
 	l.Title = "Friends List"
 	l.SetStatusBarItemName("Friend", "Friends")
 	l.SetShowHelp(false)
@@ -123,7 +124,8 @@ func (m friendsModel) View() string {
 	if m.showInput {
 		return friendListStyle.Render(m.list.View()) + "\n" + m.textInput.View()
 	}
-	return friendListStyle.Render(m.list.View()) + "\n[ Press 'a' to Add Friend ]"
+	// return friendListStyle.Render(m.list.View()) + "\n[ Press 'a' to Add Friend ]"
+	return friendListStyle.Border(lipgloss.RoundedBorder()).Render(m.list.View())
 }
 
 // Command to add a friend by making a gRPC call
