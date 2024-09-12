@@ -1,6 +1,8 @@
 package pages
 
 import (
+	"strings"
+
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
@@ -12,26 +14,45 @@ type mainMenuModel struct {
 	rpcClient      *app.RpcClient
 	terminalWidth  int
 	terminalHeight int
-	focusState     focusState
-	friendsModel   friendsModel
+	activeTab      int
+	tabs           []string
+	tabContent     []tea.Model
 }
 
-// focusState enum to define focus states
-type focusState uint
-
-const (
-	mainPanel focusState = iota
-	leftPanel
-	rightPanel
-)
-
-// Initialize the main menu model
+// Initialize the main menu model with tabs
 func NewMainMenuModel(rpcClient *app.RpcClient) mainMenuModel {
+	// Create dummy models for the tab contents
+	chatModel := NewDummyModel() // Replace with your actual Chat tab model
+	friendsModel := NewFriendsModel(rpcClient)
+
 	return mainMenuModel{
-		rpcClient:    rpcClient,
-		friendsModel: NewFriendsModel(rpcClient),
+		rpcClient:  rpcClient,
+		tabs:       []string{"Chat", "Friends"},
+		activeTab:  0, // Default to the first tab (Chat)
+		tabContent: []tea.Model{chatModel, friendsModel},
+		// tabContent: []string{chatModel, friendsModel},
 	}
 }
+
+// Tab border styling
+func tabBorderWithBottom(left, middle, right string) lipgloss.Border {
+	border := lipgloss.RoundedBorder()
+	border.BottomLeft = left
+	border.Bottom = middle
+	border.BottomRight = right
+	return border
+}
+
+var (
+	inactiveTabBorder = tabBorderWithBottom("┴", "─", "┴")
+	activeTabBorder   = tabBorderWithBottom("┘", " ", "└")
+	docStyle          = lipgloss.NewStyle().Padding(1, 2, 1, 2)
+	highlightColor    = lipgloss.AdaptiveColor{Light: "#874BFD", Dark: "#7D56F4"}
+	inactiveTabStyle  = lipgloss.NewStyle().Border(inactiveTabBorder, true).BorderForeground(highlightColor).Padding(0, 1)
+	activeTabStyle    = inactiveTabStyle.Border(activeTabBorder, true)
+	windowStyle       = lipgloss.NewStyle().BorderForeground(highlightColor).Padding(2, 0).Align(lipgloss.Center).Border(lipgloss.NormalBorder()).UnsetBorderTop()
+	// windowStyle = lipgloss.NewStyle().BorderForeground(highlightColor).Padding(2, 0).Align(lipgloss.Center).Border(lipgloss.NormalBorder())
+)
 
 // Update function for main menu to handle key inputs and window resizing
 func (m mainMenuModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -39,92 +60,90 @@ func (m mainMenuModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.terminalWidth = msg.Width
 		m.terminalHeight = msg.Height
-		leftPanelWidth := int(float64(msg.Width) * 0.30)                             // 30% of the total width
-		m.friendsModel.list.SetSize(leftPanelWidth-10, int(float64(msg.Height)*0.8)) // Adjust the height as needed
 
 	case tea.KeyMsg:
-		// Handle Tab key for switching focus, regardless of current focus state
-		if msg.String() == "tab" {
-			switch m.focusState {
-			case mainPanel:
-				m.focusState = leftPanel
-			case leftPanel:
-				m.focusState = rightPanel
-			case rightPanel:
-				m.focusState = mainPanel
-			}
+		switch keypress := msg.String(); keypress {
+		case "ctrl+c", "q":
+			m.rpcClient.Logger.Info("Exiting the application from main menu")
+			return m, tea.Quit
+		case "right", "l", "n", "tab":
+			m.activeTab = min(m.activeTab+1, len(m.tabs)-1)
+			return m, nil
+		case "left", "h", "p", "shift+tab":
+			m.activeTab = max(m.activeTab-1, 0)
 			return m, nil
 		}
-
-		// Only handle global key commands if not focused on leftPanel
-		if m.focusState != leftPanel {
-			switch msg.String() {
-			case "ctrl+c", "q":
-				m.rpcClient.Logger.Info("Exiting the application from main menu")
-				return m, tea.Quit
-			}
-		}
 	}
 
-	var cmd tea.Cmd
-	if m.focusState == leftPanel {
-		// Delegate update to friendsModel when in leftPanel focus state
-		updatedModel, subCmd := m.friendsModel.Update(msg)
-		m.friendsModel = updatedModel.(friendsModel) // Type assertion to friendsModel
-		cmd = tea.Batch(cmd, subCmd)
-	}
+	// Update the currently active tab's content
+	updatedModel, cmd := m.tabContent[m.activeTab].Update(msg)
+	m.tabContent[m.activeTab] = updatedModel
 
 	// Return the updated mainMenuModel and any command to be executed
 	return m, cmd
 }
 
-// View function renders the Main Menu UI with a dynamic split border layout
+// View function renders the Main Menu UI with tabs
 func (m mainMenuModel) View() string {
-	// Define the margin from all edges
-	margin := 2
+	doc := strings.Builder{}
 
-	// Calculate panel widths based on percentage
-	leftPanelWidth := int(float64(m.terminalWidth) * 0.30)
-	rightPanelWidth := m.terminalWidth - leftPanelWidth - (margin * 2)
+	// Render the tabs
+	var renderedTabs []string
+	for i, t := range m.tabs {
+		var style lipgloss.Style
+		isFirst, isLast, isActive := i == 0, i == len(m.tabs)-1, i == m.activeTab
+		if isActive {
+			style = activeTabStyle
+		} else {
+			style = inactiveTabStyle
+		}
 
-	// Determine the border style based on the current focus state
-	var leftPanelStyle, rightPanelStyle lipgloss.Style
+		// Adjust borders for the tabs
+		border, _, _, _, _ := style.GetBorder()
+		if isFirst && isActive {
+			border.BottomLeft = "│"
+		} else if isFirst && !isActive {
+			border.BottomLeft = "├"
+			// border.BottomLeft = "│"
 
-	switch m.focusState {
-	case mainPanel:
-		leftPanelStyle = grayBorderStyle
-		rightPanelStyle = grayBorderStyle
-	case leftPanel:
-		leftPanelStyle = blueBorderStyle
-		rightPanelStyle = grayBorderStyle
-	case rightPanel:
-		leftPanelStyle = grayBorderStyle
-		rightPanelStyle = blueBorderStyle
+		} else if isLast && isActive {
+			// border.BottomRight = "┐" // Adjust to match content window's top corner
+			border.BottomRight = "│" // Adjust to match content window's top corner
+
+		} else if isLast && !isActive {
+			border.BottomRight = "┤"
+		}
+		style = style.Border(border)
+		renderedTabs = append(renderedTabs, style.Width(m.terminalWidth/len(m.tabs)-5).Render(t))
+		// renderedTabs = append(renderedTabs, style.Width(m.terminalWidth/len(m.tabs)).Margin(4, 4).Render(t))
 	}
 
-	// Render the left panel (friend list) without nested border
-	leftPanel := leftPanelStyle.
-		Width(leftPanelWidth).
-		Height(m.terminalHeight - (margin * 2)).
-		Render(m.friendsModel.View())
+	// Combine the rendered tabs into a single row
+	row := lipgloss.JoinHorizontal(lipgloss.Top, renderedTabs...)
+	doc.WriteString(row)
+	doc.WriteString("\n")
+	doc.WriteString(windowStyle.Width((lipgloss.Width(row) - windowStyle.GetHorizontalFrameSize())).Height(m.terminalHeight - 5).Render(m.tabContent[m.activeTab].View()))
 
-	// Render the right panel (chat view)
-	rightPanelContent := "Chat View:\nHello, world! Press any key to quit."
-	rightPanel := rightPanelStyle.
-		Width(rightPanelWidth).
-		Height(m.terminalHeight - (margin * 2)).
-		Render(rightPanelContent)
-
-	// Combine both panels side by side
-	finalView := lipgloss.JoinHorizontal(lipgloss.Top, leftPanel, rightPanel)
-
-	// Add a help bar or instructions at the bottom
-	helpBar := lipgloss.NewStyle().Foreground(lipgloss.Color("241")).Render("\nPress Tab to switch panels | esc/ctrl+c: quit")
-
-	return finalView + helpBar
+	return docStyle.Align(lipgloss.Center).Width(m.terminalWidth).Height(m.terminalHeight).
+		Render(doc.String())
 }
 
 // Init function initializes the main menu model
 func (m mainMenuModel) Init() tea.Cmd {
 	return nil
+}
+
+// Helper functions for min and max
+func max(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
