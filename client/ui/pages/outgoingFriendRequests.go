@@ -140,7 +140,8 @@ func (m outgoingRequestsModel) View() string {
 	var view strings.Builder
 
 	// Title for the sent requests table
-	view.WriteString(titleStyle.Render("Sent Friend Requests:\n"))
+	view.WriteString(titleStyle.Render("Sent Friend Requests:"))
+	view.WriteString("\n")
 	// Render the sent requests table
 	view.WriteString(baseStyle.Render(m.sentRequests.View()) + "\n")
 

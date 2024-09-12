@@ -7,6 +7,7 @@ import (
 	"github.com/charmbracelet/bubbles/cursor"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
+
 	// "github.com/charmbracelet/lipgloss"
 
 	"github.com/johnkhk/cli_chat_app/client/app"
@@ -65,7 +66,7 @@ func (m loginModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// TODO show some error message to the user
 		return m, nil
 	case logInRespMsg:
-		return NewMainMenuModel(m.rpcClient), nil
+		return NewFriendManagementModel(m.rpcClient), nil
 
 	case tea.KeyMsg:
 		switch msg.String() {

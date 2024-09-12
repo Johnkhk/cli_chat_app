@@ -15,7 +15,7 @@ import (
 func RunUIBasedOnAuthStatus(isLoggedIn bool, log *logrus.Logger, rpcClient *app.RpcClient) {
 	if isLoggedIn {
 		// log.Info("User automatically logged in with stored tokens.")
-		runTeaProgram(pages.NewMainMenuModel(rpcClient)) // Start the main menu if auto-login succeeds
+		runTeaProgram(pages.NewFriendManagementModel(rpcClient)) // Start the main menu if auto-login succeeds
 	} else {
 		// log.Info("Automatic login failed or no valid token found.")
 		runTeaProgram(pages.NewLandingModel(rpcClient)) // Start the landing page if auto-login fails

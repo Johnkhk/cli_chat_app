@@ -105,7 +105,8 @@ func (m incomingRequestsModel) View() string {
 	var view strings.Builder
 
 	// Title for the received requests table
-	view.WriteString(titleStyle.Render("Incoming Friend Requests:\n"))
+	view.WriteString(titleStyle.Render("Incoming Friend Requests:"))
+	view.WriteString("\n")
 	// Render the received requests table
 	view.WriteString(baseStyle.Render(m.receivedRequests.View()) + "\n")
 	// Show instructions

@@ -9,8 +9,8 @@ import (
 	"github.com/johnkhk/cli_chat_app/client/app"
 )
 
-// mainMenuModel structure with terminal size fields and state
-type mainMenuModel struct {
+// FriendManagementModel structure with terminal size fields and state
+type FriendManagementModel struct {
 	rpcClient      *app.RpcClient
 	terminalWidth  int
 	terminalHeight int
@@ -20,21 +20,21 @@ type mainMenuModel struct {
 }
 
 // Initialize the main menu model with tabs
-func NewMainMenuModel(rpcClient *app.RpcClient) mainMenuModel {
+func NewFriendManagementModel(rpcClient *app.RpcClient) FriendManagementModel {
 	// Create dummy models for the tab contents
-	friendsModel := NewOutgoingRequestsModel(rpcClient)
+	outgoingModel := NewOutgoingRequestsModel(rpcClient)
 	incomingModel := NewIncomingRequestsModel(rpcClient)
 
-	return mainMenuModel{
+	return FriendManagementModel{
 		rpcClient:  rpcClient,
 		tabs:       []string{"Incoming", "Outgoing"},
-		activeTab:  0,                                          // Default to the first tab (Chat)
-		tabContent: []tea.Model{&incomingModel, &friendsModel}, // Store friendsModel as a pointer
+		activeTab:  0,                                           // Default to the first tab (Chat)
+		tabContent: []tea.Model{&incomingModel, &outgoingModel}, // Store friendsModel as a pointer
 	}
 }
 
 // Update function for main menu to handle key inputs and window resizing
-func (m mainMenuModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m FriendManagementModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	var cmds []tea.Cmd
 
@@ -44,19 +44,19 @@ func (m mainMenuModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.terminalWidth = msg.Width
 		m.terminalHeight = msg.Height
 		// Update the size of all child models
-		for i, content := range m.tabContent {
-			if friendsContent, ok := content.(*outgoingRequestsModel); ok {
-				m.rpcClient.Logger.Infof("Updating tab %d with width %d and height %d", i, m.terminalWidth, m.terminalHeight)
-				// friendsContent.list.SetSize(m.terminalWidth, m.terminalHeight)
-				// w := int(0.8 * float64(m.terminalWidth))
-				// h := int(0.6 * float64(m.terminalHeight))
-				// w := int(1 * float64(m.terminalWidth))
-				// h := int(1 * float64(m.terminalHeight))
-				// friendsContent.list.SetSize(w, h)
+		// for i, content := range m.tabContent {
+		// 	if friendsContent, ok := content.(*outgoingRequestsModel); ok {
+		// 		m.rpcClient.Logger.Infof("Updating tab %d with width %d and height %d", i, m.terminalWidth, m.terminalHeight)
+		// 		// friendsContent.list.SetSize(m.terminalWidth, m.terminalHeight)
+		// 		// w := int(0.8 * float64(m.terminalWidth))
+		// 		// h := int(0.6 * float64(m.terminalHeight))
+		// 		// w := int(1 * float64(m.terminalWidth))
+		// 		// h := int(1 * float64(m.terminalHeight))
+		// 		// friendsContent.list.SetSize(w, h)
 
-				m.tabContent[i] = friendsContent
-			}
-		}
+		// 		m.tabContent[i] = friendsContent
+		// 	}
+		// }
 
 	case tea.KeyMsg:
 		// Handle key inputs
@@ -87,7 +87,7 @@ func (m mainMenuModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 // View function renders the Main Menu UI with tabs
-func (m mainMenuModel) View() string {
+func (m FriendManagementModel) View() string {
 	doc := strings.Builder{}
 
 	// Render the tabs
@@ -143,7 +143,7 @@ func (m mainMenuModel) View() string {
 }
 
 // Init function initializes the main menu model
-func (m mainMenuModel) Init() tea.Cmd {
+func (m FriendManagementModel) Init() tea.Cmd {
 	return nil
 }
 
