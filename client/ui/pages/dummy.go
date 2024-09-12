@@ -14,7 +14,7 @@ func (m DummyModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m DummyModel) View() string {
-	return ""
+	return "DUMMY"
 }
 
 func NewDummyModel() DummyModel {

@@ -36,28 +36,6 @@ func NewMainMenuModel(rpcClient *app.RpcClient) mainMenuModel {
 	}
 }
 
-// Tab border styling
-func tabBorderWithBottom(left, middle, right string) lipgloss.Border {
-	border := lipgloss.RoundedBorder()
-	border.BottomLeft = left
-	border.Bottom = middle
-	border.BottomRight = right
-	return border
-}
-
-var (
-	inactiveTabBorder = tabBorderWithBottom("┴", "─", "┴")
-	activeTabBorder   = tabBorderWithBottom("┘", " ", "└")
-	docStyle          = lipgloss.NewStyle().Padding(1, 2, 1, 2)
-	highlightColor    = lipgloss.AdaptiveColor{Light: "#874BFD", Dark: "#7D56F4"}
-	inactiveTabStyle  = lipgloss.NewStyle().Border(inactiveTabBorder, true).BorderForeground(highlightColor).Padding(0, 1)
-	activeTabStyle    = inactiveTabStyle.Border(activeTabBorder, true)
-	windowStyle       = lipgloss.NewStyle().BorderForeground(highlightColor).Padding(2, 0).Align(lipgloss.Center).Border(lipgloss.NormalBorder()).UnsetBorderTop()
-	// windowStyle = lipgloss.NewStyle().BorderForeground(highlightColor).Padding(2, 0).Align(lipgloss.Top).Border(lipgloss.NormalBorder()).UnsetBorderTop()
-	// windowStyle = lipgloss.NewStyle().BorderForeground(highlightColor).Padding(2, 0).Align(lipgloss.Left).Border(lipgloss.NormalBorder()).UnsetBorderTop()
-	// windowStyle = lipgloss.NewStyle().BorderForeground(highlightColor).Padding(2, 0).Align(lipgloss.Center).Border(lipgloss.NormalBorder())
-)
-
 // Update function for main menu to handle key inputs and window resizing
 func (m mainMenuModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
@@ -80,14 +58,6 @@ func (m mainMenuModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.tabContent[i] = friendsContent
 			}
 		}
-		// if friendsContent, ok := m.tabContent[m.activeTab].(*friendsModel); ok {
-
-		// 	m.rpcClient.Logger.Infof("Updating active tab %d with width %d and height %d", m.activeTab, m.terminalWidth, m.terminalHeight)
-		// 	w := int(0.8 * float64(m.terminalWidth))
-		// 	h := int(0.5 * float64(m.terminalHeight))
-		// 	friendsContent.list.SetSize(w, h)
-		// 	m.tabContent[m.activeTab] = friendsContent
-		// }
 
 	case tea.KeyMsg:
 		// Handle key inputs
