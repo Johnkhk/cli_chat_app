@@ -6,6 +6,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/johnkhk/cli_chat_app/client/app"
+	"github.com/johnkhk/cli_chat_app/client/ui/ascii"
 	// "github.com/johnkhk/cli_chat_app/client/ui/components"
 )
 
@@ -82,9 +83,10 @@ func handleSelection(m model) (tea.Model, tea.Cmd) {
 
 // View function renders the UI
 func (m model) View() string {
-	s := "Welcome to the CLI Chat App!\n"
-	s += "===========================\n"
-	s += "\nChoose an option:\n\n"
+	s := logoStyle.Render(ascii.Logo)
+	s += "\n\n" // Add some space after the title
+	s += titleStyle.Render("Choose an option:")
+	s += "\n\n" // Add some space after the title
 
 	for i, choice := range m.choices {
 		cursor := " " // No cursor

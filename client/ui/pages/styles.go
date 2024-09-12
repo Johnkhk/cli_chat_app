@@ -15,12 +15,18 @@ var (
 	helpStyle           = blurredStyle
 	cursorModeHelpStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
 
-	// Title Style
-	titleStyle = lipgloss.NewStyle().
+	// Logo Style
+	logoStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("69")). // Example color for the title
 			Bold(true).                       // Makes the title bold
-			Underline(true).                  // Optionally underline the title
 			Align(lipgloss.Center)            // Aligns the title to the center
+
+	// Title Style
+	titleStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("205")). // Example color for the logo
+			Bold(true).                        // Makes the logo bold
+			Underline(true).                   // Optionally underline the logo
+			Align(lipgloss.Center).Blink(true)
 
 	// Buttons
 	focusedSubmitButton = focusedStyle.Render("[ Submit ]")
@@ -46,5 +52,4 @@ var (
 			BorderStyle(lipgloss.NormalBorder()).
 			BorderForeground(lipgloss.Color("63")). // Blue color for active borders
 			Padding(0, 2)                           // Optional padding to avoid cutting off content
-
 )

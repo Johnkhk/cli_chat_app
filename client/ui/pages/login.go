@@ -10,6 +10,7 @@ import (
 	// "github.com/charmbracelet/lipgloss"
 
 	"github.com/johnkhk/cli_chat_app/client/app"
+	"github.com/johnkhk/cli_chat_app/client/ui/ascii"
 )
 
 type loginModel struct {
@@ -140,9 +141,10 @@ func (m loginModel) View() string {
 	var b strings.Builder
 
 	// Render the title
-	// b.WriteString(titleStyle.Render("\n===========================\n\n"))
-	// b.WriteString(titleStyle.Render("\nLogin\n"))
-	// b.WriteString(titleStyle.Render("\n===========================\n\n"))
+	b.WriteString(logoStyle.Render(ascii.Logo))
+	b.WriteString("\n\n") // Add some space after the title
+	b.WriteString(titleStyle.Render("Login"))
+	b.WriteString("\n\n") // Add some space after the title
 
 	// Render the inputs
 	for i := range m.inputs {

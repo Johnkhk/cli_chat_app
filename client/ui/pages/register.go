@@ -9,11 +9,13 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/johnkhk/cli_chat_app/client/app"
+	"github.com/johnkhk/cli_chat_app/client/ui/ascii"
 )
 
 type registerModel struct {
 	focusIndex int
 	inputs     []textinput.Model
+	buttons    []string
 	cursorMode cursor.Mode
 	rpcClient  *app.RpcClient
 }
@@ -22,6 +24,7 @@ type registerModel struct {
 func NewRegisterModel(rpcClient *app.RpcClient) registerModel {
 	m := registerModel{
 		inputs:     make([]textinput.Model, 2),
+		buttons:    []string{"Submit", "Back"},
 		rpcClient:  rpcClient,
 		cursorMode: cursor.CursorBlink,
 	}
@@ -78,9 +81,8 @@ func (m registerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if s == "enter" {
 				if m.focusIndex == len(m.inputs) {
 					// Submit button logic here
-					fmt.Println("Form submitted!")
 					username, pasword := m.inputs[0].Value(), m.inputs[1].Value()
-					return m, registerUserCmd(m.rpcClient, username, pasword)
+					return NewLoginModel(m.rpcClient), registerUserCmd(m.rpcClient, username, pasword)
 					// return m, tea.Quit
 				} else if m.focusIndex == len(m.inputs)+1 {
 					// Back button logic here
@@ -88,17 +90,15 @@ func (m registerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 
-			// Cycle indexes
+			// Update focus index without cycling
 			if s == "up" || s == "shift+tab" {
-				m.focusIndex--
+				if m.focusIndex > 0 {
+					m.focusIndex--
+				}
 			} else {
-				m.focusIndex++
-			}
-
-			if m.focusIndex > len(m.inputs)+1 {
-				m.focusIndex = 0
-			} else if m.focusIndex < 0 {
-				m.focusIndex = len(m.inputs) + 1
+				if m.focusIndex < len(m.inputs)+len(m.buttons)-1 {
+					m.focusIndex++
+				}
 			}
 
 			cmds := make([]tea.Cmd, len(m.inputs))
@@ -140,6 +140,12 @@ func (m *registerModel) updateInputs(msg tea.Msg) tea.Cmd {
 
 func (m registerModel) View() string {
 	var b strings.Builder
+
+	// Render the title
+	b.WriteString(logoStyle.Render(ascii.Logo))
+	b.WriteString("\n\n") // Add some space after the title
+	b.WriteString(titleStyle.Render("Register"))
+	b.WriteString("\n\n") // Add some space after the title
 
 	// Render the inputs
 	for i := range m.inputs {
