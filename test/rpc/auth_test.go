@@ -24,7 +24,7 @@ func TestRegisterLoginFlow(t *testing.T) {
 	tokenDir := filepath.Join(os.TempDir(), fmt.Sprintf(".test_cli_chat_app_%s", t.Name()))
 	tokenFile := filepath.Join(tokenDir, "jwt_tokens") // Assuming the token file is named "jwt_tokens"
 
-	// Test the login of an unregistered user
+	// Test the login of an unregistered/wrong credentials user
 	log.Infof("Testing unregistered user login")
 	err := authClient.LoginUser("unregistered", "testpassword")
 	if err == nil {
@@ -96,7 +96,7 @@ func TestTokenExpirationAndRefresh(t *testing.T) {
 
 	// Sleep to allow the access token to expire
 	log.Infof("Waiting for the access token to expire")
-	time.Sleep(time.Second * 5) // Wait for 6 seconds to ensure the access token has expired
+	time.Sleep(time.Second * 8) // Wait for 6 seconds to ensure the access token has expired
 
 	// Make sure the access token is expired but not the refresh token
 	accessToken, refreshToken, err := authClient.TokenManager.ReadTokens()
@@ -168,4 +168,34 @@ func TestTokenExpirationAndRefresh(t *testing.T) {
 		t.Fatalf("Refresh token should not be expired since it was refreshed, got err: %v", err)
 	}
 
+}
+
+// TestRegisterUserWithExistingUsername tests the registration of a user with an existing username
+func TestRegisterUserWithExistingUsername(t *testing.T) {
+	t.Parallel() // Allow this test to run in parallel
+
+	// Initialize resources using default configuration
+	authClient, _, cleanup := setup.InitializeTestResources(t, nil)
+	defer cleanup()
+	log := authClient.Logger
+
+	// Register a new user
+	log.Infof("Registering new user")
+	err := authClient.RegisterUser("existinguser", "testpassword")
+	if err != nil {
+		t.Fatalf("Failed to register new user: %v", err)
+	}
+
+	// Attempt to register a user with the same username
+	log.Infof("Attempting to register user with existing username")
+	err = authClient.RegisterUser("existinguser", "newpassword")
+	if err == nil {
+		t.Fatalf("Registration should fail for an existing username")
+	}
+
+	// Ensure the error is related to the username already being taken
+	expectedErrMsg := "Registration failed: Username already exists" // Replace with the actual error message returned by your RegisterUser method
+	if err.Error() != expectedErrMsg {
+		t.Fatalf("Expected error message: %q, got: %q", expectedErrMsg, err.Error())
+	}
 }

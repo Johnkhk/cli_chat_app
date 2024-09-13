@@ -48,7 +48,7 @@ func InitializeTestResources(t *testing.T, serverConfig *TestServerConfig) (*app
 	}
 
 	// Set up logger with test-specific details
-	serverConfig.Log.SetReportCaller(true)
+	// serverConfig.Log.SetReportCaller(true)
 	serverConfig.Log.SetFormatter(&logrus.TextFormatter{
 		FullTimestamp:   true,                  // Include full timestamp with date
 		TimestampFormat: "2006-01-02 15:04:05", // Custom date format
