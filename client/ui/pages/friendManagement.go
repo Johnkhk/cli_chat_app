@@ -43,20 +43,6 @@ func (m FriendManagementModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Handle window resizing
 		m.terminalWidth = msg.Width
 		m.terminalHeight = msg.Height
-		// Update the size of all child models
-		// for i, content := range m.tabContent {
-		// 	if friendsContent, ok := content.(*outgoingRequestsModel); ok {
-		// 		m.rpcClient.Logger.Infof("Updating tab %d with width %d and height %d", i, m.terminalWidth, m.terminalHeight)
-		// 		// friendsContent.list.SetSize(m.terminalWidth, m.terminalHeight)
-		// 		// w := int(0.8 * float64(m.terminalWidth))
-		// 		// h := int(0.6 * float64(m.terminalHeight))
-		// 		// w := int(1 * float64(m.terminalWidth))
-		// 		// h := int(1 * float64(m.terminalHeight))
-		// 		// friendsContent.list.SetSize(w, h)
-
-		// 		m.tabContent[i] = friendsContent
-		// 	}
-		// }
 
 	case tea.KeyMsg:
 		// Handle key inputs
