@@ -35,7 +35,7 @@ func NewRpcClient(serverAddress string, logger *logrus.Logger, tokenManager *Tok
 	}
 
 	friendsClient := &FriendsClient{
-		Client: friends.NewFriendsServiceClient(conn),
+		Client: friends.NewFriendManagementClient(conn),
 		Logger: logger,
 	}
 

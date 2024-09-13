@@ -34,7 +34,7 @@ func RunGRPCServer(ctx context.Context, port string, db *sql.DB, log *logrus.Log
 
 	// Register the FriendsServer
 	friendsServer := NewFriendsServer(db, log)
-	friends.RegisterFriendsServiceServer(grpcServer, friendsServer)
+	friends.RegisterFriendManagementServer(grpcServer, friendsServer)
 
 	// Listen on the specified port
 	listener, err := net.Listen("tcp", "localhost:"+port)

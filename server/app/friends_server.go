@@ -5,15 +5,18 @@ import (
 	"database/sql"
 	"fmt"
 	"strconv"
+	"time"
 
 	"github.com/sirupsen/logrus"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/johnkhk/cli_chat_app/genproto/friends"
+	"github.com/johnkhk/cli_chat_app/server/storage"
 )
 
 // FriendsServer implements the FriendsService.
 type FriendsServer struct {
-	friends.UnimplementedFriendsServiceServer
+	friends.UnimplementedFriendManagementServer
 	DB     *sql.DB
 	Logger *logrus.Logger
 }
@@ -34,6 +37,12 @@ func (s *FriendsServer) SendFriendRequest(ctx context.Context, req *friends.Send
 		return nil, fmt.Errorf("requester ID not found in context")
 	}
 
+	// Convert requesterID from string to int
+	requesterIDInt, err := strconv.Atoi(requesterID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid requester ID format: %w", err)
+	}
+
 	// Retrieve the requester username from the context
 	requesterUsername, ok := ctx.Value("username").(string)
 	if !ok || requesterUsername == "" {
@@ -44,23 +53,18 @@ func (s *FriendsServer) SendFriendRequest(ctx context.Context, req *friends.Send
 
 	// Step 1: Retrieve the recipient's ID from the username
 	var recipientID int
-	err := s.DB.QueryRow("SELECT id FROM users WHERE username = ?", req.RecipientUsername).Scan(&recipientID)
+	err = s.DB.QueryRow("SELECT id FROM users WHERE username = ?", req.RecipientUsername).Scan(&recipientID)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			s.Logger.Warnf("Recipient username does not exist: %s", req.RecipientUsername)
+			// Recipient not found
 			return &friends.SendFriendRequestResponse{
-				Success: false,
-				Message: "Recipient username does not exist",
+				Status:    friends.FriendRequestStatus_FAILED,
+				Message:   "Recipient not found",
+				Timestamp: timestamppb.Now(),
 			}, nil
 		}
 		s.Logger.Errorf("Error retrieving recipient ID: %v", err)
 		return nil, fmt.Errorf("error retrieving recipient ID: %w", err)
-	}
-
-	// Convert requesterID from string to int
-	requesterIDInt, err := strconv.Atoi(requesterID)
-	if err != nil {
-		return nil, fmt.Errorf("invalid requester ID format: %w", err)
 	}
 
 	// Step 2: Check if a friend request is already pending, accepted, or rejected
@@ -76,189 +80,258 @@ func (s *FriendsServer) SendFriendRequest(ctx context.Context, req *friends.Send
 		return nil, fmt.Errorf("error checking existing friend request: %w", err)
 	}
 
-	// If a record is found, handle the different statuses
-	if err == nil {
-		switch existingStatus {
-		case "pending":
-			return &friends.SendFriendRequestResponse{
-				Success: false,
-				Message: "A friend request is already pending",
-			}, nil
-		case "accepted":
-			return &friends.SendFriendRequestResponse{
-				Success: false,
-				Message: "You are already friends",
-			}, nil
-		case "rejected":
-			// Allow sending the friend request again if it was previously rejected
-			_, err = s.DB.Exec(`
-				UPDATE friend_requests
-				SET status = 'pending', requested_at = NOW()
-				WHERE requester_id = ? AND recipient_id = ? AND status = 'rejected'`,
-				requesterIDInt, recipientID)
-			if err != nil {
-				return nil, fmt.Errorf("error updating friend request to pending: %w", err)
-			}
-			return &friends.SendFriendRequestResponse{
-				Success: true,
-				Message: "Friend request sent again successfully",
-			}, nil
+	// If a record is found, use the map to get the enum value
+	statusEnum, ok := storage.StatusMap[existingStatus]
+	if !ok {
+		// If the status does not match any known value, use UNKNOWN
+		statusEnum = friends.FriendRequestStatus_UNKNOWN
+	}
+
+	// Handle the relevant existing statuses
+	switch statusEnum {
+	case friends.FriendRequestStatus_PENDING:
+		return &friends.SendFriendRequestResponse{
+			Status:    friends.FriendRequestStatus_FAILED,
+			Message:   "A friend request is already pending",
+			Timestamp: timestamppb.Now(),
+		}, nil
+	case friends.FriendRequestStatus_ACCEPTED:
+		return &friends.SendFriendRequestResponse{
+			Status:    friends.FriendRequestStatus_FAILED,
+			Message:   "You are already friends",
+			Timestamp: timestamppb.Now(),
+		}, nil
+	case friends.FriendRequestStatus_DECLINED:
+		// Allow sending the friend request again if it was previously rejected
+		_, err = s.DB.Exec(`
+			UPDATE friend_requests
+			SET status = ?, requested_at = NOW()
+			WHERE requester_id = ? AND recipient_id = ? AND status = ?`,
+			storage.StatusPending, requesterIDInt, recipientID, storage.StatusDeclined)
+		if err != nil {
+			return nil, fmt.Errorf("error updating friend request to pending: %w", err)
 		}
+		return &friends.SendFriendRequestResponse{
+			Status:    friends.FriendRequestStatus_PENDING,
+			Message:   "Friend request sent again successfully",
+			Timestamp: timestamppb.Now(),
+		}, nil
 	}
 
 	// Step 3: Insert the new friend request into the database
 	_, err = s.DB.Exec(`
 		INSERT INTO friend_requests (requester_id, recipient_id, requested_at, status)
-		VALUES (?, ?, NOW(), 'pending')`,
-		requesterIDInt, recipientID)
+		VALUES (?, ?, NOW(), ?)`,
+		requesterIDInt, recipientID, storage.StatusPending)
 	if err != nil {
 		return nil, fmt.Errorf("error inserting friend request into database: %w", err)
 	}
 
 	return &friends.SendFriendRequestResponse{
-		Success: true,
-		Message: "Friend request sent successfully",
+		Status:    friends.FriendRequestStatus_PENDING,
+		Message:   "Friend request sent successfully",
+		Timestamp: timestamppb.Now(),
 	}, nil
 }
 
-// GetFriendRequests handles fetching pending friend requests.
-func (s *FriendsServer) GetFriendRequests(ctx context.Context, req *friends.GetFriendRequestsRequest) (*friends.GetFriendRequestsResponse, error) {
-	s.Logger.Info("Fetching pending friend requests")
-
-	// Mock implementation
-	return &friends.GetFriendRequestsResponse{
-		Success:        true,
-		Message:        "Friend requests fetched successfully",
-		FriendRequests: []*friends.FriendRequest{}, // Empty list for now
-	}, nil
-}
-
-// RespondToFriendRequest handles accepting or rejecting a friend request.
-// Takes in the requester ID and a boolean indicating whether to accept the request.
-func (s *FriendsServer) RespondToFriendRequest(ctx context.Context, req *friends.RespondToFriendRequestRequest) (*friends.RespondToFriendRequestResponse, error) {
-	// Retrieve the recipient's user ID from the context
-	recipientID, ok := ctx.Value("userID").(string)
-	if !ok || recipientID == "" {
-		return nil, fmt.Errorf("recipient ID not found in context")
+// AcceptFriendRequest handles accepting a friend request.
+func (s *FriendsServer) AcceptFriendRequest(ctx context.Context, req *friends.AcceptFriendRequestRequest) (*friends.AcceptFriendRequestResponse, error) {
+	// Retrieve the user ID from the context
+	userID, ok := ctx.Value("userID").(string)
+	if !ok || userID == "" {
+		return nil, fmt.Errorf("user ID not found in context")
 	}
 
-	// Convert recipient ID from string to int
-	recipientIDInt, err := strconv.Atoi(recipientID)
+	// Convert userID from string to int
+	userIDInt, err := strconv.Atoi(userID)
 	if err != nil {
-		return nil, fmt.Errorf("invalid recipient ID format: %w", err)
+		return nil, fmt.Errorf("invalid user ID format: %w", err)
 	}
 
-	// Convert requester ID from string to int
-	requesterIDInt, err := strconv.Atoi(req.RequesterId)
+	// Step 1: Update the friend request status to "ACCEPTED" if it exists and is pending
+	res, err := s.DB.Exec(`UPDATE friend_requests SET status = ?, updated_at = NOW() WHERE id = ? AND recipient_id = ? AND status = ?`,
+		storage.StatusAccepted, req.RequestId, userIDInt, storage.StatusPending)
+
 	if err != nil {
-		return nil, fmt.Errorf("invalid requester ID format: %w", err)
+		return nil, fmt.Errorf("error updating friend request status to accepted: %w", err)
 	}
 
-	// Check if there is a pending friend request from requester to recipient
-	var status string
-	err = s.DB.QueryRow(`
-		SELECT status 
-		FROM friend_requests 
-		WHERE requester_id = ? AND recipient_id = ? AND status = 'pending'`,
-		requesterIDInt, recipientIDInt).Scan(&status)
+	// Step 2: Check if exactly one row was affected by the update
+	rowsAffected, err := res.RowsAffected()
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return &friends.RespondToFriendRequestResponse{
-				Success: false,
-				Message: "No pending friend request found",
-			}, nil
-		}
-		return nil, fmt.Errorf("error checking pending friend request: %w", err)
+		return nil, fmt.Errorf("error checking affected rows: %w", err)
 	}
 
-	if req.Accept {
-		// Accepting the friend request
-		tx, err := s.DB.Begin()
-		if err != nil {
-			return nil, fmt.Errorf("failed to begin transaction: %w", err)
-		}
-
-		// Step 1: Update the friend request status to 'accepted'
-		_, err = tx.Exec(`
-			UPDATE friend_requests 
-			SET status = 'accepted' 
-			WHERE requester_id = ? AND recipient_id = ? AND status = 'pending'`,
-			requesterIDInt, recipientIDInt)
-		if err != nil {
-			tx.Rollback()
-			return nil, fmt.Errorf("failed to update friend request status: %w", err)
-		}
-
-		// Step 2: Insert the friendship into the friends table
-		_, err = tx.Exec(`
-			INSERT INTO friends (user_id, friend_id, added_at) 
-			VALUES (?, ?, NOW()), (?, ?, NOW())`,
-			requesterIDInt, recipientIDInt, recipientIDInt, requesterIDInt)
-		if err != nil {
-			tx.Rollback()
-			return nil, fmt.Errorf("failed to insert into friends table: %w", err)
-		}
-
-		// Commit the transaction
-		if err := tx.Commit(); err != nil {
-			return nil, fmt.Errorf("failed to commit transaction: %w", err)
-		}
-
-		return &friends.RespondToFriendRequestResponse{
-			Success: true,
-			Message: "Friend request accepted successfully",
-		}, nil
-	} else {
-		// Rejecting the friend request
-		_, err := s.DB.Exec(`
-			UPDATE friend_requests 
-			SET status = 'rejected' 
-			WHERE requester_id = ? AND recipient_id = ? AND status = 'pending'`,
-			requesterIDInt, recipientIDInt)
-		if err != nil {
-			return nil, fmt.Errorf("failed to update friend request status to rejected: %w", err)
-		}
-
-		return &friends.RespondToFriendRequestResponse{
-			Success: true,
-			Message: "Friend request rejected successfully",
+	if rowsAffected != 1 {
+		// No rows were affected, indicating that the request does not exist or is not pending
+		return &friends.AcceptFriendRequestResponse{
+			Status:    friends.FriendRequestStatus_FAILED,
+			Message:   "Friend request does not exist or is not pending",
+			Timestamp: timestamppb.Now(),
 		}, nil
 	}
-}
 
-// GetFriend handles fetching a specific friend's details.
-func (s *FriendsServer) GetFriend(ctx context.Context, req *friends.GetFriendRequest) (*friends.GetFriendResponse, error) {
-	s.Logger.Infof("Fetching friend details for friend ID: %s", req.FriendId)
+	// Step 3: Retrieve the requester ID from the friend request
+	var requesterID int
+	err = s.DB.QueryRow(`SELECT requester_id FROM friend_requests WHERE id = ?`, req.RequestId).Scan(&requesterID)
+	if err != nil {
+		return nil, fmt.Errorf("error retrieving requester ID: %w", err)
+	}
 
-	// Mock implementation
-	return &friends.GetFriendResponse{
-		Success: true,
-		Message: "Friend details fetched successfully",
-		Friend: &friends.Friend{
-			Id:       req.FriendId,
-			Username: "MockFriend",
-			Status:   "offline",
-			AddedAt:  "2024-01-01T00:00:00Z",
-		},
+	// Step 4: Insert the new friendship into the friends table
+	_, err = s.DB.Exec(`
+		INSERT INTO friends (user_id, friend_id, created_at) VALUES (?, ?, NOW()), (?, ?, NOW())`,
+		userIDInt, requesterID, requesterID, userIDInt)
+
+	if err != nil {
+		return nil, fmt.Errorf("error inserting into friends table: %w", err)
+	}
+
+	// Step 5: Return a successful response
+	return &friends.AcceptFriendRequestResponse{
+		Status:    friends.FriendRequestStatus_ACCEPTED,
+		Message:   "Friend request accepted successfully",
+		Timestamp: timestamppb.Now(),
 	}, nil
 }
 
-// GetFriends handles fetching all friends for the user.
-func (s *FriendsServer) GetFriends(ctx context.Context, req *friends.GetFriendsRequest) (*friends.GetFriendsResponse, error) {
-	s.Logger.Info("Fetching all friends")
+// GetIncomingFriendRequests retrieves the incoming friend requests for the user.
+func (s *FriendsServer) GetIncomingFriendRequests(ctx context.Context, req *friends.GetIncomingFriendRequestsRequest) (*friends.GetIncomingFriendRequestsResponse, error) {
+	// Retrieve the user ID from the context (e.g., extracted from the token)
+	userID, ok := ctx.Value("userID").(string)
+	if !ok || userID == "" {
+		return nil, fmt.Errorf("user ID not found in context")
+	}
 
-	// Mock implementation
-	return &friends.GetFriendsResponse{
-		Success: true,
-		Message: "Friends fetched successfully",
-		Friends: []*friends.Friend{}, // Empty list for now
+	// Convert userID from string to int
+	userIDInt, err := strconv.Atoi(userID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid user ID format: %w", err)
+	}
+
+	// Query to get all incoming friend requests for this user
+	rows, err := s.DB.Query(`
+        SELECT id, requester_id, recipient_id, status, created_at
+        FROM friend_requests
+        WHERE recipient_id = ? AND status = ?`, userIDInt, storage.StatusPending)
+	if err != nil {
+		return nil, fmt.Errorf("error fetching incoming friend requests: %w", err)
+	}
+	defer rows.Close()
+
+	// Prepare the response
+	var incomingRequests []*friends.FriendRequest
+	for rows.Next() {
+		var friendReq friends.FriendRequest
+		var createdAt time.Time
+		var status string
+
+		if err := rows.Scan(&friendReq.RequestId, &friendReq.SenderId, &friendReq.RecipientId, &status, &createdAt); err != nil {
+			return nil, fmt.Errorf("error scanning friend request row: %w", err)
+		}
+
+		// Convert status to enum and time to protobuf timestamp
+		friendReq.Status = friends.FriendRequestStatus(friends.FriendRequestStatus_value[status])
+		friendReq.CreatedAt = timestamppb.New(createdAt)
+
+		incomingRequests = append(incomingRequests, &friendReq)
+	}
+
+	return &friends.GetIncomingFriendRequestsResponse{
+		IncomingRequests: incomingRequests,
 	}, nil
 }
 
-// RemoveFriend handles removing a friend.
-func (s *FriendsServer) RemoveFriend(ctx context.Context, req *friends.RemoveFriendRequest) (*friends.RemoveFriendResponse, error) {
-	s.Logger.Infof("Removing friend with ID: %s", req.FriendId)
+// GetOutgoingFriendRequests retrieves the outgoing friend requests sent by the user.
+func (s *FriendsServer) GetOutgoingFriendRequests(ctx context.Context, req *friends.GetOutgoingFriendRequestsRequest) (*friends.GetOutgoingFriendRequestsResponse, error) {
+	// Retrieve the user ID from the context (e.g., extracted from the token)
+	userID, ok := ctx.Value("userID").(string)
+	if !ok || userID == "" {
+		return nil, fmt.Errorf("user ID not found in context")
+	}
 
-	// Mock implementation
-	return &friends.RemoveFriendResponse{Success: true, Message: "Friend removed successfully"}, nil
+	// Convert userID from string to int
+	userIDInt, err := strconv.Atoi(userID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid user ID format: %w", err)
+	}
+
+	// Query to get all outgoing friend requests for this user
+	rows, err := s.DB.Query(`
+        SELECT id, requester_id, recipient_id, status, created_at
+        FROM friend_requests
+        WHERE requester_id = ? AND status = ?`, userIDInt, storage.StatusPending)
+	if err != nil {
+		return nil, fmt.Errorf("error fetching outgoing friend requests: %w", err)
+	}
+	defer rows.Close()
+
+	// Prepare the response
+	var outgoingRequests []*friends.FriendRequest
+	for rows.Next() {
+		var friendReq friends.FriendRequest
+		var createdAt time.Time
+		var status string
+
+		if err := rows.Scan(&friendReq.RequestId, &friendReq.SenderId, &friendReq.RecipientId, &status, &createdAt); err != nil {
+			return nil, fmt.Errorf("error scanning friend request row: %w", err)
+		}
+
+		// Convert status to enum and time to protobuf timestamp
+		friendReq.Status = friends.FriendRequestStatus(friends.FriendRequestStatus_value[status])
+		friendReq.CreatedAt = timestamppb.New(createdAt)
+
+		outgoingRequests = append(outgoingRequests, &friendReq)
+	}
+
+	return &friends.GetOutgoingFriendRequestsResponse{
+		OutgoingRequests: outgoingRequests,
+	}, nil
+}
+
+// GetFriendList retrieves the list of friends for the user.
+func (s *FriendsServer) GetFriendList(ctx context.Context, req *friends.GetFriendListRequest) (*friends.GetFriendListResponse, error) {
+	// Retrieve the user ID from the context (e.g., extracted from the token)
+	userID, ok := ctx.Value("userID").(string)
+	if !ok || userID == "" {
+		return nil, fmt.Errorf("user ID not found in context")
+	}
+
+	// Convert userID from string to int
+	userIDInt, err := strconv.Atoi(userID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid user ID format: %w", err)
+	}
+
+	// Query to get all friends for this user
+	rows, err := s.DB.Query(`
+        SELECT f.friend_id, u.username, u.status, u.last_active_at, f.created_at
+        FROM friends f
+        JOIN users u ON f.friend_id = u.id
+        WHERE f.user_id = ?`, userIDInt)
+	if err != nil {
+		return nil, fmt.Errorf("error fetching friend list: %w", err)
+	}
+	defer rows.Close()
+
+	// Prepare the response
+	var friendsList []*friends.Friend
+	for rows.Next() {
+		var friend friends.Friend
+		var lastActiveAt, addedAt time.Time
+
+		if err := rows.Scan(&friend.UserId, &friend.Username, &friend.Status, &lastActiveAt, &addedAt); err != nil {
+			return nil, fmt.Errorf("error scanning friend row: %w", err)
+		}
+
+		// Convert times to protobuf timestamps
+		friend.LastActiveAt = timestamppb.New(lastActiveAt)
+		friend.AddedAt = timestamppb.New(addedAt)
+
+		friendsList = append(friendsList, &friend)
+	}
+
+	return &friends.GetFriendListResponse{
+		Friends: friendsList,
+	}, nil
 }
