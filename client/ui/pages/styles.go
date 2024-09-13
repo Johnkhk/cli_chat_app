@@ -14,6 +14,7 @@ var (
 	noStyle             = lipgloss.NewStyle()
 	helpStyle           = blurredStyle
 	cursorModeHelpStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
+	errorMsgStyle       = lipgloss.NewStyle().Foreground(lipgloss.Color("196")) // Red color for error messages
 
 	// Logo Style
 	logoStyle = lipgloss.NewStyle().

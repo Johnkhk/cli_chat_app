@@ -8,8 +8,6 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 
-	// "github.com/charmbracelet/lipgloss"
-
 	"github.com/johnkhk/cli_chat_app/client/app"
 	"github.com/johnkhk/cli_chat_app/client/ui/ascii"
 )
@@ -17,14 +15,17 @@ import (
 type loginModel struct {
 	focusIndex int
 	inputs     []textinput.Model
+	buttons    []string
 	cursorMode cursor.Mode
 	rpcClient  *app.RpcClient
+	errorMsg   string
 }
 
-// NewloginModel initializes the login component
+// NewLoginModel initializes the login component
 func NewLoginModel(rpcClient *app.RpcClient) loginModel {
 	m := loginModel{
 		inputs:     make([]textinput.Model, 2),
+		buttons:    []string{"Submit", "Back"}, // Initialize buttons
 		cursorMode: cursor.CursorBlink,
 		rpcClient:  rpcClient,
 	}
@@ -58,22 +59,21 @@ func NewLoginModel(rpcClient *app.RpcClient) loginModel {
 func (m loginModel) Init() tea.Cmd {
 	return textinput.Blink
 }
-
 func (m loginModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	m.rpcClient.Logger.Infoln("Received message of type:", fmt.Sprintf("%T", msg)) // Log the message type
+
 	switch msg := msg.(type) {
 	case errMsg:
 		m.rpcClient.Logger.Errorln("Error logging in user:", msg.err)
-		// TODO show some error message to the user
+		m.errorMsg = msg.err.Error()
 		return m, nil
 	case logInRespMsg:
-		return NewFriendManagementModel(m.rpcClient), nil
-
+		return NewFriendManagementModel(m.rpcClient), tea.WindowSize()
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "ctrl+c", "esc":
 			return m, tea.Quit
 
-		// Set focus to next input or button
 		case "tab", "shift+tab", "enter", "up", "down":
 			s := msg.String()
 
@@ -83,44 +83,39 @@ func (m loginModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					// Log in user
 					return m, logInUserCmd(m.rpcClient, m.inputs[0].Value(), m.inputs[1].Value())
 				} else if m.focusIndex == len(m.inputs)+1 {
-					// go back to landing page
+					// Go back to the landing page
 					return NewLandingModel(m.rpcClient), nil
 				}
 			}
 
-			// Cycle indexes
+			// Update focus index without cycling
 			if s == "up" || s == "shift+tab" {
-				m.focusIndex--
-			} else {
-				m.focusIndex++
-			}
-
-			if m.focusIndex > len(m.inputs)+1 {
-				m.focusIndex = 0
-			} else if m.focusIndex < 0 {
-				m.focusIndex = len(m.inputs) + 1
+				if m.focusIndex > 0 {
+					m.focusIndex--
+				}
+			} else if s == "down" || s == "tab" {
+				if m.focusIndex < len(m.inputs)+len(m.buttons)-1 {
+					m.focusIndex++
+				}
 			}
 
 			cmds := make([]tea.Cmd, len(m.inputs))
-			for i := 0; i <= len(m.inputs)-1; i++ {
+			for i := 0; i < len(m.inputs); i++ {
 				if i == m.focusIndex {
-					// Set focused state
 					cmds[i] = m.inputs[i].Focus()
 					m.inputs[i].PromptStyle = focusedStyle
 					m.inputs[i].TextStyle = focusedStyle
-					continue
+				} else {
+					m.inputs[i].Blur()
+					m.inputs[i].PromptStyle = noStyle
+					m.inputs[i].TextStyle = noStyle
 				}
-				// Remove focused state
-				m.inputs[i].Blur()
-				m.inputs[i].PromptStyle = noStyle
-				m.inputs[i].TextStyle = noStyle
 			}
 
 			return m, tea.Batch(cmds...)
 		}
 	}
 
-	// Handle character input and blinking
 	cmd := m.updateInputs(msg)
 
 	return m, cmd
@@ -143,9 +138,9 @@ func (m loginModel) View() string {
 
 	// Render the title
 	b.WriteString(logoStyle.Render(ascii.Logo))
-	b.WriteString("\n\n") // Add some space after the title
+	b.WriteString("\n\n")
 	b.WriteString(titleStyle.Render("Login"))
-	b.WriteString("\n\n") // Add some space after the title
+	b.WriteString("\n\n")
 
 	// Render the inputs
 	for i := range m.inputs {
@@ -168,10 +163,11 @@ func (m loginModel) View() string {
 	fmt.Fprintf(&b, "\n\n%s\n\n", *submitButton)
 	fmt.Fprintf(&b, "%s\n\n", *backButton)
 
-	// // Render help text
-	// b.WriteString(helpStyle.Render("cursor mode is "))
-	// b.WriteString(cursorModeHelpStyle.Render(m.cursorMode.String()))
-	// b.WriteString(helpStyle.Render(" (ctrl+r to change style)"))
+	// Render error message if exists
+	if m.errorMsg != "" {
+		b.WriteString(errorMsgStyle.Render(m.errorMsg))
+	}
+
 	b.WriteString(helpStyle.Render("\nesc/ctrl+c: quit"))
 
 	return b.String()

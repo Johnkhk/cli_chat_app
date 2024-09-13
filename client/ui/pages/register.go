@@ -18,6 +18,7 @@ type registerModel struct {
 	buttons    []string
 	cursorMode cursor.Mode
 	rpcClient  *app.RpcClient
+	errorMsg   string // Add a field for the error message
 }
 
 // NewRegisterModel initializes the register component
@@ -60,12 +61,15 @@ func (m registerModel) Init() tea.Cmd {
 }
 
 func (m registerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	m.rpcClient.Logger.Infoln("Received message of type:", fmt.Sprintf("%T", msg)) // Log the message type
+
 	switch msg := msg.(type) {
 	case errMsg:
-		m.rpcClient.Logger.Errorln("Error registering user:", msg.err)
-		// TODO show some error message to the user
+		m.errorMsg = msg.err.Error() // Set the error message to display
 		return m, nil
+
 	case registerRespMsg:
+		m.rpcClient.Logger.Infof("User registered successfully: %s", m.inputs[0].Value())
 		// Go to log in page
 		return NewLoginModel(m.rpcClient), nil
 	case tea.KeyMsg:
@@ -82,7 +86,7 @@ func (m registerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if m.focusIndex == len(m.inputs) {
 					// Submit button logic here
 					username, pasword := m.inputs[0].Value(), m.inputs[1].Value()
-					return NewLoginModel(m.rpcClient), registerUserCmd(m.rpcClient, username, pasword)
+					return m, registerUserCmd(m.rpcClient, username, pasword)
 					// return m, tea.Quit
 				} else if m.focusIndex == len(m.inputs)+1 {
 					// Back button logic here
@@ -168,6 +172,11 @@ func (m registerModel) View() string {
 	fmt.Fprintf(&b, "\n\n%s\n\n", *submitButton)
 	fmt.Fprintf(&b, "%s\n\n", *backButton)
 
+	// Render error message if exists
+	if m.errorMsg != "" {
+		b.WriteString(errorMsgStyle.Render(m.errorMsg))
+	}
+
 	// Render help text
 	// b.WriteString(helpStyle.Render("cursor mode is "))
 	// b.WriteString(cursorModeHelpStyle.Render(m.cursorMode.String()))
@@ -181,7 +190,7 @@ func registerUserCmd(rpcClient *app.RpcClient, username, password string) tea.Cm
 	return func() tea.Msg {
 		err := rpcClient.AuthClient.RegisterUser(username, password)
 		if err != nil {
-			return errMsg{err}
+			return errMsg{err: err}
 		}
 		return registerRespMsg{}
 	}
