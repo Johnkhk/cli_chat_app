@@ -13,7 +13,7 @@ import (
 type RpcClient struct {
 	AuthClient    *AuthClient
 	FriendsClient *FriendsClient
-	conn          *grpc.ClientConn
+	Conn          *grpc.ClientConn
 	Logger        *logrus.Logger
 }
 
@@ -42,14 +42,14 @@ func NewRpcClient(serverAddress string, logger *logrus.Logger, tokenManager *Tok
 	return &RpcClient{
 		AuthClient:    authClient,
 		FriendsClient: friendsClient,
-		conn:          conn,
+		Conn:          conn,
 		Logger:        logger,
 	}, nil
 }
 
 // CloseConnections closes the shared gRPC connection.
 func (r *RpcClient) CloseConnections() {
-	if err := r.conn.Close(); err != nil {
+	if err := r.Conn.Close(); err != nil {
 		r.Logger.Errorf("Failed to close the connection: %v", err)
 	}
 }

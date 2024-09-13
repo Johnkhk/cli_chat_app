@@ -60,7 +60,7 @@ func InitBufconn(t *testing.T, serverConfig TestServerConfig) (*grpc.ClientConn,
 	auth.RegisterAuthServiceServer(s, authServer)
 
 	friendsServer := app.NewFriendsServer(db, serverConfig.Log)
-	friends.RegisterFriendsServiceServer(s, friendsServer)
+	friends.RegisterFriendManagementServer(s, friendsServer)
 
 	// Start serving the in-memory server
 	go func() {

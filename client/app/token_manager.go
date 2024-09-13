@@ -93,34 +93,88 @@ func (tm *TokenManager) ReadTokens() (string, string, error) {
 	return accessToken, refreshToken, nil
 }
 
-// Helper function to check if a token is expired by decoding the JWT payload.
+// // Helper function to check if a token is expired by decoding the JWT payload.
+// func IsTokenExpired(tokenString string) (bool, error) {
+// 	// Split the JWT into its parts: header, payload, signature
+// 	parts := strings.Split(tokenString, ".")
+// 	if len(parts) != 3 {
+// 		return true, fmt.Errorf("invalid token format: expected 3 parts but got %d", len(parts))
+// 	}
+
+// 	// Decode the payload part (Base64URL encoded)
+// 	payload, err := decodeSegment(parts[1])
+// 	if err != nil {
+// 		return true, fmt.Errorf("failed to decode token payload: %w", err)
+// 	}
+
+// 	// Define a struct with a custom Unmarshal function to handle both string and int
+// 	var claims struct {
+// 		Exp interface{} `json:"exp"` // Use interface{} to handle both int and string
+// 	}
+
+// 	// Parse the JSON payload to extract the "exp" field
+// 	if err := json.Unmarshal(payload, &claims); err != nil {
+// 		return true, fmt.Errorf("failed to unmarshal token claims: %w", err)
+// 	}
+
+// 	// Convert the "exp" field to int64, handling both string and int cases
+// 	var exp int64
+// 	switch v := claims.Exp.(type) {
+// 	case float64: // JSON numbers are unmarshaled as float64
+// 		exp = int64(v)
+// 	case string:
+// 		var err error
+// 		exp, err = strconv.ParseInt(v, 10, 64)
+// 		if err != nil {
+// 			return true, fmt.Errorf("failed to parse expiration time from string: %w", err)
+// 		}
+// 	default:
+// 		return true, fmt.Errorf("unexpected type for expiration time: %T", v)
+// 	}
+
+// 	// Check if the token is expired
+// 	expirationTime := time.Unix(exp, 0)
+// 	if expirationTime.Before(time.Now()) {
+// 		return true, nil // Token is expired
+// 	}
+
+//		return false, nil // Token is valid
+//	}
+//
+// Function hook for testing; points to the real implementation by default
+var IsTokenExpiredFunc = isTokenExpired
+
+// IsTokenExpired checks if a token is expired by decoding the JWT payload.
 func IsTokenExpired(tokenString string) (bool, error) {
-	// Split the JWT into its parts: header, payload, signature
+	fmt.Println("XDDDDDDDDDDDDDDDDDDDDDDDD")
+	// Call the hook function instead of the real implementation directly
+	return IsTokenExpiredFunc(tokenString)
+}
+
+// Actual implementation of token expiration check
+func isTokenExpired(tokenString string) (bool, error) {
+	// Your existing implementation
 	parts := strings.Split(tokenString, ".")
 	if len(parts) != 3 {
 		return true, fmt.Errorf("invalid token format: expected 3 parts but got %d", len(parts))
 	}
 
-	// Decode the payload part (Base64URL encoded)
 	payload, err := decodeSegment(parts[1])
 	if err != nil {
 		return true, fmt.Errorf("failed to decode token payload: %w", err)
 	}
 
-	// Define a struct with a custom Unmarshal function to handle both string and int
 	var claims struct {
-		Exp interface{} `json:"exp"` // Use interface{} to handle both int and string
+		Exp interface{} `json:"exp"`
 	}
 
-	// Parse the JSON payload to extract the "exp" field
 	if err := json.Unmarshal(payload, &claims); err != nil {
 		return true, fmt.Errorf("failed to unmarshal token claims: %w", err)
 	}
 
-	// Convert the "exp" field to int64, handling both string and int cases
 	var exp int64
 	switch v := claims.Exp.(type) {
-	case float64: // JSON numbers are unmarshaled as float64
+	case float64:
 		exp = int64(v)
 	case string:
 		var err error
@@ -132,13 +186,12 @@ func IsTokenExpired(tokenString string) (bool, error) {
 		return true, fmt.Errorf("unexpected type for expiration time: %T", v)
 	}
 
-	// Check if the token is expired
 	expirationTime := time.Unix(exp, 0)
 	if expirationTime.Before(time.Now()) {
-		return true, nil // Token is expired
+		return true, nil
 	}
 
-	return false, nil // Token is valid
+	return false, nil
 }
 
 // Helper function to decode a Base64URL-encoded segment.

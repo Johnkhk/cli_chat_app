@@ -12,6 +12,7 @@ import (
 
 	"github.com/johnkhk/cli_chat_app/client/app"
 	"github.com/johnkhk/cli_chat_app/genproto/auth"
+	"github.com/johnkhk/cli_chat_app/genproto/friends"
 )
 
 // NewDefaultTestServerConfig creates a TestServerConfig with default values
@@ -40,31 +41,21 @@ func (hook *TestFieldHook) Levels() []logrus.Level {
 	return logrus.AllLevels
 }
 
-// Helper function to initialize test resources with a test-specific logger
-func InitializeTestResources(t *testing.T, serverConfig *TestServerConfig) (*app.AuthClient, *sql.DB, func()) {
+// InitializeTestResources initializes the desired number of RpcClients for testing.
+func InitializeTestResources(t *testing.T, serverConfig *TestServerConfig, numClients int) ([]*app.RpcClient, *sql.DB, func()) {
 	// Use default server configuration if none provided
 	if serverConfig == nil {
 		serverConfig = NewDefaultTestServerConfig()
 	}
 
 	// Set up logger with test-specific details
-	// serverConfig.Log.SetReportCaller(true)
 	serverConfig.Log.SetFormatter(&logrus.TextFormatter{
-		FullTimestamp:   true,                  // Include full timestamp with date
-		TimestampFormat: "2006-01-02 15:04:05", // Custom date format
-		PadLevelText:    true,                  // Align log level text for better readability
-		ForceColors:     true,                  // Force colors even if the output is not a terminal
+		FullTimestamp:   true,
+		TimestampFormat: "2006-01-02 15:04:05",
+		PadLevelText:    true,
+		ForceColors:     true,
 	})
-
-	// Add a custom hook to add the test name to every log entry
 	serverConfig.Log.AddHook(&TestFieldHook{TestName: t.Name()})
-
-	// Generate a unique path for JWT tokens using the test name
-	tokenDir := filepath.Join(os.TempDir(), fmt.Sprintf(".test_cli_chat_app_%s", t.Name()))
-	filePath := filepath.Join(tokenDir, "jwt_tokens")
-
-	// Initialize the token manager with the unique path
-	tokenManager := app.NewTokenManager(filePath, nil)
 
 	// Generate a unique database name for each test if not set in serverConfig
 	if serverConfig.DbName == "default_test_db" {
@@ -74,27 +65,58 @@ func InitializeTestResources(t *testing.T, serverConfig *TestServerConfig) (*app
 	// Initialize Bufconn and test database with the unique database name
 	conn, db := InitBufconn(t, *serverConfig)
 
-	// Initialize the auth client with the shared connection
-	authClient := &app.AuthClient{
-		Client:       auth.NewAuthServiceClient(conn),
-		Logger:       serverConfig.Log, // Use the test-specific logger
-		TokenManager: tokenManager,
-	}
-	tokenManager.SetClient(authClient.Client)
+	// Slice to hold the RpcClients
+	var rpcClients []*app.RpcClient
 
-	// Define a cleanup function to close the connection, teardown the database, and remove the token directory
+	// Loop to initialize the desired number of RpcClients
+	for i := 0; i < numClients; i++ {
+		// Create a unique path for JWT tokens for each client
+		tokenDir := filepath.Join(os.TempDir(), fmt.Sprintf(".test_cli_chat_app_%s_client_%d", t.Name(), i))
+		filePath := filepath.Join(tokenDir, "jwt_tokens")
+
+		// Initialize the token manager with the unique path
+		tokenManager := app.NewTokenManager(filePath, nil)
+
+		// Initialize the auth client
+		authClient := &app.AuthClient{
+			Client:       auth.NewAuthServiceClient(conn),
+			Logger:       serverConfig.Log,
+			TokenManager: tokenManager,
+		}
+		tokenManager.SetClient(authClient.Client)
+
+		// Initialize the friends client
+		friendsClient := &app.FriendsClient{
+			Client: friends.NewFriendManagementClient(conn),
+			Logger: serverConfig.Log,
+		}
+
+		// Create the RpcClient and add it to the slice
+		rpcClient := &app.RpcClient{
+			AuthClient:    authClient,
+			FriendsClient: friendsClient,
+			Conn:          conn,
+			Logger:        serverConfig.Log,
+		}
+		rpcClients = append(rpcClients, rpcClient)
+	}
+
+	// Define a cleanup function to close the connection, teardown the database, and remove token directories
 	cleanup := func() {
 		conn.Close()
 		if err := TeardownTestDatabase(db, serverConfig.DbName); err != nil {
 			serverConfig.Log.Errorf("Failed to teardown test database: %v", err)
 		}
 
-		// Remove the JWT token directory created by the token manager
-		if err := os.RemoveAll(tokenDir); err != nil {
-			serverConfig.Log.Errorf("Failed to remove JWT token directory: %v", err)
+		// Remove the JWT token directories created for each client
+		for i := 0; i < numClients; i++ {
+			tokenDir := filepath.Join(os.TempDir(), fmt.Sprintf(".test_cli_chat_app_%s_client_%d", t.Name(), i))
+			if err := os.RemoveAll(tokenDir); err != nil {
+				serverConfig.Log.Errorf("Failed to remove JWT token directory for client %d: %v", i, err)
+			}
 		}
 	}
 
-	// Return initialized resources and cleanup function
-	return authClient, db, cleanup
+	// Return the initialized RpcClients, the database handle, and the cleanup function
+	return rpcClients, db, cleanup
 }
