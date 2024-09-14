@@ -100,3 +100,47 @@ func (c *FriendsClient) AcceptFriendRequest(requestID string) error {
 
 	return nil
 }
+
+// DeclineFriendRequest declines an incoming friend request.
+func (c *FriendsClient) DeclineFriendRequest(requestID string) error {
+	req := &friends.DeclineFriendRequestRequest{
+		RequestId: requestID,
+	}
+
+	resp, err := c.Client.DeclineFriendRequest(context.Background(), req)
+	if err != nil {
+		c.Logger.Errorf("Failed to decline friend request: %v", err)
+		return fmt.Errorf("failed to decline friend request: %w", err)
+	}
+
+	if resp.Status == friends.FriendRequestStatus_DECLINED {
+		c.Logger.Infof("Friend request declined successfully: %s", resp.Message)
+	} else {
+		c.Logger.Infof("Failed to decline friend request: %s", resp.Message)
+		return fmt.Errorf("failed to decline friend request: %s", resp.Message)
+	}
+
+	return nil
+}
+
+// RemoveFriend removes a friend from the user's friend list.
+func (c *FriendsClient) RemoveFriend(friendID string) error {
+	req := &friends.RemoveFriendRequest{
+		FriendId: friendID,
+	}
+
+	resp, err := c.Client.RemoveFriend(context.Background(), req)
+	if err != nil {
+		c.Logger.Errorf("Failed to remove friend: %v", err)
+		return fmt.Errorf("failed to remove friend: %w", err)
+	}
+
+	if resp.Success {
+		c.Logger.Infof("Friend removed successfully: %s", resp.Message)
+	} else {
+		c.Logger.Infof("Failed to remove friend: %s", resp.Message)
+		return fmt.Errorf("failed to remove friend: %s", resp.Message)
+	}
+
+	return nil
+}

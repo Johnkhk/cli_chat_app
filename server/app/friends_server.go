@@ -337,3 +337,93 @@ func (s *FriendsServer) GetFriendList(ctx context.Context, req *friends.GetFrien
 		Friends: friendsList,
 	}, nil
 }
+
+// DeclineFriendRequest handles declining a friend request.
+func (s *FriendsServer) DeclineFriendRequest(ctx context.Context, req *friends.DeclineFriendRequestRequest) (*friends.DeclineFriendRequestResponse, error) {
+	// Retrieve the user ID from the context
+	userID, ok := ctx.Value("userID").(string)
+	if !ok || userID == "" {
+		return nil, fmt.Errorf("user ID not found in context")
+	}
+
+	// Convert userID from string to int
+	userIDInt, err := strconv.Atoi(userID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid user ID format: %w", err)
+	}
+
+	// Step 1: Update the friend request status to "DECLINED" if it exists and is pending
+	res, err := s.DB.Exec(`UPDATE friend_requests SET status = ?, response_at = NOW() WHERE id = ? AND recipient_id = ? AND status = ?`,
+		storage.StatusDeclined, req.RequestId, userIDInt, storage.StatusPending)
+
+	if err != nil {
+		return nil, fmt.Errorf("error updating friend request status to declined: %w", err)
+	}
+
+	// Step 2: Check if exactly one row was affected by the update
+	rowsAffected, err := res.RowsAffected()
+	if err != nil {
+		return nil, fmt.Errorf("error checking affected rows: %w", err)
+	}
+
+	if rowsAffected != 1 {
+		// No rows were affected, indicating that the request does not exist or is not pending
+		return &friends.DeclineFriendRequestResponse{
+			Status:    friends.FriendRequestStatus_FAILED,
+			Message:   "Friend request does not exist or is not pending",
+			Timestamp: timestamppb.Now(),
+		}, nil
+	}
+
+	// Step 3: Return a successful response
+	return &friends.DeclineFriendRequestResponse{
+		Status:    friends.FriendRequestStatus_DECLINED,
+		Message:   "Friend request declined successfully",
+		Timestamp: timestamppb.Now(),
+	}, nil
+}
+
+// RemoveFriend handles removing a friend.
+func (s *FriendsServer) RemoveFriend(ctx context.Context, req *friends.RemoveFriendRequest) (*friends.RemoveFriendResponse, error) {
+	// Retrieve the user ID from the context
+	userID, ok := ctx.Value("userID").(string)
+	if !ok || userID == "" {
+		return nil, fmt.Errorf("user ID not found in context")
+	}
+
+	// Convert userID from string to int
+	userIDInt, err := strconv.Atoi(userID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid user ID format: %w", err)
+	}
+
+	// Step 1: Remove the friendship from the friends table
+	res, err := s.DB.Exec(`DELETE FROM friends WHERE (user_id = ? AND friend_id = ?) OR (user_id = ? AND friend_id = ?)`,
+		userIDInt, req.FriendId, req.FriendId, userIDInt)
+
+	if err != nil {
+		return nil, fmt.Errorf("error removing friend from friends table: %w", err)
+	}
+
+	// Step 2: Check if any rows were affected by the deletion
+	rowsAffected, err := res.RowsAffected()
+	if err != nil {
+		return nil, fmt.Errorf("error checking affected rows: %w", err)
+	}
+
+	if rowsAffected == 0 {
+		// No rows were affected, indicating that the friendship does not exist
+		return &friends.RemoveFriendResponse{
+			Success:   false,
+			Message:   "Friend does not exist or has already been removed",
+			Timestamp: timestamppb.Now(),
+		}, nil
+	}
+
+	// Step 3: Return a successful response
+	return &friends.RemoveFriendResponse{
+		Success:   true,
+		Message:   "Friend removed successfully",
+		Timestamp: timestamppb.Now(),
+	}, nil
+}

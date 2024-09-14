@@ -82,11 +82,11 @@ message DeclineFriendRequestResponse {
 
 // Messages for removing a friend
 message RemoveFriendRequest {
-    string friend_username = 1; // Friend's username to remove
+    string friend_id = 1; // Friend's username to remove
 }
 
 message RemoveFriendResponse {
-    FriendRequestStatus status = 1; // Status of the operation (e.g., "REMOVED", "FAILED")
+    bool success = 1; // Indicates if the removal was successful
     string message = 2; // Optional message for additional context
     google.protobuf.Timestamp timestamp = 3; // When the friend was removed
 }
