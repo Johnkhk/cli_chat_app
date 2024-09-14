@@ -1,6 +1,8 @@
 package app
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"os"
 	"time"
@@ -79,11 +81,20 @@ func generateAccessToken(userID int64, username string, expirationDuration time.
 		return "", fmt.Errorf("JWT secret key is not set")
 	}
 
+	// Generate minimal randomness: a single random byte
+	randomByte := make([]byte, 1) // 1 byte = 8 bits of randomness
+	_, err := rand.Read(randomByte)
+	if err != nil {
+		return "", fmt.Errorf("failed to generate random value: %v", err)
+	}
+	randomValue := hex.EncodeToString(randomByte) // Convert to a minimal hex string
 	// Define token claims using the user ID as the subject.
 	claims := jwt.MapClaims{
 		"sub":      fmt.Sprintf("%d", userID),                 // Use user ID as subject
 		"username": username,                                  // Add username to claims
 		"exp":      time.Now().Add(expirationDuration).Unix(), // Token expires based on the given duration
+		"nonce":    randomValue,                               // Add a minimal random claim to ensure uniqueness
+
 	}
 
 	// Create a new token object using the signing method and claims.
@@ -91,6 +102,7 @@ func generateAccessToken(userID int64, username string, expirationDuration time.
 
 	// Sign the token with your secret key.
 	accessToken, err := token.SignedString([]byte(secretKey))
+	fmt.Println("Access Token generated:", accessToken)
 	if err != nil {
 		return "", err
 	}
@@ -105,11 +117,19 @@ func generateRefreshToken(userID int64, username string, expirationDuration time
 		return "", fmt.Errorf("JWT secret key is not set")
 	}
 
+	// Generate minimal randomness: a single random byte
+	randomByte := make([]byte, 1) // 1 byte = 8 bits of randomness
+	_, err := rand.Read(randomByte)
+	if err != nil {
+		return "", fmt.Errorf("failed to generate random value: %v", err)
+	}
+	randomValue := hex.EncodeToString(randomByte) // Convert to a minimal hex string
 	// Define refresh token claims using the user ID as the subject.
 	claims := jwt.MapClaims{
 		"sub":      fmt.Sprintf("%d", userID),                 // Use user ID as subject
 		"username": username,                                  // Add username to claims
 		"exp":      time.Now().Add(expirationDuration).Unix(), // Refresh token expires based on the given duration
+		"nonce":    randomValue,                               // Add a minimal random claim to ensure uniqueness
 	}
 
 	// Create a new token object using the signing method and claims.
