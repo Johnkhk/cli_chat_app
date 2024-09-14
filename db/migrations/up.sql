@@ -24,7 +24,7 @@ CREATE TABLE friends (
     id SERIAL PRIMARY KEY,
     user_id INT NOT NULL, -- ID of the user
     friend_id INT NOT NULL, -- ID of the friend
-    added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, -- When the friendship was established
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, -- When the friendship was established
     FOREIGN KEY (user_id) REFERENCES users(id),
     FOREIGN KEY (friend_id) REFERENCES users(id),
     UNIQUE(user_id, friend_id) -- Ensure that each friendship is unique

@@ -95,9 +95,7 @@ message RemoveFriendResponse {
 message Friend {
     string user_id = 1;    // User ID of the friend
     string username = 2;   // Username of the friend
-    string status = 3;     // Status of the friend (e.g., "online", "offline")
-    google.protobuf.Timestamp last_active_at = 4; // Last active time of the friend
-    google.protobuf.Timestamp added_at = 5; // When the friend was added
+    google.protobuf.Timestamp added_at = 3; // When the friend was added
 }
 
 // Friend request information

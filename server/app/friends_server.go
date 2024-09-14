@@ -151,7 +151,7 @@ func (s *FriendsServer) AcceptFriendRequest(ctx context.Context, req *friends.Ac
 	}
 
 	// Step 1: Update the friend request status to "ACCEPTED" if it exists and is pending
-	res, err := s.DB.Exec(`UPDATE friend_requests SET status = ?, updated_at = NOW() WHERE id = ? AND recipient_id = ? AND status = ?`,
+	res, err := s.DB.Exec(`UPDATE friend_requests SET status = ?, response_at = NOW() WHERE id = ? AND recipient_id = ? AND status = ?`,
 		storage.StatusAccepted, req.RequestId, userIDInt, storage.StatusPending)
 
 	if err != nil {
@@ -307,7 +307,7 @@ func (s *FriendsServer) GetFriendList(ctx context.Context, req *friends.GetFrien
 
 	// Query to get all friends for this user
 	rows, err := s.DB.Query(`
-        SELECT f.friend_id, u.username, u.status, u.last_active_at, f.created_at
+        SELECT f.friend_id, u.username, f.created_at
         FROM friends f
         JOIN users u ON f.friend_id = u.id
         WHERE f.user_id = ?`, userIDInt)
@@ -320,14 +320,14 @@ func (s *FriendsServer) GetFriendList(ctx context.Context, req *friends.GetFrien
 	var friendsList []*friends.Friend
 	for rows.Next() {
 		var friend friends.Friend
-		var lastActiveAt, addedAt time.Time
+		var addedAt time.Time
 
-		if err := rows.Scan(&friend.UserId, &friend.Username, &friend.Status, &lastActiveAt, &addedAt); err != nil {
+		// Scan the required fields
+		if err := rows.Scan(&friend.UserId, &friend.Username, &addedAt); err != nil {
 			return nil, fmt.Errorf("error scanning friend row: %w", err)
 		}
 
-		// Convert times to protobuf timestamps
-		friend.LastActiveAt = timestamppb.New(lastActiveAt)
+		// Convert `added_at` to protobuf timestamp
 		friend.AddedAt = timestamppb.New(addedAt)
 
 		friendsList = append(friendsList, &friend)
