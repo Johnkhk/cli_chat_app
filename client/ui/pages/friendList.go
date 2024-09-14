@@ -1,6 +1,9 @@
 package pages
 
 import (
+	"fmt"
+	"strings"
+
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/johnkhk/cli_chat_app/client/app"
@@ -23,21 +26,37 @@ func (m friendListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case FriendListMsg:
 		if msg.Err != nil {
-			// Handle error (e.g., log it or display a message)
 			m.rpcClient.Logger.Errorf("Error fetching friend list: %v", msg.Err)
 		} else {
 			m.rpcClient.Logger.Infof("Received friend list: %v", msg.Friends)
 			m.friendList = msg.Friends
 		}
+		// case tea.KeyMsg:
+		// 	switch msg.String() {
+		// 	case "d":
+		// 		selectedFriendID := ... // Logic to get selected friend
+		// 		cmd = func() tea.Msg {
+		// 			return RemoveFriendMsg{FriendID: selectedFriendID}
+		// 		}
+		// 		return m, cmd
+		// 	}
+
 	}
+
 	return m, nil
 }
 
-// View function to render the model
 func (m friendListModel) View() string {
-	// Convert the friend list to a single string with each friend on a new line
-	// return fmt.Sprintf("Friends:\n%s", strings.Join(m.friendList, "\n"))
-	return "Friend List View" // Placeholder for actual rendering logic
+	if len(m.friendList) == 0 {
+		return "You have no friends yet."
+	}
+
+	var b strings.Builder
+	b.WriteString("Friends:\n")
+	for _, friend := range m.friendList {
+		b.WriteString(fmt.Sprintf("- %s\n", friend.Username)) // Adjust field as necessary
+	}
+	return b.String()
 }
 
 // NewFriendListModel function to create and return a new friend list model

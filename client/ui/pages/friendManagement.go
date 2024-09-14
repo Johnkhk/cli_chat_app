@@ -1,154 +1,4 @@
-// package pages
-
-// import (
-// 	"strings"
-//
-
-// 	tea "github.com/charmbracelet/bubbletea"
-// 	"github.com/charmbracelet/lipgloss"
-
-// 	"github.com/johnkhk/cli_chat_app/client/app"
-// )
-
-// // FriendManagementModel structure with terminal size fields and state
-// type FriendManagementModel struct {
-// 	rpcClient      *app.RpcClient
-// 	terminalWidth  int
-// 	terminalHeight int
-// 	activeTab      int
-// 	tabs           []string
-// 	tabContent     []tea.Model
-// }
-
-// // Initialize the main menu model with tabs
-// func NewFriendManagementModel(rpcClient *app.RpcClient) FriendManagementModel {
-// 	// Create dummy models for the tab contents
-// 	friendListModel := NewFriendListModel(rpcClient)
-// 	outgoingModel := NewOutgoingRequestsModel(rpcClient)
-// 	incomingModel := NewIncomingRequestsModel(rpcClient)
-
-// 	return FriendManagementModel{
-// 		rpcClient:  rpcClient,
-// 		tabs:       []string{"Friends", "Incoming", "Outgoing"},
-// 		activeTab:  0,                                                             // Default to the first tab (Chat)
-// 		tabContent: []tea.Model{&friendListModel, &incomingModel, &outgoingModel}, // Store friendsModel as a pointer
-// 	}
-// }
-
-// // Update function for main menu to handle key inputs and window resizing
-// func (m FriendManagementModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-// 	var cmd tea.Cmd
-// 	var cmds []tea.Cmd
-
-// 	switch msg := msg.(type) {
-// 	case tea.WindowSizeMsg:
-// 		// Handle window resizing
-// 		m.terminalWidth = msg.Width
-// 		m.terminalHeight = msg.Height
-
-// 	case tea.KeyMsg:
-// 		// Handle key inputs
-// 		switch keypress := msg.String(); keypress {
-// 		case "ctrl+c", "q":
-// 			m.rpcClient.Logger.Info("Exiting the application from main menu")
-// 			return m, tea.Quit
-
-// 		case "tab":
-// 			m.activeTab = min(m.activeTab+1, len(m.tabs)-1)
-
-// 		case "shift+tab":
-// 			m.activeTab = max(m.activeTab-1, 0)
-// 		}
-// 	}
-
-// 	// Update the currently active tab's content
-// 	updatedModel, subCmd := m.tabContent[m.activeTab].Update(msg)
-// 	if updatedContent, ok := updatedModel.(tea.Model); ok {
-// 		m.tabContent[m.activeTab] = updatedContent
-// 	}
-// 	cmds = append(cmds, subCmd)
-
-// 	// Combine all commands using tea.Batch
-// 	cmd = tea.Batch(cmds...)
-
-// 	return m, cmd
-// }
-
-// // View function renders the Main Menu UI with tabs
-// func (m FriendManagementModel) View() string {
-// 	doc := strings.Builder{}
-
-// 	// Render the tabs
-// 	var renderedTabs []string
-// 	for i, t := range m.tabs {
-// 		var style lipgloss.Style
-// 		isFirst, isLast, isActive := i == 0, i == len(m.tabs)-1, i == m.activeTab
-// 		if isActive {
-// 			style = activeTabStyle
-// 		} else {
-// 			style = inactiveTabStyle
-// 		}
-
-// 		// Adjust borders for the tabs
-// 		border, _, _, _, _ := style.GetBorder()
-// 		if isFirst && isActive {
-// 			border.BottomLeft = "│"
-// 		} else if isFirst && !isActive {
-// 			border.BottomLeft = "├"
-// 			// border.BottomLeft = "│"
-
-// 		} else if isLast && isActive {
-// 			// border.BottomRight = "┐" // Adjust to match content window's top corner
-// 			border.BottomRight = "│" // Adjust to match content window's top corner
-
-// 		} else if isLast && !isActive {
-// 			border.BottomRight = "┤"
-// 		}
-// 		style = style.Border(border)
-// 		renderedTabs = append(renderedTabs, style.Width(m.terminalWidth/len(m.tabs)-5).Render(t))
-// 		// renderedTabs = append(renderedTabs, style.Width(m.terminalWidth/len(m.tabs)).Margin(4, 4).Render(t))
-// 	}
-
-// 	// Combine the rendered tabs into a single row
-// 	row := lipgloss.JoinHorizontal(lipgloss.Top, renderedTabs...)
-// 	doc.WriteString(row)
-// 	doc.WriteString("\n")
-
-// 	// Calculate available width and height for child components
-// 	availableWidth := (lipgloss.Width(row) - windowStyle.GetHorizontalFrameSize())
-// 	availableHeight := m.terminalHeight - 5 // Adjust height as needed
-
-// 	// Render the content of the active tab within the calculated dimensions
-// 	doc.WriteString(
-// 		windowStyle.
-// 			Width(availableWidth).
-// 			Height(availableHeight).
-// 			Render(m.tabContent[m.activeTab].View()),
-// 	)
-
-// 	return docStyle.Align(lipgloss.Center).Width(m.terminalWidth).Height(m.terminalHeight).
-// 		Render(doc.String())
-// }
-
-// // Init function initializes the main menu model
-// func (m FriendManagementModel) Init() tea.Cmd {
-// 	return nil
-// }
-
-// // Helper functions for min and max
-// func max(a, b int) int {
-// 	if a > b {
-// 		return a
-// 	}
-// 	return b
-// }
-
-// func min(a, b int) int {
-// 	if a < b {
-// 		return a
-// 	}
-// 	return b
-// }
+// friend_management.go
 
 package pages
 
@@ -192,7 +42,6 @@ func (m FriendManagementModel) Init() tea.Cmd {
 }
 
 func (m FriendManagementModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	var cmd tea.Cmd
 	var cmds []tea.Cmd
 
 	switch msg := msg.(type) {
@@ -207,12 +56,15 @@ func (m FriendManagementModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 
 		case "tab":
-			m.activeTab = min(m.activeTab+1, len(m.tabs)-1)
+			m.activeTab = (m.activeTab + 1) % len(m.tabs)
 
 		case "shift+tab":
-			m.activeTab = max(m.activeTab-1, 0)
+			m.activeTab = (m.activeTab - 1 + len(m.tabs)) % len(m.tabs)
+		default:
+			m.rpcClient.Logger.Infoln("Using mah boi", keypress)
 		}
 
+	// Data messages: pass to child models
 	case FriendListMsg:
 		updatedModel, subCmd := m.tabContent[0].Update(msg)
 		m.tabContent[0] = updatedModel
@@ -227,8 +79,62 @@ func (m FriendManagementModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		updatedModel, subCmd := m.tabContent[2].Update(msg)
 		m.tabContent[2] = updatedModel
 		cmds = append(cmds, subCmd)
-	}
 
+	// Action messages: execute commands
+	case SendFriendRequestMsg:
+		cmd := sendFriendRequestCmd(m.rpcClient, msg.RecipientUsername)
+		cmds = append(cmds, cmd)
+
+	case AcceptFriendRequestMsg:
+		cmd := acceptFriendRequestCmd(m.rpcClient, msg.RequestID)
+		cmds = append(cmds, cmd)
+
+	case DeclineFriendRequestMsg:
+		cmd := declineFriendRequestCmd(m.rpcClient, msg.RequestID)
+		cmds = append(cmds, cmd)
+
+	case RemoveFriendMsg:
+		cmd := removeFriendCmd(m.rpcClient, msg.FriendID)
+		cmds = append(cmds, cmd)
+
+	// Result messages: handle outcomes
+	case SendFriendRequestResultMsg:
+		if msg.Err != nil {
+			m.rpcClient.Logger.Error("Failed to send friend request:", msg.Err)
+			// Optionally, notify the child model or display an error
+		} else {
+			// Refresh outgoing friend requests
+			cmds = append(cmds, fetchOutgoingFriendRequestsCmd(m.rpcClient))
+		}
+
+	case AcceptFriendRequestResultMsg:
+		if msg.Err != nil {
+			m.rpcClient.Logger.Error("Failed to accept friend request:", msg.Err)
+			// Optionally, notify the child model or display an error
+		} else {
+			// Refresh friend list and incoming requests
+			cmds = append(cmds, fetchFriendListCmd(m.rpcClient))
+			cmds = append(cmds, fetchIncomingFriendRequestsCmd(m.rpcClient))
+		}
+
+	case DeclineFriendRequestResultMsg:
+		if msg.Err != nil {
+			m.rpcClient.Logger.Error("Failed to decline friend request:", msg.Err)
+			// Optionally, notify the child model or display an error
+		} else {
+			// Refresh incoming requests
+			cmds = append(cmds, fetchIncomingFriendRequestsCmd(m.rpcClient))
+		}
+
+	case RemoveFriendResultMsg:
+		if msg.Err != nil {
+			m.rpcClient.Logger.Error("Failed to remove friend:", msg.Err)
+			// Optionally, notify the child model or display an error
+		} else {
+			// Refresh friend list
+			cmds = append(cmds, fetchFriendListCmd(m.rpcClient))
+		}
+	}
 	// Update the currently active tab's content
 	updatedModel, subCmd := m.tabContent[m.activeTab].Update(msg)
 	if updatedContent, ok := updatedModel.(tea.Model); ok {
@@ -236,9 +142,7 @@ func (m FriendManagementModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 	cmds = append(cmds, subCmd)
 
-	cmd = tea.Batch(cmds...)
-
-	return m, cmd
+	return m, tea.Batch(cmds...)
 }
 
 func (m FriendManagementModel) View() string {

@@ -1,7 +1,8 @@
+// outgoing_requests_model.go
+
 package pages
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/table"
@@ -17,11 +18,6 @@ var baseStyle = lipgloss.NewStyle().
 	BorderStyle(lipgloss.NormalBorder()).
 	BorderForeground(lipgloss.Color("240"))
 
-type friendAddedMsg struct {
-	Success bool
-	Message string
-}
-
 type outgoingRequestsModel struct {
 	outgoingRequests  []*friends.FriendRequest
 	sentRequestsTable table.Model
@@ -32,15 +28,12 @@ type outgoingRequestsModel struct {
 
 func NewOutgoingRequestsModel(rpcClient *app.RpcClient) outgoingRequestsModel {
 	columns := []table.Column{
-		{Title: "Name", Width: 20},
+		{Title: "Recipient", Width: 20},
 		{Title: "Status", Width: 30},
 	}
 
-	rows := []table.Row{
-		{"Alice", "Pending"},
-		{"Bob", "Pending"},
-		{"Charlie", "Pending"},
-	}
+	// Initially empty rows
+	rows := []table.Row{}
 
 	t := table.New(
 		table.WithColumns(columns),
@@ -84,69 +77,88 @@ func (m outgoingRequestsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case OutgoingFriendRequestsMsg:
 		if msg.Err != nil {
-			// Handle error (e.g., log it or display a message)
-			m.rpcClient.Logger.Errorf("Error fetching incoming friend requests: %v", msg.Err)
+			m.rpcClient.Logger.Errorf("Error fetching outgoing friend requests: %v", msg.Err)
 		} else {
 			m.rpcClient.Logger.Infof("Received outgoing friend requests: %v", msg.Requests)
 			m.outgoingRequests = msg.Requests
+
+			// Update the table rows
+			rows := make([]table.Row, len(msg.Requests))
+			for i, request := range msg.Requests {
+				rows[i] = table.Row{request.RecipientId, "Pending"}
+			}
+			m.sentRequestsTable.SetRows(rows)
 		}
+
+	case SendFriendRequestResultMsg:
+		if msg.Err != nil {
+			m.rpcClient.Logger.Errorf("Failed to send friend request to %s: %v", msg.RecipientUsername, msg.Err)
+			// Optionally, display an error message in the UI
+		} else {
+			// Optionally, handle success (the parent model will refresh the data)
+		}
+
 	case tea.KeyMsg:
 		if m.showInput {
-			m.textInput, cmd = m.textInput.Update(msg)
-			if msg.String() == "enter" {
+			var tiCmd tea.Cmd
+			m.textInput, tiCmd = m.textInput.Update(msg)
+			cmd = tea.Batch(cmd, tiCmd)
+			switch msg.String() {
+			case "enter":
 				newFriendName := m.textInput.Value()
+				m.textInput.Blur()
+				m.sentRequestsTable.Focus()
+				m.showInput = false
 				if newFriendName != "" {
-					m.showInput = false
-					cmd = addFriendCmd(m.rpcClient, newFriendName)
+					cmd = tea.Batch(cmd, func() tea.Msg {
+						return SendFriendRequestMsg{RecipientUsername: newFriendName}
+					})
 					m.textInput.SetValue("")
 					return m, cmd
 				}
+				return m, cmd
+			case "esc":
+				m.textInput.Blur()
+				m.sentRequestsTable.Focus()
 				m.showInput = false
-				return m, nil
-			} else if msg.String() == "esc" {
-				m.showInput = false
-				return m, nil
+				return m, cmd
+			default:
+				return m, cmd
 			}
-			return m, cmd
-		}
-
-		switch msg.String() {
-		case "a":
-			m.showInput = true
-			m.textInput.Focus()
-			return m, textinput.Blink
-		case "q", "ctrl+c":
-			return m, tea.Quit
-		case "enter":
-			return m, tea.Batch(
-				tea.Printf("Selected: %s", m.sentRequestsTable.SelectedRow()[0]),
-			)
-		}
-	case friendAddedMsg:
-		if msg.Success {
-			newRow := table.Row{msg.Message, fmt.Sprintf("%s is a new friend", msg.Message)}
-			oldRows := m.sentRequestsTable.Rows()
-			m.sentRequestsTable.SetRows(append(oldRows, newRow))
-
 		} else {
-			// fmt.Printf("Failed to add friend: %s\n", msg.Message)
+			switch msg.String() {
+			case "a":
+				m.showInput = true
+				m.textInput.Focus()
+				m.sentRequestsTable.Blur()
+				return m, textinput.Blink
+			case "q", "ctrl+c":
+				return m, tea.Quit
+			default:
+				var tableCmd tea.Cmd
+				m.sentRequestsTable, tableCmd = m.sentRequestsTable.Update(msg)
+				cmd = tea.Batch(cmd, tableCmd)
+				return m, cmd
+			}
 		}
-		return m, nil
+
+	default:
+		// Update the table or text input with other messages
+		if m.showInput {
+			var tiCmd tea.Cmd
+			m.textInput, tiCmd = m.textInput.Update(msg)
+			cmd = tea.Batch(cmd, tiCmd)
+		} else {
+			var tableCmd tea.Cmd
+			m.sentRequestsTable, tableCmd = m.sentRequestsTable.Update(msg)
+			cmd = tea.Batch(cmd, tableCmd)
+		}
 	}
 
-	if m.showInput {
-		m.textInput, cmd = m.textInput.Update(msg)
-	} else {
-		m.sentRequestsTable, cmd = m.sentRequestsTable.Update(msg)
-	}
 	return m, cmd
 }
 
 func (m outgoingRequestsModel) View() string {
-	// if m.showInput {
-	// 	return baseStyle.Render(m.sentRequests.View()) + "\n" + m.textInput.View()
-	// }
-	// return baseStyle.Render(m.sentRequests.View()) + "\n[ Press 'a' to Add Friend ]"
 	var view strings.Builder
 
 	// Title for the sent requests table
@@ -163,14 +175,4 @@ func (m outgoingRequestsModel) View() string {
 	}
 
 	return view.String()
-}
-
-func addFriendCmd(rpcClient *app.RpcClient, username string) tea.Cmd {
-	return func() tea.Msg {
-		err := rpcClient.FriendsClient.SendFriendRequest(username)
-		if err != nil {
-			return friendAddedMsg{Success: false, Message: err.Error()}
-		}
-		return friendAddedMsg{Success: true, Message: username}
-	}
 }
