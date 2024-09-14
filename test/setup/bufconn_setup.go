@@ -15,6 +15,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/test/bufconn"
 
+	client "github.com/johnkhk/cli_chat_app/client/app"
 	"github.com/johnkhk/cli_chat_app/genproto/auth"
 	"github.com/johnkhk/cli_chat_app/genproto/friends"
 	"github.com/johnkhk/cli_chat_app/server/app"
@@ -29,6 +30,7 @@ type TestServerConfig struct {
 	Log                  *logrus.Logger
 	AccessTokenDuration  time.Duration
 	RefreshTokenDuration time.Duration
+	TimeProvider         client.TimeProvider
 }
 
 // InitTestServer initializes the in-memory gRPC server and the test database.

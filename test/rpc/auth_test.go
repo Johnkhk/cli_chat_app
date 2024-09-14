@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/johnkhk/cli_chat_app/client/app"
+	"github.com/johnkhk/cli_chat_app/test"
 	"github.com/johnkhk/cli_chat_app/test/setup"
 )
 
@@ -65,22 +65,27 @@ func TestRegisterLoginFlow(t *testing.T) {
 	}
 }
 
-// Test token expiration and refresh
-// If you have no tokens/both expired, the only way to get tokens is to login
-// If you have an expired access token, you can refresh it on any request
-// Only way to get a new refresh token is to login
+// / TestTokenExpirationAndRefresh tests the token expiration and refresh functionality.
+// It verifies that tokens expire correctly and can be refreshed appropriately.
+// If you have no tokens or both are expired, the only way to get tokens is to login.
+// If you have an expired access token, you can refresh it on any request.
+// The only way to get a new refresh token is to login.
 func TestTokenExpirationAndRefresh(t *testing.T) {
 	t.Parallel() // Allow this test to run in parallel
 
-	// Create a custom server configuration with a shorter access token duration for testing
+	// Create a mock time provider
+	mockTime := &test.MockTimeProvider{CurrentTime: time.Now()}
+
+	// Create a custom server configuration with your desired token durations
 	customConfig := setup.NewDefaultTestServerConfig()
-	customConfig.AccessTokenDuration = time.Second * 6   // Set a very short access token duration (5 seconds)
-	customConfig.RefreshTokenDuration = time.Second * 15 // Set a short refresh token duration (1 minute)
+	customConfig.AccessTokenDuration = time.Minute * 15    // Access token valid for 15 minutes
+	customConfig.RefreshTokenDuration = time.Hour * 24 * 7 // Refresh token valid for 7 days
+	customConfig.TimeProvider = mockTime                   // Inject the mock time provider
 
 	// Initialize resources with the custom server configuration
 	rpcClients, _, cleanup := setup.InitializeTestResources(t, customConfig, 1)
-	rpcClient := rpcClients[0]
 	defer cleanup()
+	rpcClient := rpcClients[0]
 	log := rpcClient.Logger
 
 	// Register and login the user
@@ -96,9 +101,9 @@ func TestTokenExpirationAndRefresh(t *testing.T) {
 		t.Fatalf("Failed to login user: %v", err)
 	}
 
-	// Sleep to allow the access token to expire
-	log.Infof("Waiting for the access token to expire")
-	time.Sleep(customConfig.AccessTokenDuration + time.Second*3) // Wait for 6 seconds to ensure the access token has expired
+	// Advance time to allow the access token to expire
+	log.Infof("Advancing time to expire the access token")
+	mockTime.Advance(customConfig.AccessTokenDuration + time.Minute*30) // Advance time past the access token expiration
 
 	// Make sure the access token is expired but not the refresh token
 	accessToken, refreshToken, err := rpcClient.AuthClient.TokenManager.ReadTokens()
@@ -107,11 +112,12 @@ func TestTokenExpirationAndRefresh(t *testing.T) {
 	}
 
 	// Check if the access token is expired
-	if expired, err := app.IsTokenExpired(accessToken); err != nil || !expired {
+	if expired, err := rpcClient.AuthClient.TokenManager.IsTokenExpired(accessToken); err != nil || !expired {
 		t.Fatalf("Access token should be expired, got err: %v", err)
 	}
+
 	// Check if the refresh token is still valid
-	if expired, err := app.IsTokenExpired(refreshToken); err != nil || expired {
+	if expired, err := rpcClient.AuthClient.TokenManager.IsTokenExpired(refreshToken); err != nil || expired {
 		t.Fatalf("Refresh token should not be expired, got err: %v", err)
 	}
 
@@ -124,29 +130,39 @@ func TestTokenExpirationAndRefresh(t *testing.T) {
 
 	// Check that both tokens are now valid
 	newAccessToken, newRefreshToken, err := rpcClient.AuthClient.TokenManager.ReadTokens()
+	if err != nil {
+		t.Fatalf("Failed to read new tokens: %v", err)
+	}
 
+	fmt.Printf("New Access Token: %s\nOld Access Token: %s\n\n", newAccessToken, accessToken)
+	fmt.Printf("New Refresh Token: %s\nOld Refresh Token: %s\n\n", newRefreshToken, refreshToken)
+	fmt.Printf("==? %v ==? %v\n", newAccessToken == accessToken, newRefreshToken == refreshToken)
 	// Check that new tokens have replaced the old ones
 	if accessToken == newAccessToken || refreshToken == newRefreshToken {
 		t.Fatalf("New tokens should have replaced the old ones")
 	}
 
-	// Check if the access token is expired
-	if expired, err := app.IsTokenExpired(newAccessToken); err != nil || expired {
-		t.Fatalf("Access token should be not be expired since it was refreshed, got err: %v", err)
+	// Unadvance time back to the current time
+	log.Infof("Unadvancing time to current time")
+	mockTime.Advance(-customConfig.AccessTokenDuration - time.Minute*30) // Reset time to current
+	// Check if the new access token is not expired
+	if expired, err := rpcClient.AuthClient.TokenManager.IsTokenExpired(newAccessToken); err != nil || expired {
+		t.Fatalf("Access token should not be expired since it was refreshed, got err: %v", err)
 	}
-	// Check if the refresh token is still valid
-	if expired, err := app.IsTokenExpired(newRefreshToken); err != nil || expired {
+
+	// Check if the new refresh token is still valid
+	if expired, err := rpcClient.AuthClient.TokenManager.IsTokenExpired(newRefreshToken); err != nil || expired {
 		t.Fatalf("Refresh token should not be expired since it was not refreshed, got err: %v", err)
 	}
 
-	// Sleep to allow the refresh token to expire
-	log.Infof("Waiting for the refresh token to expire")
-	time.Sleep(customConfig.RefreshTokenDuration + time.Second*3)
+	// Advance time to allow the refresh token to expire
+	log.Infof("Advancing time to expire the refresh token")
+	mockTime.Advance(customConfig.RefreshTokenDuration + time.Minute*30) // Advance time past the refresh token expiration
 
-	// Attempt to hit a protected endpoint with an expired refresh token. (should fail)
+	// Attempt to hit a protected endpoint with an expired refresh token (should fail)
 	// TODO: Implement a protected endpoint to test this
 
-	// Attempt to login with an expired refresh token. Should refresh both tokens if successful
+	// Attempt to login with an expired refresh token. Should get new tokens if successful
 	log.Infof("Attempting to login with expired refresh token")
 	err = rpcClient.AuthClient.LoginUser("expiringuser", "testpassword")
 	if err != nil {
@@ -155,21 +171,28 @@ func TestTokenExpirationAndRefresh(t *testing.T) {
 
 	// Check that both tokens are now valid
 	newerAccessToken, newerRefreshToken, err := rpcClient.AuthClient.TokenManager.ReadTokens()
+	if err != nil {
+		t.Fatalf("Failed to read newer tokens: %v", err)
+	}
 
 	// Check that new tokens have replaced the old ones
 	if newAccessToken == newerAccessToken || newRefreshToken == newerRefreshToken {
 		t.Fatalf("New tokens should have replaced the old ones")
 	}
 
-	// Check if the access token is expired
-	if expired, err := app.IsTokenExpired(newerAccessToken); err != nil || expired {
-		t.Fatalf("Access token should be not be expired since it was refreshed, got err: %v", err)
-	}
-	// Check if the refresh token is still valid
-	if expired, err := app.IsTokenExpired(newerRefreshToken); err != nil || expired {
-		t.Fatalf("Refresh token should not be expired since it was refreshed, got err: %v", err)
+	// Unadvance time back to the current time
+	log.Infof("Unadvancing time to current time")
+	mockTime.Advance(-customConfig.RefreshTokenDuration - time.Minute*30) // Reset time to current
+
+	// Check if the newer access token is not expired
+	if expired, err := rpcClient.AuthClient.TokenManager.IsTokenExpired(newerAccessToken); err != nil || expired {
+		t.Fatalf("Access token should not be expired since it was refreshed, got err: %v", err)
 	}
 
+	// Check if the newer refresh token is not expired
+	if expired, err := rpcClient.AuthClient.TokenManager.IsTokenExpired(newerRefreshToken); err != nil || expired {
+		t.Fatalf("Refresh token should not be expired since it was refreshed, got err: %v", err)
+	}
 }
 
 // TestRegisterUserWithExistingUsername tests the registration of a user with an existing username

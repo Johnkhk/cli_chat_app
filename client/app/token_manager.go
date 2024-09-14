@@ -15,20 +15,35 @@ import (
 	"github.com/johnkhk/cli_chat_app/genproto/auth"
 )
 
-// TokenManager handles all operations related to managing tokens.
-type TokenManager struct {
-	filePath string
-	client   auth.AuthServiceClient // Use the gRPC client passed during initialization
+// For testing
+type TimeProvider interface {
+	Now() time.Time
 }
 
-// NewTokenManager creates a new TokenManager with the specified file path and gRPC client.
+type RealTimeProvider struct{}
+
+func (RealTimeProvider) Now() time.Time {
+	return time.Now()
+}
+
+// TokenManager handles all operations related to managing tokens.
+type TokenManager struct {
+	TimeProvider TimeProvider
+	filePath     string
+	client       auth.AuthServiceClient // Use the gRPC client passed during initialization
+}
+
 func NewTokenManager(filePath string, client auth.AuthServiceClient) *TokenManager {
 	// Ensure the directory exists
 	dir := filepath.Dir(filePath)
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		panic(fmt.Sprintf("Failed to create directory %s: %v", dir, err))
 	}
-	return &TokenManager{filePath: filePath, client: client}
+	return &TokenManager{
+		filePath:     filePath,
+		client:       client,
+		TimeProvider: RealTimeProvider{}, // Default TimeProvider
+	}
 }
 
 // GetAccessToken returns a valid access token, refreshing it if necessary.
@@ -40,7 +55,7 @@ func (tm *TokenManager) GetAccessToken() (string, error) {
 	}
 
 	// Check if the access token is expired
-	expired, err := IsTokenExpired(accessToken)
+	expired, err := tm.IsTokenExpired(accessToken)
 	if err != nil {
 		return "", fmt.Errorf("failed to check if token is expired: %w", err)
 	}
@@ -94,7 +109,7 @@ func (tm *TokenManager) ReadTokens() (string, string, error) {
 }
 
 // Helper function to check if a token is expired by decoding the JWT payload.
-func IsTokenExpired(tokenString string) (bool, error) {
+func (tm *TokenManager) IsTokenExpired(tokenString string) (bool, error) {
 	// Split the JWT into its parts: header, payload, signature
 	parts := strings.Split(tokenString, ".")
 	if len(parts) != 3 {
@@ -134,7 +149,7 @@ func IsTokenExpired(tokenString string) (bool, error) {
 
 	// Check if the token is expired
 	expirationTime := time.Unix(exp, 0)
-	if expirationTime.Before(time.Now()) {
+	if expirationTime.Before(tm.TimeProvider.Now()) {
 		return true, nil // Token is expired
 	}
 

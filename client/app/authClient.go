@@ -59,7 +59,7 @@ func (c *AuthClient) LoginUser(username, password string) error {
 			return fmt.Errorf("Failed to store tokens: %v", err)
 		}
 
-		c.Logger.Info("Tokens stored successfully.")
+		c.Logger.Infof("Tokens stored successfully to %s", c.TokenManager.filePath)
 		return nil
 	} else {
 		c.Logger.Infof("Login failed: %s", resp.Message)

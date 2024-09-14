@@ -22,6 +22,7 @@ func NewDefaultTestServerConfig() *TestServerConfig {
 		Log:                  logrus.New(),
 		AccessTokenDuration:  time.Hour,          // Default to 1 hour
 		RefreshTokenDuration: time.Hour * 24 * 7, // Default to 7 days
+		TimeProvider:         app.RealTimeProvider{},
 	}
 }
 
@@ -77,6 +78,7 @@ func InitializeTestResources(t *testing.T, serverConfig *TestServerConfig, numCl
 
 		// Initialize the token manager with the unique path
 		tokenManager := app.NewTokenManager(filePath, nil)
+		tokenManager.TimeProvider = serverConfig.TimeProvider
 
 		// Each client establishes its own connection to the server
 		conn := CreateTestClientConn(t, app.UnaryInterceptor(tokenManager, serverConfig.Log))
