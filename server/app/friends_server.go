@@ -33,6 +33,8 @@ func NewFriendsServer(db *sql.DB, logger *logrus.Logger) *FriendsServer {
 func (s *FriendsServer) SendFriendRequest(ctx context.Context, req *friends.SendFriendRequestRequest) (*friends.SendFriendRequestResponse, error) {
 	// Retrieve the requester ID from the context
 	requesterID, ok := ctx.Value("userID").(string)
+	// username, ok := ctx.Value("username").(string)
+
 	if !ok || requesterID == "" {
 		return nil, fmt.Errorf("requester ID not found in context")
 	}
@@ -105,7 +107,7 @@ func (s *FriendsServer) SendFriendRequest(ctx context.Context, req *friends.Send
 		// Allow sending the friend request again if it was previously rejected
 		_, err = s.DB.Exec(`
 			UPDATE friend_requests
-			SET status = ?, requested_at = NOW()
+			SET status = ?, created_at = NOW()
 			WHERE requester_id = ? AND recipient_id = ? AND status = ?`,
 			storage.StatusPending, requesterIDInt, recipientID, storage.StatusDeclined)
 		if err != nil {
@@ -120,8 +122,8 @@ func (s *FriendsServer) SendFriendRequest(ctx context.Context, req *friends.Send
 
 	// Step 3: Insert the new friend request into the database
 	_, err = s.DB.Exec(`
-		INSERT INTO friend_requests (requester_id, recipient_id, requested_at, status)
-		VALUES (?, ?, NOW(), ?)`,
+		INSERT INTO friend_requests (requester_id, recipient_id, status)
+		VALUES (?, ?, ?)`,
 		requesterIDInt, recipientID, storage.StatusPending)
 	if err != nil {
 		return nil, fmt.Errorf("error inserting friend request into database: %w", err)

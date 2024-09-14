@@ -37,7 +37,8 @@ func SetupTestDatabase(testDBName string) (*sql.DB, error) {
 	db.Close()
 
 	// Reconnect to the MySQL server with the specific test database
-	testDSN := fmt.Sprintf("%s%s", dsn, testDBName) // Append database name to DSN
+	testDSN := fmt.Sprintf("%s%s?parseTime=true", dsn, testDBName)
+
 	db, err = sql.Open("mysql", testDSN)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to connect to the test database: %v", err)

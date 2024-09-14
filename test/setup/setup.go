@@ -62,14 +62,15 @@ func InitializeTestResources(t *testing.T, serverConfig *TestServerConfig, numCl
 		serverConfig.DbName = fmt.Sprintf("test_db_%s", t.Name())
 	}
 
-	// Initialize Bufconn and test database with the unique database name
-	conn, db := InitBufconn(t, *serverConfig)
+	// Initialize the in-memory gRPC server and test database
+	db := InitTestServer(t, *serverConfig)
 
 	// Slice to hold the RpcClients
 	var rpcClients []*app.RpcClient
 
 	// Loop to initialize the desired number of RpcClients
 	for i := 0; i < numClients; i++ {
+
 		// Create a unique path for JWT tokens for each client
 		tokenDir := filepath.Join(os.TempDir(), fmt.Sprintf(".test_cli_chat_app_%s_client_%d", t.Name(), i))
 		filePath := filepath.Join(tokenDir, "jwt_tokens")
@@ -77,6 +78,8 @@ func InitializeTestResources(t *testing.T, serverConfig *TestServerConfig, numCl
 		// Initialize the token manager with the unique path
 		tokenManager := app.NewTokenManager(filePath, nil)
 
+		// Each client establishes its own connection to the server
+		conn := CreateTestClientConn(t, app.UnaryInterceptor(tokenManager, serverConfig.Log))
 		// Initialize the auth client
 		authClient := &app.AuthClient{
 			Client:       auth.NewAuthServiceClient(conn),
@@ -101,9 +104,11 @@ func InitializeTestResources(t *testing.T, serverConfig *TestServerConfig, numCl
 		rpcClients = append(rpcClients, rpcClient)
 	}
 
-	// Define a cleanup function to close the connection, teardown the database, and remove token directories
+	// Define a cleanup function to close all client connections, teardown the database, and remove token directories
 	cleanup := func() {
-		conn.Close()
+		for _, rpcClient := range rpcClients {
+			rpcClient.Conn.Close() // Close each client connection
+		}
 		if err := TeardownTestDatabase(db, serverConfig.DbName); err != nil {
 			serverConfig.Log.Errorf("Failed to teardown test database: %v", err)
 		}

@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"log"
 	"net"
+	"os"
 	"testing"
 	"time"
 
@@ -30,9 +31,8 @@ type TestServerConfig struct {
 	RefreshTokenDuration time.Duration
 }
 
-// InitBufconn initializes the in-memory gRPC server for testing.
-// we dont return the server, just the conn and db and that's good enough for the client to interact with
-func InitBufconn(t *testing.T, serverConfig TestServerConfig) (*grpc.ClientConn, *sql.DB) {
+// InitTestServer initializes the in-memory gRPC server and the test database.
+func InitTestServer(t *testing.T, serverConfig TestServerConfig) *sql.DB {
 	// Load environment variables from .env file
 	if err := godotenv.Load("../../.env"); err != nil {
 		if t != nil {
@@ -43,7 +43,16 @@ func InitBufconn(t *testing.T, serverConfig TestServerConfig) (*grpc.ClientConn,
 	}
 
 	lis = bufconn.Listen(BufSize)
-	s := grpc.NewServer()
+	secretKey := os.Getenv("CLI_CHAT_APP_JWT_SECRET_KEY")
+	if secretKey == "" {
+		log.Fatal("JWT secret key is not set.")
+	}
+	tokenValidator := app.NewJWTTokenValidator(secretKey)
+
+	// Create a new gRPC server with the authentication interceptor
+	s := grpc.NewServer(
+		grpc.UnaryInterceptor(app.UnaryServerInterceptor(tokenValidator, serverConfig.Log)),
+	)
 
 	// Set up the database for testing
 	db, err := SetupTestDatabase(serverConfig.DbName)
@@ -69,8 +78,13 @@ func InitBufconn(t *testing.T, serverConfig TestServerConfig) (*grpc.ClientConn,
 		}
 	}()
 
+	return db
+}
+
+// CreateTestClientConn creates a new client connection using bufconn.
+func CreateTestClientConn(t *testing.T, interceptor grpc.UnaryClientInterceptor) *grpc.ClientConn {
 	// Create a client connection using bufconn
-	conn, err := grpc.DialContext(context.Background(), "bufnet", grpc.WithContextDialer(bufDialer), grpc.WithInsecure())
+	conn, err := grpc.DialContext(context.Background(), "bufnet", grpc.WithContextDialer(bufDialer), grpc.WithInsecure(), grpc.WithUnaryInterceptor(interceptor))
 	if err != nil {
 		if t != nil {
 			t.Fatalf("Failed to dial bufnet: %v", err)
@@ -78,7 +92,7 @@ func InitBufconn(t *testing.T, serverConfig TestServerConfig) (*grpc.ClientConn,
 			log.Panicf("Failed to dial bufnet: %v", err)
 		}
 	}
-	return conn, db
+	return conn
 }
 
 func bufDialer(context.Context, string) (net.Conn, error) {

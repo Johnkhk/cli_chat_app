@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 )
@@ -18,7 +19,7 @@ var publicMethods = []string{
 
 // UnaryInterceptor returns a gRPC interceptor that adds the authorization token to each request,
 // except for the methods listed in AuthMethods.
-func UnaryInterceptor(tokenManager *TokenManager) grpc.UnaryClientInterceptor {
+func UnaryInterceptor(tokenManager *TokenManager, logger *logrus.Logger) grpc.UnaryClientInterceptor {
 	return func(
 		ctx context.Context,
 		method string,
@@ -36,7 +37,8 @@ func UnaryInterceptor(tokenManager *TokenManager) grpc.UnaryClientInterceptor {
 			if err != nil {
 				return fmt.Errorf("failed to get access token: %v", err)
 			}
-
+			// fmt.Println("SETTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT")
+			logger.Info("Adding authorization token to request")
 			// Create a new context with the authorization metadata
 			md := metadata.Pairs("authorization", "Bearer "+token)
 			ctx = metadata.NewOutgoingContext(ctx, md)
