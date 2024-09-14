@@ -10,6 +10,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 
 	"github.com/johnkhk/cli_chat_app/client/app"
+	"github.com/johnkhk/cli_chat_app/genproto/friends"
 )
 
 var baseStyle = lipgloss.NewStyle().
@@ -22,10 +23,11 @@ type friendAddedMsg struct {
 }
 
 type outgoingRequestsModel struct {
-	sentRequests table.Model
-	showInput    bool
-	textInput    textinput.Model
-	rpcClient    *app.RpcClient
+	outgoingRequests  []*friends.FriendRequest
+	sentRequestsTable table.Model
+	showInput         bool
+	textInput         textinput.Model
+	rpcClient         *app.RpcClient
 }
 
 func NewOutgoingRequestsModel(rpcClient *app.RpcClient) outgoingRequestsModel {
@@ -65,10 +67,10 @@ func NewOutgoingRequestsModel(rpcClient *app.RpcClient) outgoingRequestsModel {
 	ti.Width = 30
 
 	return outgoingRequestsModel{
-		sentRequests: t,
-		showInput:    false,
-		textInput:    ti,
-		rpcClient:    rpcClient,
+		sentRequestsTable: t,
+		showInput:         false,
+		textInput:         ti,
+		rpcClient:         rpcClient,
 	}
 }
 
@@ -80,6 +82,14 @@ func (m outgoingRequestsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 
 	switch msg := msg.(type) {
+	case OutgoingFriendRequestsMsg:
+		if msg.Err != nil {
+			// Handle error (e.g., log it or display a message)
+			m.rpcClient.Logger.Errorf("Error fetching incoming friend requests: %v", msg.Err)
+		} else {
+			m.rpcClient.Logger.Infof("Received outgoing friend requests: %v", msg.Requests)
+			m.outgoingRequests = msg.Requests
+		}
 	case tea.KeyMsg:
 		if m.showInput {
 			m.textInput, cmd = m.textInput.Update(msg)
@@ -109,14 +119,14 @@ func (m outgoingRequestsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		case "enter":
 			return m, tea.Batch(
-				tea.Printf("Selected: %s", m.sentRequests.SelectedRow()[0]),
+				tea.Printf("Selected: %s", m.sentRequestsTable.SelectedRow()[0]),
 			)
 		}
 	case friendAddedMsg:
 		if msg.Success {
 			newRow := table.Row{msg.Message, fmt.Sprintf("%s is a new friend", msg.Message)}
-			oldRows := m.sentRequests.Rows()
-			m.sentRequests.SetRows(append(oldRows, newRow))
+			oldRows := m.sentRequestsTable.Rows()
+			m.sentRequestsTable.SetRows(append(oldRows, newRow))
 
 		} else {
 			// fmt.Printf("Failed to add friend: %s\n", msg.Message)
@@ -127,7 +137,7 @@ func (m outgoingRequestsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if m.showInput {
 		m.textInput, cmd = m.textInput.Update(msg)
 	} else {
-		m.sentRequests, cmd = m.sentRequests.Update(msg)
+		m.sentRequestsTable, cmd = m.sentRequestsTable.Update(msg)
 	}
 	return m, cmd
 }
@@ -143,7 +153,7 @@ func (m outgoingRequestsModel) View() string {
 	view.WriteString(titleStyle.Render("Sent Friend Requests:"))
 	view.WriteString("\n")
 	// Render the sent requests table
-	view.WriteString(baseStyle.Render(m.sentRequests.View()) + "\n")
+	view.WriteString(baseStyle.Render(m.sentRequestsTable.View()) + "\n")
 
 	// Show the input if it's active
 	if m.showInput {

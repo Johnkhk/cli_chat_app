@@ -8,6 +8,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 
 	"github.com/johnkhk/cli_chat_app/client/app"
+	"github.com/johnkhk/cli_chat_app/genproto/friends"
 )
 
 type requestActionMsg struct {
@@ -17,8 +18,9 @@ type requestActionMsg struct {
 }
 
 type incomingRequestsModel struct {
-	receivedRequests table.Model
-	rpcClient        *app.RpcClient
+	incomingRequests      []*friends.FriendRequest
+	incFriendRequestTable table.Model
+	rpcClient             *app.RpcClient
 }
 
 func NewIncomingRequestsModel(rpcClient *app.RpcClient) incomingRequestsModel {
@@ -53,8 +55,8 @@ func NewIncomingRequestsModel(rpcClient *app.RpcClient) incomingRequestsModel {
 	t.SetStyles(s)
 
 	return incomingRequestsModel{
-		receivedRequests: t,
-		rpcClient:        rpcClient,
+		incFriendRequestTable: t,
+		rpcClient:             rpcClient,
 	}
 }
 
@@ -66,6 +68,23 @@ func (m incomingRequestsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 
 	switch msg := msg.(type) {
+	case IncomingFriendRequestsMsg:
+		if msg.Err != nil {
+			// Handle error (e.g., log it or display a message)
+		} else {
+			Rows := make([]table.Row, len(msg.Requests))
+			for i, request := range msg.Requests {
+				Rows[i] = table.Row{request.SenderId, "Awaiting Response"}
+			}
+			m.incFriendRequestTable.SetRows(Rows)
+			if msg.Err != nil {
+				// Handle error (e.g., log it or display a message)
+				m.rpcClient.Logger.Errorf("Error fetching incoming friend requests: %v", msg.Err)
+			} else {
+				m.rpcClient.Logger.Infof("Received incoming friend requests: %v", msg.Requests)
+				m.incomingRequests = msg.Requests
+			}
+		}
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "a":
@@ -84,20 +103,20 @@ func (m incomingRequestsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case requestActionMsg:
 		if msg.Success {
 			// Remove the friend request from the list upon acceptance or decline
-			oldRows := m.receivedRequests.Rows()
+			oldRows := m.incFriendRequestTable.Rows()
 			var newRows []table.Row
 			for _, row := range oldRows {
 				if row[0] != msg.Message {
 					newRows = append(newRows, row)
 				}
 			}
-			m.receivedRequests.SetRows(newRows)
+			m.incFriendRequestTable.SetRows(newRows)
 		}
 		return m, nil
 	}
 
 	// Update the table state
-	m.receivedRequests, cmd = m.receivedRequests.Update(msg)
+	m.incFriendRequestTable, cmd = m.incFriendRequestTable.Update(msg)
 	return m, cmd
 }
 
@@ -108,7 +127,7 @@ func (m incomingRequestsModel) View() string {
 	view.WriteString(titleStyle.Render("Incoming Friend Requests:"))
 	view.WriteString("\n")
 	// Render the received requests table
-	view.WriteString(baseStyle.Render(m.receivedRequests.View()) + "\n")
+	view.WriteString(baseStyle.Render(m.incFriendRequestTable.View()) + "\n")
 	// Show instructions
 	view.WriteString("[ Press 'a' to Accept, 'd' to Decline, 'q' to Quit ]\n")
 
