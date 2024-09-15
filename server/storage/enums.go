@@ -3,12 +3,12 @@ package storage
 import "github.com/johnkhk/cli_chat_app/genproto/friends"
 
 var (
-	StatusPendingStr  = friends.FriendRequestStatus_name[int32(friends.FriendRequestStatus_PENDING)]
-	StatusAcceptedStr = friends.FriendRequestStatus_name[int32(friends.FriendRequestStatus_ACCEPTED)]
-	StatusDeclinedStr = friends.FriendRequestStatus_name[int32(friends.FriendRequestStatus_DECLINED)]
-	StatusCanceledStr = friends.FriendRequestStatus_name[int32(friends.FriendRequestStatus_CANCELED)]
-	StatusUnknownStr  = friends.FriendRequestStatus_name[int32(friends.FriendRequestStatus_UNKNOWN)]
-	StatusFailedStr   = friends.FriendRequestStatus_name[int32(friends.FriendRequestStatus_FAILED)]
+	StatusPendingStr   = friends.FriendRequestStatus_name[int32(friends.FriendRequestStatus_PENDING)]
+	StatusAcceptedStr  = friends.FriendRequestStatus_name[int32(friends.FriendRequestStatus_ACCEPTED)]
+	StatusDeclinedStr  = friends.FriendRequestStatus_name[int32(friends.FriendRequestStatus_DECLINED)]
+	StatusCancelledStr = friends.FriendRequestStatus_name[int32(friends.FriendRequestStatus_CANCELED)]
+	StatusUnknownStr   = friends.FriendRequestStatus_name[int32(friends.FriendRequestStatus_UNKNOWN)]
+	StatusFailedStr    = friends.FriendRequestStatus_name[int32(friends.FriendRequestStatus_FAILED)]
 )
 
 const (

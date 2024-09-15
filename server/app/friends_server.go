@@ -103,13 +103,13 @@ func (s *FriendsServer) SendFriendRequest(ctx context.Context, req *friends.Send
 				Message:   "You are already friends",
 				Timestamp: timestamppb.Now(),
 			}, nil
-		case friends.FriendRequestStatus_DECLINED:
-			// Allow sending the friend request again if it was previously rejected
+		case friends.FriendRequestStatus_DECLINED, friends.FriendRequestStatus_CANCELED:
+			// Allow sending the friend request again if it was previously declined or cancelled (friend removal)
 			_, err = s.DB.Exec(`
-				UPDATE friend_requests
-				SET status = ?, created_at = NOW()
-				WHERE requester_id = ? AND recipient_id = ? AND status = ?`,
-				storage.StatusPendingStr, requesterIDInt, recipientID, storage.StatusDeclinedStr)
+		UPDATE friend_requests
+		SET status = ?, created_at = NOW()
+		WHERE requester_id = ? AND recipient_id = ? AND status IN (?, ?)`,
+				storage.StatusPendingStr, requesterIDInt, recipientID, storage.StatusDeclinedStr, storage.StatusCancelledStr)
 			if err != nil {
 				return nil, fmt.Errorf("error updating friend request to pending: %w", err)
 			}
@@ -447,7 +447,6 @@ func (s *FriendsServer) RemoveFriend(ctx context.Context, req *friends.RemoveFri
 	// Step 1: Remove the friendship from the friends table
 	res, err := s.DB.Exec(`DELETE FROM friends WHERE (user_id = ? AND friend_id = ?) OR (user_id = ? AND friend_id = ?)`,
 		userIDInt, req.FriendId, req.FriendId, userIDInt)
-
 	if err != nil {
 		return nil, fmt.Errorf("error removing friend from friends table: %w", err)
 	}
@@ -467,7 +466,14 @@ func (s *FriendsServer) RemoveFriend(ctx context.Context, req *friends.RemoveFri
 		}, nil
 	}
 
-	// Step 3: Return a successful response
+	// Step 3: Update the friend request status to "CANCELLED" if it exists
+	_, err = s.DB.Exec(`UPDATE friend_requests SET status = ? WHERE (requester_id = ? AND recipient_id = ?) OR (requester_id = ? AND recipient_id = ?)`,
+		storage.StatusCancelledStr, userIDInt, req.FriendId, req.FriendId, userIDInt)
+	if err != nil {
+		return nil, fmt.Errorf("error updating friend request status to cancelled: %w", err)
+	}
+
+	// Step 4: Return a successful response
 	return &friends.RemoveFriendResponse{
 		Success:   true,
 		Message:   "Friend removed successfully",

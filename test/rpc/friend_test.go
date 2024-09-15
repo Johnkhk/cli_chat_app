@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/johnkhk/cli_chat_app/genproto/friends"
+	"github.com/johnkhk/cli_chat_app/server/storage"
 	"github.com/johnkhk/cli_chat_app/test/setup"
 )
 
@@ -287,7 +288,7 @@ func TestRemoveFriendAndVerify(t *testing.T) {
 	// t.Parallel()
 
 	// Initialize resources with two clients for two different users
-	rpcClients, _, cleanup := setup.InitializeTestResources(t, nil, 2)
+	rpcClients, db, cleanup := setup.InitializeTestResources(t, nil, 2)
 	defer cleanup()
 
 	client1 := rpcClients[0] // Represents User1
@@ -312,7 +313,7 @@ func TestRemoveFriendAndVerify(t *testing.T) {
 		t.Fatalf("User1 failed to send friend request to user2: %v", err)
 	}
 
-	// User2 accepts the friend request
+	// Make sure status is pending in User2's incoming requests
 	incomingRequests, err := client2.FriendsClient.GetIncomingFriendRequests()
 	if err != nil {
 		t.Fatalf("Failed to get incoming friend requests for user2: %v", err)
@@ -320,8 +321,32 @@ func TestRemoveFriendAndVerify(t *testing.T) {
 	if len(incomingRequests) == 0 {
 		t.Fatalf("No incoming friend requests found for user2")
 	}
+	if incomingRequests[0].Status != friends.FriendRequestStatus_PENDING {
+		t.Fatalf("Expected friend request status to be PENDING, got: %s", incomingRequests[0].Status)
+	}
+
+	// Make sure status is pending in db
+	var status string
+	err = db.QueryRow("SELECT status FROM friend_requests WHERE recipient_id = ? AND requester_id = ?", 2, 1).Scan(&status)
+	if err != nil {
+		t.Fatalf("Failed to query status from friend_requests table: %v", err)
+	}
+	if status != storage.StatusPendingStr {
+		t.Fatalf("Expected friend request status to be PENDING in db, got: %s", status)
+	}
+
+	// Accept the friend request
 	if err := client2.FriendsClient.AcceptFriendRequest(incomingRequests[0].RequestId); err != nil {
 		t.Fatalf("Failed to accept friend request: %v", err)
+	}
+
+	// Make sure status is accepted in db
+	err = db.QueryRow("SELECT status FROM friend_requests WHERE recipient_id = ? AND requester_id = ?", 2, 1).Scan(&status)
+	if err != nil {
+		t.Fatalf("Failed to query status from friend_requests table: %v", err)
+	}
+	if status != storage.StatusAcceptedStr {
+		t.Fatalf("Expected friend request status to be ACCEPTED in db, got: %s", status)
 	}
 
 	// Both users verify they are friends
@@ -346,6 +371,15 @@ func TestRemoveFriendAndVerify(t *testing.T) {
 		t.Fatalf("Failed to remove friend: %v", err)
 	}
 
+	// Make sure status is CANCELLED in db
+	err = db.QueryRow("SELECT status FROM friend_requests WHERE recipient_id = ? AND requester_id = ?", 2, 1).Scan(&status)
+	if err != nil {
+		t.Fatalf("Failed to query status from friend_requests table: %v", err)
+	}
+	if status != storage.StatusCancelledStr {
+		t.Fatalf("Expected friend request status to be CANCELLED in db, got: %s", status)
+	}
+
 	// Verify that User2 is no longer in User1's friend list
 	user1Friends, err = client1.FriendsClient.GetFriendList()
 	if err != nil {
@@ -362,5 +396,34 @@ func TestRemoveFriendAndVerify(t *testing.T) {
 	}
 	if len(user2Friends) != 0 {
 		t.Fatalf("Expected 0 friends for user2 after being removed, got: %d", len(user2Friends))
+	}
+
+	// User1 Sends another friend request to User2
+	if err := client1.FriendsClient.SendFriendRequest("user2"); err != nil {
+		t.Fatalf("User1 failed to send friend request to user2: %v", err)
+	}
+	if err != nil {
+		t.Fatalf("Failed to send friend request a second time: %v", err)
+	}
+
+	// Make sure status is pending in User2's incoming requests
+	incomingRequests, err = client2.FriendsClient.GetIncomingFriendRequests()
+	if err != nil {
+		t.Fatalf("Failed to get incoming friend requests for user2: %v", err)
+	}
+	if len(incomingRequests) == 0 {
+		t.Fatalf("No incoming friend requests found for user2")
+	}
+	if incomingRequests[0].Status != friends.FriendRequestStatus_PENDING {
+		t.Fatalf("Expected friend request status to be PENDING, got: %s", incomingRequests[0].Status)
+	}
+
+	// Make sure status is pending in db
+	err = db.QueryRow("SELECT status FROM friend_requests WHERE recipient_id = ? AND requester_id = ?", 2, 1).Scan(&status)
+	if err != nil {
+		t.Fatalf("Failed to query status from friend_requests table: %v", err)
+	}
+	if status != storage.StatusPendingStr {
+		t.Fatalf("Expected friend request status to be PENDING in db, got: %s", status)
 	}
 }
