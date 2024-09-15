@@ -67,7 +67,7 @@ func (s *FriendsServer) SendFriendRequest(ctx context.Context, req *friends.Send
 		return nil, fmt.Errorf("error retrieving recipient ID: %w", err)
 	}
 
-	// Step 2: Check if a friend request is already pending, accepted, or rejected
+	// Step 2: Check if a friend request already exists
 	var existingStatus string
 	err = s.DB.QueryRow(`
 		SELECT status 
@@ -81,8 +81,8 @@ func (s *FriendsServer) SendFriendRequest(ctx context.Context, req *friends.Send
 	}
 
 	if err == nil { // If there is an existing friend request
-		// Use the map to get the enum value
 		s.Logger.Infof("Existing status for friend request: %s", existingStatus)
+
 		statusEnum, ok := friends.FriendRequestStatus_value[existingStatus]
 		if !ok {
 			// If the status does not match any known value, use UNKNOWN
@@ -104,11 +104,11 @@ func (s *FriendsServer) SendFriendRequest(ctx context.Context, req *friends.Send
 				Timestamp: timestamppb.Now(),
 			}, nil
 		case friends.FriendRequestStatus_DECLINED, friends.FriendRequestStatus_CANCELED:
-			// Allow sending the friend request again if it was previously declined or cancelled (friend removal)
+			// Allow sending the friend request again if it was previously declined or canceled
 			_, err = s.DB.Exec(`
-		UPDATE friend_requests
-		SET status = ?, created_at = NOW()
-		WHERE requester_id = ? AND recipient_id = ? AND status IN (?, ?)`,
+				UPDATE friend_requests
+				SET status = ?, created_at = NOW()
+				WHERE requester_id = ? AND recipient_id = ? AND status IN (?, ?)`,
 				storage.StatusPendingStr, requesterIDInt, recipientID, storage.StatusDeclinedStr, storage.StatusCancelledStr)
 			if err != nil {
 				return nil, fmt.Errorf("error updating friend request to pending: %w", err)
@@ -121,7 +121,7 @@ func (s *FriendsServer) SendFriendRequest(ctx context.Context, req *friends.Send
 		}
 	}
 
-	// Step 3: Insert the new friend request into the database
+	// Step 3: Insert a new friend request if no existing request
 	_, err = s.DB.Exec(`
 		INSERT INTO friend_requests (requester_id, recipient_id, status)
 		VALUES (?, ?, ?)`,
