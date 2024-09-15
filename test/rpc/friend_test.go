@@ -6,10 +6,8 @@ import (
 	"github.com/johnkhk/cli_chat_app/test/setup"
 )
 
-// TestSendFriendRequestAndVerifyStatus tests the flow of sending a friend request and verifying its status.
+// TestSendFriendRequestAndVerifyStatus tests the flow of sending a friend request and verifying its status, including usernames.
 func TestSendFriendRequestAndVerifyStatus(t *testing.T) {
-	// t.Parallel()
-
 	// Initialize resources with two clients for two different users
 	rpcClients, _, cleanup := setup.InitializeTestResources(t, nil, 2)
 	defer cleanup()
@@ -17,48 +15,69 @@ func TestSendFriendRequestAndVerifyStatus(t *testing.T) {
 	client1 := rpcClients[0] // Represents User1
 	client2 := rpcClients[1] // Represents User2
 
+	// User details
+	user1Username := "user1"
+	user2Username := "user2"
+	password := "password"
+
 	// Register and login two users
-	if err := client1.AuthClient.RegisterUser("user1", "password"); err != nil {
-		t.Fatalf("Failed to register user1: %v", err)
+	if err := client1.AuthClient.RegisterUser(user1Username, password); err != nil {
+		t.Fatalf("Failed to register %s: %v", user1Username, err)
 	}
-	if err := client1.AuthClient.LoginUser("user1", "password"); err != nil {
-		t.Fatalf("Failed to login user1: %v", err)
+	if err := client1.AuthClient.LoginUser(user1Username, password); err != nil {
+		t.Fatalf("Failed to login %s: %v", user1Username, err)
 	}
-	if err := client2.AuthClient.RegisterUser("user2", "password"); err != nil {
-		t.Fatalf("Failed to register user2: %v", err)
+	if err := client2.AuthClient.RegisterUser(user2Username, password); err != nil {
+		t.Fatalf("Failed to register %s: %v", user2Username, err)
 	}
-	if err := client2.AuthClient.LoginUser("user2", "password"); err != nil {
-		t.Fatalf("Failed to login user2: %v", err)
+	if err := client2.AuthClient.LoginUser(user2Username, password); err != nil {
+		t.Fatalf("Failed to login %s: %v", user2Username, err)
 	}
 
 	// User1 sends a friend request to User2
-	if err := client1.FriendsClient.SendFriendRequest("user2"); err != nil {
-		t.Fatalf("User1 failed to send friend request to user2: %v", err)
+	if err := client1.FriendsClient.SendFriendRequest(user2Username); err != nil {
+		t.Fatalf("%s failed to send friend request to %s: %v", user1Username, user2Username, err)
 	}
 
-	// User1 verifies the friend request is in outgoing requests
+	// User1 verifies the friend request is in outgoing requests with correct usernames
 	outgoingRequests, err := client1.FriendsClient.GetOutgoingFriendRequests()
 	if err != nil {
-		t.Fatalf("Failed to get outgoing friend requests for user1: %v", err)
+		t.Fatalf("Failed to get outgoing friend requests for %s: %v", user1Username, err)
 	}
 	if len(outgoingRequests) != 1 {
-		t.Fatalf("Expected 1 outgoing friend request for user1, got: %d", len(outgoingRequests))
+		t.Fatalf("Expected 1 outgoing friend request for %s, got: %d", user1Username, len(outgoingRequests))
 	}
 
-	// User2 verifies the friend request is in incoming requests
+	// Verify sender_username and recipient_username in outgoing request
+	outReq := outgoingRequests[0]
+	if outReq.SenderUsername != user1Username {
+		t.Errorf("Expected sender_username to be %s, got: %s", user1Username, outReq.SenderUsername)
+	}
+	if outReq.RecipientUsername != user2Username {
+		t.Errorf("Expected recipient_username to be %s, got: %s", user2Username, outReq.RecipientUsername)
+	}
+
+	// User2 verifies the friend request is in incoming requests with correct usernames
 	incomingRequests, err := client2.FriendsClient.GetIncomingFriendRequests()
 	if err != nil {
-		t.Fatalf("Failed to get incoming friend requests for user2: %v", err)
+		t.Fatalf("Failed to get incoming friend requests for %s: %v", user2Username, err)
 	}
 	if len(incomingRequests) != 1 {
-		t.Fatalf("Expected 1 incoming friend request for user2, got: %d", len(incomingRequests))
+		t.Fatalf("Expected 1 incoming friend request for %s, got: %d", user2Username, len(incomingRequests))
+	}
+
+	// Verify sender_username and recipient_username in incoming request
+	inReq := incomingRequests[0]
+	if inReq.SenderUsername != user1Username {
+		t.Errorf("Expected sender_username to be %s, got: %s", user1Username, inReq.SenderUsername)
+	}
+	if inReq.RecipientUsername != user2Username {
+		t.Errorf("Expected recipient_username to be %s, got: %s", user2Username, inReq.RecipientUsername)
 	}
 }
 
-// TestAcceptFriendRequestAndVerify tests the flow of accepting a friend request.
+// TestAcceptFriendRequestAndVerify tests the flow of accepting a friend request, including verifying usernames.
 func TestAcceptFriendRequestAndVerify(t *testing.T) {
-	// t.Parallel()
-
 	// Initialize resources with two clients for two different users
 	rpcClients, _, cleanup := setup.InitializeTestResources(t, nil, 2)
 	defer cleanup()
@@ -66,34 +85,50 @@ func TestAcceptFriendRequestAndVerify(t *testing.T) {
 	client1 := rpcClients[0] // Represents User1
 	client2 := rpcClients[1] // Represents User2
 
+	// User details
+	user1Username := "user1"
+	user2Username := "user2"
+	password := "password"
+
 	// Register and login two users
-	if err := client1.AuthClient.RegisterUser("user1", "password"); err != nil {
-		t.Fatalf("Failed to register user1: %v", err)
+	if err := client1.AuthClient.RegisterUser(user1Username, password); err != nil {
+		t.Fatalf("Failed to register %s: %v", user1Username, err)
 	}
-	if err := client1.AuthClient.LoginUser("user1", "password"); err != nil {
-		t.Fatalf("Failed to login user1: %v", err)
+	if err := client1.AuthClient.LoginUser(user1Username, password); err != nil {
+		t.Fatalf("Failed to login %s: %v", user1Username, err)
 	}
-	if err := client2.AuthClient.RegisterUser("user2", "password"); err != nil {
-		t.Fatalf("Failed to register user2: %v", err)
+	if err := client2.AuthClient.RegisterUser(user2Username, password); err != nil {
+		t.Fatalf("Failed to register %s: %v", user2Username, err)
 	}
-	if err := client2.AuthClient.LoginUser("user2", "password"); err != nil {
-		t.Fatalf("Failed to login user2: %v", err)
+	if err := client2.AuthClient.LoginUser(user2Username, password); err != nil {
+		t.Fatalf("Failed to login %s: %v", user2Username, err)
 	}
 
 	// User1 sends a friend request to User2
-	if err := client1.FriendsClient.SendFriendRequest("user2"); err != nil {
-		t.Fatalf("User1 failed to send friend request to user2: %v", err)
+	if err := client1.FriendsClient.SendFriendRequest(user2Username); err != nil {
+		t.Fatalf("%s failed to send friend request to %s: %v", user1Username, user2Username, err)
 	}
 
 	// User2 accepts the friend request
 	incomingRequests, err := client2.FriendsClient.GetIncomingFriendRequests()
 	if err != nil {
-		t.Fatalf("Failed to get incoming friend requests for user2: %v", err)
+		t.Fatalf("Failed to get incoming friend requests for %s: %v", user2Username, err)
 	}
 	if len(incomingRequests) == 0 {
-		t.Fatalf("No incoming friend requests found for user2")
+		t.Fatalf("No incoming friend requests found for %s", user2Username)
 	}
-	if err := client2.FriendsClient.AcceptFriendRequest(incomingRequests[0].RequestId); err != nil {
+
+	// Verify usernames in the incoming request before accepting
+	inReq := incomingRequests[0]
+	if inReq.SenderUsername != user1Username {
+		t.Errorf("Expected sender_username to be %s, got: %s", user1Username, inReq.SenderUsername)
+	}
+	if inReq.RecipientUsername != user2Username {
+		t.Errorf("Expected recipient_username to be %s, got: %s", user2Username, inReq.RecipientUsername)
+	}
+
+	// Accept the friend request
+	if err := client2.FriendsClient.AcceptFriendRequest(inReq.RequestId); err != nil {
 		t.Fatalf("Failed to accept friend request: %v", err)
 	}
 
@@ -103,15 +138,15 @@ func TestAcceptFriendRequestAndVerify(t *testing.T) {
 		t.Fatalf("Failed to get incoming friend requests after accepting: %v", err)
 	}
 	if len(incomingRequests) != 0 {
-		t.Fatalf("Expected 0 incoming friend requests for user2 after acceptance, got: %d", len(incomingRequests))
+		t.Fatalf("Expected 0 incoming friend requests for %s after acceptance, got: %d", user2Username, len(incomingRequests))
 	}
 
 	outgoingRequests, err := client1.FriendsClient.GetOutgoingFriendRequests()
 	if err != nil {
-		t.Fatalf("Failed to get outgoing friend requests for user1 after acceptance: %v", err)
+		t.Fatalf("Failed to get outgoing friend requests for %s after acceptance: %v", user1Username, err)
 	}
 	if len(outgoingRequests) != 0 {
-		t.Fatalf("Expected 0 outgoing friend requests for user1 after acceptance, got: %d", len(outgoingRequests))
+		t.Fatalf("Expected 0 outgoing friend requests for %s after acceptance, got: %d", user1Username, len(outgoingRequests))
 	}
 }
 

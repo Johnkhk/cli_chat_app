@@ -211,11 +211,15 @@ func (s *FriendsServer) GetIncomingFriendRequests(ctx context.Context, req *frie
 		return nil, fmt.Errorf("invalid user ID format: %w", err)
 	}
 
-	// Query to get all incoming friend requests for this user
+	// Query to get all incoming friend requests for this user, including usernames
 	rows, err := s.DB.Query(`
-        SELECT id, requester_id, recipient_id, status, created_at
-        FROM friend_requests
-        WHERE recipient_id = ? AND status = ?`, userIDInt, storage.StatusPending)
+        SELECT fr.id, fr.requester_id, fr.recipient_id, fr.status, fr.created_at,
+               u_sender.username AS sender_username,
+               u_recipient.username AS recipient_username
+        FROM friend_requests fr
+        JOIN users u_sender ON fr.requester_id = u_sender.id
+        JOIN users u_recipient ON fr.recipient_id = u_recipient.id
+        WHERE fr.recipient_id = ? AND fr.status = ?`, userIDInt, storage.StatusPending)
 	if err != nil {
 		return nil, fmt.Errorf("error fetching incoming friend requests: %w", err)
 	}
@@ -227,8 +231,18 @@ func (s *FriendsServer) GetIncomingFriendRequests(ctx context.Context, req *frie
 		var friendReq friends.FriendRequest
 		var createdAt time.Time
 		var status string
+		var senderUsername string
+		var recipientUsername string
 
-		if err := rows.Scan(&friendReq.RequestId, &friendReq.SenderId, &friendReq.RecipientId, &status, &createdAt); err != nil {
+		if err := rows.Scan(
+			&friendReq.RequestId,
+			&friendReq.SenderId,
+			&friendReq.RecipientId,
+			&status,
+			&createdAt,
+			&senderUsername,
+			&recipientUsername,
+		); err != nil {
 			return nil, fmt.Errorf("error scanning friend request row: %w", err)
 		}
 
@@ -236,7 +250,16 @@ func (s *FriendsServer) GetIncomingFriendRequests(ctx context.Context, req *frie
 		friendReq.Status = friends.FriendRequestStatus(friends.FriendRequestStatus_value[status])
 		friendReq.CreatedAt = timestamppb.New(createdAt)
 
+		// Set the usernames
+		friendReq.SenderUsername = senderUsername
+		friendReq.RecipientUsername = recipientUsername
+
 		incomingRequests = append(incomingRequests, &friendReq)
+	}
+
+	// Check for errors from iterating over rows.
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating over incoming friend requests: %w", err)
 	}
 
 	return &friends.GetIncomingFriendRequestsResponse{
@@ -258,11 +281,15 @@ func (s *FriendsServer) GetOutgoingFriendRequests(ctx context.Context, req *frie
 		return nil, fmt.Errorf("invalid user ID format: %w", err)
 	}
 
-	// Query to get all outgoing friend requests for this user
+	// Query to get all outgoing friend requests for this user, including usernames
 	rows, err := s.DB.Query(`
-        SELECT id, requester_id, recipient_id, status, created_at
-        FROM friend_requests
-        WHERE requester_id = ? AND status = ?`, userIDInt, storage.StatusPending)
+        SELECT fr.id, fr.requester_id, fr.recipient_id, fr.status, fr.created_at,
+               u_sender.username AS sender_username,
+               u_recipient.username AS recipient_username
+        FROM friend_requests fr
+        JOIN users u_sender ON fr.requester_id = u_sender.id
+        JOIN users u_recipient ON fr.recipient_id = u_recipient.id
+        WHERE fr.requester_id = ? AND fr.status = ?`, userIDInt, storage.StatusPending)
 	if err != nil {
 		return nil, fmt.Errorf("error fetching outgoing friend requests: %w", err)
 	}
@@ -274,8 +301,18 @@ func (s *FriendsServer) GetOutgoingFriendRequests(ctx context.Context, req *frie
 		var friendReq friends.FriendRequest
 		var createdAt time.Time
 		var status string
+		var senderUsername string
+		var recipientUsername string
 
-		if err := rows.Scan(&friendReq.RequestId, &friendReq.SenderId, &friendReq.RecipientId, &status, &createdAt); err != nil {
+		if err := rows.Scan(
+			&friendReq.RequestId,
+			&friendReq.SenderId,
+			&friendReq.RecipientId,
+			&status,
+			&createdAt,
+			&senderUsername,
+			&recipientUsername,
+		); err != nil {
 			return nil, fmt.Errorf("error scanning friend request row: %w", err)
 		}
 
@@ -283,7 +320,16 @@ func (s *FriendsServer) GetOutgoingFriendRequests(ctx context.Context, req *frie
 		friendReq.Status = friends.FriendRequestStatus(friends.FriendRequestStatus_value[status])
 		friendReq.CreatedAt = timestamppb.New(createdAt)
 
+		// Set the usernames
+		friendReq.SenderUsername = senderUsername
+		friendReq.RecipientUsername = recipientUsername
+
 		outgoingRequests = append(outgoingRequests, &friendReq)
+	}
+
+	// Check for errors after iteration
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating over outgoing friend requests: %w", err)
 	}
 
 	return &friends.GetOutgoingFriendRequestsResponse{

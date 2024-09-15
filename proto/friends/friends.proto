@@ -100,9 +100,11 @@ message Friend {
 
 // Friend request information
 message FriendRequest {
-    int32 request_id = 1;       // Unique ID of the friend request
-    int32 sender_id = 2;        // User ID of the sender
-    int32 recipient_id = 3;     // User ID of the recipient
-    FriendRequestStatus status = 4;    // Status of the friend request (e.g., "PENDING", "ACCEPTED", "DECLINED")
+    int32 request_id = 1;           // Unique ID of the friend request
+    int32 sender_id = 2;            // User ID of the sender
+    int32 recipient_id = 3;         // User ID of the recipient
+    FriendRequestStatus status = 4; // Status of the friend request (e.g., "PENDING", "ACCEPTED", "DECLINED")
     google.protobuf.Timestamp created_at = 5; // When the request was created
+    string sender_username = 6;     // Username of the sender
+    string recipient_username = 7;  // Username of the recipient
 }
