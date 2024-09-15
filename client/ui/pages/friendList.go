@@ -61,7 +61,7 @@ func (m friendListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if m.cursor < len(m.friendList)-1 {
 					m.cursor++
 				}
-			case "r":
+			case "d":
 				// Initiate remove confirmation
 				if len(m.friendList) > 0 {
 					m.removeConfirmation = true
@@ -117,7 +117,7 @@ func (m friendListModel) View() string {
 			}
 			b.WriteString(fmt.Sprintf("%s %s\n", cursor, friend.Username))
 		}
-		b.WriteString("\nUse ↑/↓ to navigate. Press 'r' to remove the selected friend.")
+		b.WriteString("\nUse ↑/↓ to navigate. Press 'd' to remove the selected friend.")
 	}
 
 	return b.String()
@@ -131,14 +131,3 @@ func NewFriendListModel(rpcClient *app.RpcClient) friendListModel {
 		cursor:     0,                   // Start cursor at the top
 	}
 }
-
-// // removeFriendCmd creates a command to remove a friend
-// func removeFriendCmd(rpcClient *app.RpcClient, friendID int32) tea.Cmd {
-// 	return func() tea.Msg {
-// 		err := rpcClient.FriendsClient.RemoveFriend(friendID)
-// 		return RemoveFriendResultMsg{
-// 			FriendID: friendID,
-// 			Err:      err,
-// 		}
-// 	}
-// }

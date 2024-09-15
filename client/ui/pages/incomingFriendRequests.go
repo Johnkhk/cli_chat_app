@@ -168,7 +168,7 @@ func (m incomingRequestsModel) View() string {
 	// Render the received requests table
 	view.WriteString(baseStyle.Render(m.incFriendRequestTable.View()) + "\n")
 	// Show instructions
-	view.WriteString("[ Press 'a' to Accept, 'd' to Decline, 'q' to Quit ]\n")
+	view.WriteString("[ ↑/↓: navigate | 'a': Accept | 'd': Decline ]\n")
 
 	return view.String()
 }
