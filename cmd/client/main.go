@@ -25,9 +25,9 @@ func main() {
 	log.Info("Client application started")
 
 	// Initialize the TokenManager with file path for token storage
-	filePath := filepath.Join(os.Getenv("HOME"), ".cli_chat_app", "jwt_tokens") // For Linux/macOS
-	// filePath := filepath.Join(os.Getenv("USERPROFILE"), ".cli_chat_app", "jwt_tokens") // For Windows
-	tokenManager := app.NewTokenManager(filePath, nil) // Will set the client later
+	homeDir, _ := os.UserHomeDir()
+	filePath := filepath.Join(homeDir, os.Getenv("APP_DIR_NAME"), "jwt_tokens") // For Linux/macOS
+	tokenManager := app.NewTokenManager(filePath, nil)                          // Will set the client later
 
 	// Initialize the gRPC client using RpcClient
 	rpcClient, err := app.NewRpcClient("localhost:50051", log, tokenManager)

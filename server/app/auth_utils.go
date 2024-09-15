@@ -102,7 +102,6 @@ func generateAccessToken(userID int64, username string, expirationDuration time.
 
 	// Sign the token with your secret key.
 	accessToken, err := token.SignedString([]byte(secretKey))
-	fmt.Println("Access Token generated:", accessToken)
 	if err != nil {
 		return "", err
 	}
