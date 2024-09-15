@@ -1,9 +1,6 @@
-// outgoing_requests_model.go
-
 package pages
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/table"
@@ -25,7 +22,6 @@ type outgoingRequestsModel struct {
 	showInput         bool
 	textInput         textinput.Model
 	rpcClient         *app.RpcClient
-	errmsg            string
 }
 
 func NewOutgoingRequestsModel(rpcClient *app.RpcClient) outgoingRequestsModel {
@@ -80,11 +76,9 @@ func (m outgoingRequestsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case OutgoingFriendRequestsMsg:
 		if msg.Err != nil {
 			m.rpcClient.Logger.Errorf("Error fetching outgoing friend requests: %v", msg.Err)
-			m.errmsg = fmt.Sprintf("Error fetching outgoing friend requests: %v", msg.Err)
 		} else {
 			m.rpcClient.Logger.Infof("Received outgoing friend requests: %v", msg.Requests)
 			m.outgoingRequests = msg.Requests
-			m.errmsg = "" // Clear any previous error messages
 
 			// Update the table rows
 			rows := make([]table.Row, len(msg.Requests))
@@ -97,9 +91,8 @@ func (m outgoingRequestsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case SendFriendRequestResultMsg:
 		if msg.Err != nil {
 			m.rpcClient.Logger.Errorf("Failed to send friend request to %s: %v", msg.RecipientUsername, msg.Err)
-			m.errmsg = fmt.Sprintf("Failed to send friend request to %s: %v", msg.RecipientUsername, msg.Err)
 		} else {
-			m.errmsg = fmt.Sprintf("Friend request sent to %s!", msg.RecipientUsername)
+			m.rpcClient.Logger.Infof("Friend request sent to %s!", msg.RecipientUsername)
 			// Optionally, refresh the outgoing requests
 			cmd = func() tea.Msg {
 				requests, err := m.rpcClient.FriendsClient.GetOutgoingFriendRequests()
@@ -182,13 +175,6 @@ func (m outgoingRequestsModel) View() string {
 		view.WriteString(m.textInput.View() + "\n")
 	} else {
 		view.WriteString("[ Press 'a' to Add Friend ]\n")
-	}
-
-	// Display error or success message if any
-	if m.errmsg != "" {
-		view.WriteString("\n")
-		view.WriteString(errorMsgStyle.Render(m.errmsg))
-		view.WriteString("\n")
 	}
 
 	return view.String()

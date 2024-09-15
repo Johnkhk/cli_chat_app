@@ -3,7 +3,9 @@
 package pages
 
 import (
+	"fmt"
 	"strings"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -18,6 +20,8 @@ type FriendManagementModel struct {
 	activeTab      int
 	tabs           []string
 	tabContent     []tea.Model
+	statusMessage  string // Message to display
+	statusIsError  bool   // True if it's an error message
 }
 
 func NewFriendManagementModel(rpcClient *app.RpcClient) FriendManagementModel {
@@ -60,8 +64,18 @@ func (m FriendManagementModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case "shift+tab":
 			m.activeTab = (m.activeTab - 1 + len(m.tabs)) % len(m.tabs)
+
+		case "r":
+			// Refresh friend list, incoming, and outgoing friend requests
+			cmds = append(cmds,
+				fetchFriendListCmd(m.rpcClient),
+				fetchIncomingFriendRequestsCmd(m.rpcClient),
+				fetchOutgoingFriendRequestsCmd(m.rpcClient),
+			)
+			m.rpcClient.Logger.Info("Refreshing friend list and friend requests")
+
 		default:
-			m.rpcClient.Logger.Infoln("Using mah boi", keypress)
+			m.rpcClient.Logger.Infoln("Key pressed:", keypress)
 		}
 
 	// Data messages: pass to child models
@@ -101,40 +115,60 @@ func (m FriendManagementModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case SendFriendRequestResultMsg:
 		if msg.Err != nil {
 			m.rpcClient.Logger.Error("Failed to send friend request:", msg.Err)
-			// Optionally, notify the child model or display an error
+			m.statusMessage = fmt.Sprintf("Failed to send friend request: %v", msg.Err)
+			m.statusIsError = true
 		} else {
-			// Refresh outgoing friend requests
+			m.statusMessage = "Friend request sent successfully."
+			m.statusIsError = false
 			cmds = append(cmds, fetchOutgoingFriendRequestsCmd(m.rpcClient))
 		}
+		cmds = append(cmds, clearStatusMessageCmd())
 
 	case AcceptFriendRequestResultMsg:
 		if msg.Err != nil {
 			m.rpcClient.Logger.Error("Failed to accept friend request:", msg.Err)
-			// Optionally, notify the child model or display an error
+			m.statusMessage = fmt.Sprintf("Failed to accept friend request: %v", msg.Err)
+			m.statusIsError = true
 		} else {
-			// Refresh friend list and incoming requests
-			cmds = append(cmds, fetchFriendListCmd(m.rpcClient))
-			cmds = append(cmds, fetchIncomingFriendRequestsCmd(m.rpcClient))
+			m.statusMessage = "Friend request accepted."
+			m.statusIsError = false
+			cmds = append(cmds,
+				fetchFriendListCmd(m.rpcClient),
+				fetchIncomingFriendRequestsCmd(m.rpcClient),
+			)
 		}
+		cmds = append(cmds, clearStatusMessageCmd())
 
 	case DeclineFriendRequestResultMsg:
 		if msg.Err != nil {
 			m.rpcClient.Logger.Error("Failed to decline friend request:", msg.Err)
-			// Optionally, notify the child model or display an error
+			m.statusMessage = fmt.Sprintf("Failed to decline friend request: %v", msg.Err)
+			m.statusIsError = true
 		} else {
-			// Refresh incoming requests
+			m.statusMessage = "Friend request declined."
+			m.statusIsError = false
 			cmds = append(cmds, fetchIncomingFriendRequestsCmd(m.rpcClient))
 		}
+		cmds = append(cmds, clearStatusMessageCmd())
 
 	case RemoveFriendResultMsg:
 		if msg.Err != nil {
 			m.rpcClient.Logger.Error("Failed to remove friend:", msg.Err)
-			// Optionally, notify the child model or display an error
+			m.statusMessage = fmt.Sprintf("Failed to remove friend: %v", msg.Err)
+			m.statusIsError = true
 		} else {
-			// Refresh friend list
+			m.statusMessage = "Friend removed successfully."
+			m.statusIsError = false
 			cmds = append(cmds, fetchFriendListCmd(m.rpcClient))
 		}
+		cmds = append(cmds, clearStatusMessageCmd())
+
+	// Clear status message after delay
+	case ClearStatusMessageMsg:
+		m.statusMessage = ""
+		m.statusIsError = false
 	}
+
 	// Update the currently active tab's content
 	updatedModel, subCmd := m.tabContent[m.activeTab].Update(msg)
 	if updatedContent, ok := updatedModel.(tea.Model); ok {
@@ -144,6 +178,15 @@ func (m FriendManagementModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	return m, tea.Batch(cmds...)
 }
+
+// Command to clear the status message after a delay
+func clearStatusMessageCmd() tea.Cmd {
+	return tea.Tick(time.Second*5, func(t time.Time) tea.Msg {
+		return ClearStatusMessageMsg{}
+	})
+}
+
+type ClearStatusMessageMsg struct{}
 
 func (m FriendManagementModel) View() string {
 	doc := strings.Builder{}
@@ -179,8 +222,9 @@ func (m FriendManagementModel) View() string {
 	doc.WriteString("\n")
 
 	availableWidth := (lipgloss.Width(row) - windowStyle.GetHorizontalFrameSize())
-	availableHeight := m.terminalHeight - 5
+	availableHeight := m.terminalHeight - 10
 
+	// Render the main content
 	doc.WriteString(
 		windowStyle.
 			Width(availableWidth).
@@ -188,7 +232,24 @@ func (m FriendManagementModel) View() string {
 			Render(m.tabContent[m.activeTab].View()),
 	)
 
-	return docStyle.Align(lipgloss.Center).Width(m.terminalWidth).Height(m.terminalHeight).
+	// Render the status message if it exists
+	if m.statusMessage != "" {
+		var status string
+		if m.statusIsError {
+			status = errorMsgStyle.Render("\n" + m.statusMessage)
+		} else {
+			status = successMsgStyle.Render("\n" + m.statusMessage)
+		}
+		doc.WriteString(status)
+	}
+
+	// Render the help message
+	help := helpStyle.Render("\nesc/ctrl+c: quit | tab: switch tab | r: refresh")
+	doc.WriteString(help)
+
+	return docStyle.Align(lipgloss.Center).
+		Width(m.terminalWidth).
+		Height(m.terminalHeight).
 		Render(doc.String())
 }
 

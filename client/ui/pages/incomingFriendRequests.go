@@ -3,7 +3,6 @@
 package pages
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/table"
@@ -18,7 +17,6 @@ type incomingRequestsModel struct {
 	incomingRequests      []*friends.FriendRequest
 	incFriendRequestTable table.Model
 	rpcClient             *app.RpcClient
-	errmsg                string
 }
 
 func NewIncomingRequestsModel(rpcClient *app.RpcClient) incomingRequestsModel {
@@ -66,17 +64,13 @@ func (m incomingRequestsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case IncomingFriendRequestsMsg:
 		if msg.Err != nil {
 			m.rpcClient.Logger.Errorf("Error fetching incoming friend requests: %v", msg.Err)
-			m.errmsg = fmt.Sprintf("Error fetching incoming friend requests: %v", msg.Err)
 		} else {
 			m.rpcClient.Logger.Infof("Received incoming friend requests: %v", msg.Requests)
 			m.incomingRequests = msg.Requests
-			m.errmsg = "" // Clear any previous error messages
 
 			// Update the table rows
 			rows := make([]table.Row, len(msg.Requests))
 			for i, request := range msg.Requests {
-				// We store the RequestId as a string in a hidden column (if needed)
-				// For now, we can rely on the index since m.incomingRequests is in sync with table rows
 				rows[i] = table.Row{request.SenderUsername, request.Status.String()}
 			}
 			m.incFriendRequestTable.SetRows(rows)
@@ -85,9 +79,8 @@ func (m incomingRequestsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case AcceptFriendRequestResultMsg:
 		if msg.Err != nil {
 			m.rpcClient.Logger.Errorf("Failed to accept friend request %d: %v", msg.RequestID, msg.Err)
-			m.errmsg = fmt.Sprintf("Failed to accept friend request %d: %v", msg.RequestID, msg.Err)
 		} else {
-			m.errmsg = "Friend request accepted!"
+			m.rpcClient.Logger.Infof("Friend request accepted!")
 			// Remove the accepted request from the list
 			for i, req := range m.incomingRequests {
 				if req.RequestId == msg.RequestID {
@@ -106,9 +99,8 @@ func (m incomingRequestsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case DeclineFriendRequestResultMsg:
 		if msg.Err != nil {
 			m.rpcClient.Logger.Errorf("Failed to decline friend request %d: %v", msg.RequestID, msg.Err)
-			m.errmsg = fmt.Sprintf("Failed to decline friend request %d: %v", msg.RequestID, msg.Err)
 		} else {
-			m.errmsg = "Friend request declined."
+			m.rpcClient.Logger.Infof("Friend request declined.")
 			// Remove the declined request from the list
 			for i, req := range m.incomingRequests {
 				if req.RequestId == msg.RequestID {
@@ -177,13 +169,6 @@ func (m incomingRequestsModel) View() string {
 	view.WriteString(baseStyle.Render(m.incFriendRequestTable.View()) + "\n")
 	// Show instructions
 	view.WriteString("[ Press 'a' to Accept, 'd' to Decline, 'q' to Quit ]\n")
-
-	// Display error or success message if any
-	if m.errmsg != "" {
-		view.WriteString("\n")
-		view.WriteString(errorMsgStyle.Render(m.errmsg))
-		view.WriteString("\n")
-	}
 
 	return view.String()
 }
