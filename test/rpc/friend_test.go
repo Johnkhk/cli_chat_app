@@ -3,6 +3,7 @@ package rpc
 import (
 	"testing"
 
+	"github.com/johnkhk/cli_chat_app/genproto/friends"
 	"github.com/johnkhk/cli_chat_app/test/setup"
 )
 
@@ -57,6 +58,11 @@ func TestSendFriendRequestAndVerifyStatus(t *testing.T) {
 		t.Errorf("Expected recipient_username to be %s, got: %s", user2Username, outReq.RecipientUsername)
 	}
 
+	// Verify status of the friend request
+	if outReq.Status != friends.FriendRequestStatus_PENDING {
+		t.Errorf("Expected friend request status to be %s, got: %s", friends.FriendRequestStatus_PENDING, outReq.Status)
+	}
+
 	// User2 verifies the friend request is in incoming requests with correct usernames
 	incomingRequests, err := client2.FriendsClient.GetIncomingFriendRequests()
 	if err != nil {
@@ -73,6 +79,11 @@ func TestSendFriendRequestAndVerifyStatus(t *testing.T) {
 	}
 	if inReq.RecipientUsername != user2Username {
 		t.Errorf("Expected recipient_username to be %s, got: %s", user2Username, inReq.RecipientUsername)
+	}
+
+	// Verify status of the friend request
+	if inReq.Status != friends.FriendRequestStatus_PENDING {
+		t.Errorf("Expected friend request status to be %s, got: %s", friends.FriendRequestStatus_PENDING, inReq.Status)
 	}
 }
 
@@ -109,7 +120,7 @@ func TestAcceptFriendRequestAndVerify(t *testing.T) {
 		t.Fatalf("%s failed to send friend request to %s: %v", user1Username, user2Username, err)
 	}
 
-	// User2 accepts the friend request
+	// User2 gets the friend request
 	incomingRequests, err := client2.FriendsClient.GetIncomingFriendRequests()
 	if err != nil {
 		t.Fatalf("Failed to get incoming friend requests for %s: %v", user2Username, err)

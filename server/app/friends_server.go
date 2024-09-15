@@ -33,8 +33,6 @@ func NewFriendsServer(db *sql.DB, logger *logrus.Logger) *FriendsServer {
 func (s *FriendsServer) SendFriendRequest(ctx context.Context, req *friends.SendFriendRequestRequest) (*friends.SendFriendRequestResponse, error) {
 	// Retrieve the requester ID from the context
 	requesterID, ok := ctx.Value("userID").(string)
-	// username, ok := ctx.Value("username").(string)
-
 	if !ok || requesterID == "" {
 		return nil, fmt.Errorf("requester ID not found in context")
 	}
@@ -82,49 +80,52 @@ func (s *FriendsServer) SendFriendRequest(ctx context.Context, req *friends.Send
 		return nil, fmt.Errorf("error checking existing friend request: %w", err)
 	}
 
-	// If a record is found, use the map to get the enum value
-	statusEnum, ok := storage.StatusMap[existingStatus]
-	if !ok {
-		// If the status does not match any known value, use UNKNOWN
-		statusEnum = friends.FriendRequestStatus_UNKNOWN
-	}
-
-	// Handle the relevant existing statuses
-	switch statusEnum {
-	case friends.FriendRequestStatus_PENDING:
-		return &friends.SendFriendRequestResponse{
-			Status:    friends.FriendRequestStatus_FAILED,
-			Message:   "A friend request is already pending",
-			Timestamp: timestamppb.Now(),
-		}, nil
-	case friends.FriendRequestStatus_ACCEPTED:
-		return &friends.SendFriendRequestResponse{
-			Status:    friends.FriendRequestStatus_FAILED,
-			Message:   "You are already friends",
-			Timestamp: timestamppb.Now(),
-		}, nil
-	case friends.FriendRequestStatus_DECLINED:
-		// Allow sending the friend request again if it was previously rejected
-		_, err = s.DB.Exec(`
-			UPDATE friend_requests
-			SET status = ?, created_at = NOW()
-			WHERE requester_id = ? AND recipient_id = ? AND status = ?`,
-			storage.StatusPending, requesterIDInt, recipientID, storage.StatusDeclined)
-		if err != nil {
-			return nil, fmt.Errorf("error updating friend request to pending: %w", err)
+	if err == nil { // If there is an existing friend request
+		// Use the map to get the enum value
+		s.Logger.Infof("Existing status for friend request: %s", existingStatus)
+		statusEnum, ok := friends.FriendRequestStatus_value[existingStatus]
+		if !ok {
+			// If the status does not match any known value, use UNKNOWN
+			statusEnum = storage.StatusUnknownInt32
 		}
-		return &friends.SendFriendRequestResponse{
-			Status:    friends.FriendRequestStatus_PENDING,
-			Message:   "Friend request sent again successfully",
-			Timestamp: timestamppb.Now(),
-		}, nil
+
+		// Handle the relevant existing statuses
+		switch friends.FriendRequestStatus(statusEnum) {
+		case friends.FriendRequestStatus_PENDING:
+			return &friends.SendFriendRequestResponse{
+				Status:    friends.FriendRequestStatus_FAILED,
+				Message:   "A friend request is already pending",
+				Timestamp: timestamppb.Now(),
+			}, nil
+		case friends.FriendRequestStatus_ACCEPTED:
+			return &friends.SendFriendRequestResponse{
+				Status:    friends.FriendRequestStatus_FAILED,
+				Message:   "You are already friends",
+				Timestamp: timestamppb.Now(),
+			}, nil
+		case friends.FriendRequestStatus_DECLINED:
+			// Allow sending the friend request again if it was previously rejected
+			_, err = s.DB.Exec(`
+				UPDATE friend_requests
+				SET status = ?, created_at = NOW()
+				WHERE requester_id = ? AND recipient_id = ? AND status = ?`,
+				storage.StatusPendingStr, requesterIDInt, recipientID, storage.StatusDeclinedStr)
+			if err != nil {
+				return nil, fmt.Errorf("error updating friend request to pending: %w", err)
+			}
+			return &friends.SendFriendRequestResponse{
+				Status:    friends.FriendRequestStatus_PENDING,
+				Message:   "Friend request sent again successfully",
+				Timestamp: timestamppb.Now(),
+			}, nil
+		}
 	}
 
 	// Step 3: Insert the new friend request into the database
 	_, err = s.DB.Exec(`
 		INSERT INTO friend_requests (requester_id, recipient_id, status)
 		VALUES (?, ?, ?)`,
-		requesterIDInt, recipientID, storage.StatusPending)
+		requesterIDInt, recipientID, storage.StatusPendingStr)
 	if err != nil {
 		return nil, fmt.Errorf("error inserting friend request into database: %w", err)
 	}
@@ -152,7 +153,7 @@ func (s *FriendsServer) AcceptFriendRequest(ctx context.Context, req *friends.Ac
 
 	// Step 1: Update the friend request status to "ACCEPTED" if it exists and is pending
 	res, err := s.DB.Exec(`UPDATE friend_requests SET status = ?, response_at = NOW() WHERE id = ? AND recipient_id = ? AND status = ?`,
-		storage.StatusAccepted, req.RequestId, userIDInt, storage.StatusPending)
+		storage.StatusAcceptedStr, req.RequestId, userIDInt, storage.StatusPendingStr)
 
 	if err != nil {
 		return nil, fmt.Errorf("error updating friend request status to accepted: %w", err)
@@ -219,7 +220,7 @@ func (s *FriendsServer) GetIncomingFriendRequests(ctx context.Context, req *frie
         FROM friend_requests fr
         JOIN users u_sender ON fr.requester_id = u_sender.id
         JOIN users u_recipient ON fr.recipient_id = u_recipient.id
-        WHERE fr.recipient_id = ? AND fr.status = ?`, userIDInt, storage.StatusPending)
+        WHERE fr.recipient_id = ? AND fr.status = ?`, userIDInt, storage.StatusPendingStr)
 	if err != nil {
 		return nil, fmt.Errorf("error fetching incoming friend requests: %w", err)
 	}
@@ -289,7 +290,7 @@ func (s *FriendsServer) GetOutgoingFriendRequests(ctx context.Context, req *frie
         FROM friend_requests fr
         JOIN users u_sender ON fr.requester_id = u_sender.id
         JOIN users u_recipient ON fr.recipient_id = u_recipient.id
-        WHERE fr.requester_id = ? AND fr.status = ?`, userIDInt, storage.StatusPending)
+        WHERE fr.requester_id = ? AND fr.status = ?`, userIDInt, storage.StatusPendingStr)
 	if err != nil {
 		return nil, fmt.Errorf("error fetching outgoing friend requests: %w", err)
 	}
@@ -400,7 +401,7 @@ func (s *FriendsServer) DeclineFriendRequest(ctx context.Context, req *friends.D
 
 	// Step 1: Update the friend request status to "DECLINED" if it exists and is pending
 	res, err := s.DB.Exec(`UPDATE friend_requests SET status = ?, response_at = NOW() WHERE id = ? AND recipient_id = ? AND status = ?`,
-		storage.StatusDeclined, req.RequestId, userIDInt, storage.StatusPending)
+		storage.StatusDeclinedStr, req.RequestId, userIDInt, storage.StatusPendingStr)
 
 	if err != nil {
 		return nil, fmt.Errorf("error updating friend request status to declined: %w", err)

@@ -3,6 +3,7 @@
 package pages
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/table"
@@ -24,12 +25,13 @@ type outgoingRequestsModel struct {
 	showInput         bool
 	textInput         textinput.Model
 	rpcClient         *app.RpcClient
+	errmsg            string
 }
 
 func NewOutgoingRequestsModel(rpcClient *app.RpcClient) outgoingRequestsModel {
 	columns := []table.Column{
 		{Title: "Recipient", Width: 20},
-		{Title: "Status", Width: 30},
+		{Title: "Status", Width: 20},
 	}
 
 	// Initially empty rows
@@ -78,14 +80,16 @@ func (m outgoingRequestsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case OutgoingFriendRequestsMsg:
 		if msg.Err != nil {
 			m.rpcClient.Logger.Errorf("Error fetching outgoing friend requests: %v", msg.Err)
+			m.errmsg = fmt.Sprintf("Error fetching outgoing friend requests: %v", msg.Err)
 		} else {
 			m.rpcClient.Logger.Infof("Received outgoing friend requests: %v", msg.Requests)
 			m.outgoingRequests = msg.Requests
+			m.errmsg = "" // Clear any previous error messages
 
 			// Update the table rows
 			rows := make([]table.Row, len(msg.Requests))
 			for i, request := range msg.Requests {
-				rows[i] = table.Row{request.RecipientId, "Pending"}
+				rows[i] = table.Row{request.RecipientUsername, request.Status.String()}
 			}
 			m.sentRequestsTable.SetRows(rows)
 		}
@@ -93,9 +97,14 @@ func (m outgoingRequestsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case SendFriendRequestResultMsg:
 		if msg.Err != nil {
 			m.rpcClient.Logger.Errorf("Failed to send friend request to %s: %v", msg.RecipientUsername, msg.Err)
-			// Optionally, display an error message in the UI
+			m.errmsg = fmt.Sprintf("Failed to send friend request to %s: %v", msg.RecipientUsername, msg.Err)
 		} else {
-			// Optionally, handle success (the parent model will refresh the data)
+			m.errmsg = fmt.Sprintf("Friend request sent to %s!", msg.RecipientUsername)
+			// Optionally, refresh the outgoing requests
+			cmd = func() tea.Msg {
+				requests, err := m.rpcClient.FriendsClient.GetOutgoingFriendRequests()
+				return OutgoingFriendRequestsMsg{Requests: requests, Err: err}
+			}
 		}
 
 	case tea.KeyMsg:
@@ -111,7 +120,8 @@ func (m outgoingRequestsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.showInput = false
 				if newFriendName != "" {
 					cmd = tea.Batch(cmd, func() tea.Msg {
-						return SendFriendRequestMsg{RecipientUsername: newFriendName}
+						err := m.rpcClient.FriendsClient.SendFriendRequest(newFriendName)
+						return SendFriendRequestResultMsg{RecipientUsername: newFriendName, Err: err}
 					})
 					m.textInput.SetValue("")
 					return m, cmd
@@ -172,6 +182,13 @@ func (m outgoingRequestsModel) View() string {
 		view.WriteString(m.textInput.View() + "\n")
 	} else {
 		view.WriteString("[ Press 'a' to Add Friend ]\n")
+	}
+
+	// Display error or success message if any
+	if m.errmsg != "" {
+		view.WriteString("\n")
+		view.WriteString(errorMsgStyle.Render(m.errmsg))
+		view.WriteString("\n")
 	}
 
 	return view.String()

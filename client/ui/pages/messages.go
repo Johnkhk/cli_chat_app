@@ -26,11 +26,11 @@ type SendFriendRequestMsg struct {
 }
 
 type AcceptFriendRequestMsg struct {
-	RequestID string
+	RequestID int32
 }
 
 type DeclineFriendRequestMsg struct {
-	RequestID string
+	RequestID int32
 }
 
 type RemoveFriendMsg struct {
@@ -44,12 +44,12 @@ type SendFriendRequestResultMsg struct {
 }
 
 type AcceptFriendRequestResultMsg struct {
-	RequestID string
+	RequestID int32
 	Err       error
 }
 
 type DeclineFriendRequestResultMsg struct {
-	RequestID string
+	RequestID int32
 	Err       error
 }
 

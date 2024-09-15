@@ -2,18 +2,20 @@ package storage
 
 import "github.com/johnkhk/cli_chat_app/genproto/friends"
 
-// Status constants for friend request statuses stored in the database
-const (
-	StatusPending  = "pending"
-	StatusAccepted = "accepted"
-	StatusDeclined = "declined"
-	StatusCanceled = "canceled"
+var (
+	StatusPendingStr  = friends.FriendRequestStatus_name[int32(friends.FriendRequestStatus_PENDING)]
+	StatusAcceptedStr = friends.FriendRequestStatus_name[int32(friends.FriendRequestStatus_ACCEPTED)]
+	StatusDeclinedStr = friends.FriendRequestStatus_name[int32(friends.FriendRequestStatus_DECLINED)]
+	StatusCanceledStr = friends.FriendRequestStatus_name[int32(friends.FriendRequestStatus_CANCELED)]
+	StatusUnknownStr  = friends.FriendRequestStatus_name[int32(friends.FriendRequestStatus_UNKNOWN)]
+	StatusFailedStr   = friends.FriendRequestStatus_name[int32(friends.FriendRequestStatus_FAILED)]
 )
 
-// Map to convert string statuses from the database to Protobuf enum values
-var StatusMap = map[string]friends.FriendRequestStatus{
-	StatusPending:  friends.FriendRequestStatus_PENDING,
-	StatusAccepted: friends.FriendRequestStatus_ACCEPTED,
-	StatusDeclined: friends.FriendRequestStatus_DECLINED,
-	StatusCanceled: friends.FriendRequestStatus_CANCELED,
-}
+const (
+	StatusPendingInt32  = int32(friends.FriendRequestStatus_PENDING)
+	StatusAcceptedInt32 = int32(friends.FriendRequestStatus_ACCEPTED)
+	StatusDeclinedInt32 = int32(friends.FriendRequestStatus_DECLINED)
+	StatusCanceledInt32 = int32(friends.FriendRequestStatus_CANCELED)
+	StatusUnknownInt32  = int32(friends.FriendRequestStatus_UNKNOWN)
+	StatusFailedInt32   = int32(friends.FriendRequestStatus_FAILED)
+)

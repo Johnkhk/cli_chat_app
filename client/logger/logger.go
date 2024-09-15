@@ -20,7 +20,8 @@ func InitLogger() *logrus.Logger {
 
 	// Open the log file for writing
 	homeDir, _ := os.UserHomeDir()
-	logFilePath := filepath.Join(homeDir, ".cli_chat_app", "debug.log")
+	// logFilePath := filepath.Join(homeDir, ".cli_chat_app", "debug.log")
+	logFilePath := filepath.Join(homeDir, os.Getenv("APP_DIR_NAME"), "debug.log") // For Linux/macOS
 	os.MkdirAll(filepath.Dir(logFilePath), 0755)
 	logFile, err := os.OpenFile(logFilePath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
 

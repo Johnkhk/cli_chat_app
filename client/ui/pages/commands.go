@@ -3,8 +3,6 @@
 package pages
 
 import (
-	"fmt"
-
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/johnkhk/cli_chat_app/client/app"
@@ -43,7 +41,7 @@ func sendFriendRequestCmd(rpcClient *app.RpcClient, recipientUsername string) te
 }
 
 // acceptFriendRequestCmd accepts a friend request and returns a result message.
-func acceptFriendRequestCmd(rpcClient *app.RpcClient, requestID string) tea.Cmd {
+func acceptFriendRequestCmd(rpcClient *app.RpcClient, requestID int32) tea.Cmd {
 	return func() tea.Msg {
 		err := rpcClient.FriendsClient.AcceptFriendRequest(requestID)
 		return AcceptFriendRequestResultMsg{RequestID: requestID, Err: err}
@@ -51,7 +49,7 @@ func acceptFriendRequestCmd(rpcClient *app.RpcClient, requestID string) tea.Cmd 
 }
 
 // declineFriendRequestCmd declines a friend request and returns a result message.
-func declineFriendRequestCmd(rpcClient *app.RpcClient, requestID string) tea.Cmd {
+func declineFriendRequestCmd(rpcClient *app.RpcClient, requestID int32) tea.Cmd {
 	return func() tea.Msg {
 		err := rpcClient.FriendsClient.DeclineFriendRequest(requestID)
 		return DeclineFriendRequestResultMsg{RequestID: requestID, Err: err}
@@ -61,7 +59,7 @@ func declineFriendRequestCmd(rpcClient *app.RpcClient, requestID string) tea.Cmd
 // removeFriendCmd removes a friend from the user's friend list and returns a result message.
 func removeFriendCmd(rpcClient *app.RpcClient, friendID int32) tea.Cmd {
 	return func() tea.Msg {
-		err := rpcClient.FriendsClient.RemoveFriend(fmt.Sprintf("%d", friendID))
+		err := rpcClient.FriendsClient.RemoveFriend(friendID)
 		return RemoveFriendResultMsg{FriendID: friendID, Err: err}
 	}
 }
