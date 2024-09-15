@@ -34,3 +34,22 @@ run-user:
 	else \
 		APP_DIR_NAME=".cli_chat_app_user$(USER_NUM)" go run cmd/client/main.go; \
 	fi
+
+# Target to tail the user log
+# e.g make tail-user-log USER_NUM=1
+tail-user-log:
+	@if [ -z "$(USER_NUM)" ]; then \
+		echo "Please provide a USER_NUM, e.g., 'make tail-user-log USER_NUM=1'"; \
+	else \
+		tail -f $(HOME)/.cli_chat_app_user$(USER_NUM)/debug.log; \
+	fi
+
+
+# Target to clean user JWT tokens
+# e.g make clean-user-token USER_NUM=1
+clean-user-token:
+	@if [ -z "$(USER_NUM)" ]; then \
+		echo "Please provide a USER_NUM, e.g., 'make clean-user USER_NUM=1'"; \
+	else \
+		rm -f $(HOME)/.cli_chat_app_user$(USER_NUM)/jwt_tokens; \
+	fi
