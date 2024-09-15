@@ -80,7 +80,7 @@ func (c *FriendsClient) GetOutgoingFriendRequests() ([]*friends.FriendRequest, e
 }
 
 // AcceptFriendRequest accepts an incoming friend request.
-func (c *FriendsClient) AcceptFriendRequest(requestID string) error {
+func (c *FriendsClient) AcceptFriendRequest(requestID int32) error {
 	req := &friends.AcceptFriendRequestRequest{
 		RequestId: requestID,
 	}
@@ -102,7 +102,7 @@ func (c *FriendsClient) AcceptFriendRequest(requestID string) error {
 }
 
 // DeclineFriendRequest declines an incoming friend request.
-func (c *FriendsClient) DeclineFriendRequest(requestID string) error {
+func (c *FriendsClient) DeclineFriendRequest(requestID int32) error {
 	req := &friends.DeclineFriendRequestRequest{
 		RequestId: requestID,
 	}
@@ -124,7 +124,7 @@ func (c *FriendsClient) DeclineFriendRequest(requestID string) error {
 }
 
 // RemoveFriend removes a friend from the user's friend list.
-func (c *FriendsClient) RemoveFriend(friendID string) error {
+func (c *FriendsClient) RemoveFriend(friendID int32) error {
 	req := &friends.RemoveFriendRequest{
 		FriendId: friendID,
 	}

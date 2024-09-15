@@ -10,7 +10,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/joho/godotenv"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/test/bufconn"
@@ -35,14 +34,6 @@ type TestServerConfig struct {
 
 // InitTestServer initializes the in-memory gRPC server and the test database.
 func InitTestServer(t *testing.T, serverConfig TestServerConfig) *sql.DB {
-	// Load environment variables from .env file
-	if err := godotenv.Load("../../.env"); err != nil {
-		if t != nil {
-			t.Fatalf("Error loading .env file: %v", err)
-		} else {
-			serverConfig.Log.Panicf("Error loading .env file: %v", err)
-		}
-	}
 
 	lis = bufconn.Listen(BufSize)
 	secretKey := os.Getenv("CLI_CHAT_APP_JWT_SECRET_KEY")

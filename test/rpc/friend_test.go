@@ -8,7 +8,7 @@ import (
 
 // TestSendFriendRequestAndVerifyStatus tests the flow of sending a friend request and verifying its status.
 func TestSendFriendRequestAndVerifyStatus(t *testing.T) {
-	t.Parallel()
+	// t.Parallel()
 
 	// Initialize resources with two clients for two different users
 	rpcClients, _, cleanup := setup.InitializeTestResources(t, nil, 2)
@@ -57,7 +57,7 @@ func TestSendFriendRequestAndVerifyStatus(t *testing.T) {
 
 // TestAcceptFriendRequestAndVerify tests the flow of accepting a friend request.
 func TestAcceptFriendRequestAndVerify(t *testing.T) {
-	t.Parallel()
+	// t.Parallel()
 
 	// Initialize resources with two clients for two different users
 	rpcClients, _, cleanup := setup.InitializeTestResources(t, nil, 2)
@@ -117,7 +117,7 @@ func TestAcceptFriendRequestAndVerify(t *testing.T) {
 
 // TestGetFriendListAfterAcceptingRequest tests retrieving the friend list after a request is accepted.
 func TestGetFriendListAfterAcceptingRequest(t *testing.T) {
-	t.Parallel()
+	// t.Parallel()
 
 	// Initialize resources with two clients for two different users
 	rpcClients, _, cleanup := setup.InitializeTestResources(t, nil, 2)
@@ -177,7 +177,7 @@ func TestGetFriendListAfterAcceptingRequest(t *testing.T) {
 
 // TestDeclineFriendRequestAndVerify tests the flow of declining a friend request.
 func TestDeclineFriendRequestAndVerify(t *testing.T) {
-	t.Parallel()
+	// t.Parallel()
 
 	// Initialize resources with two clients for two different users
 	rpcClients, _, cleanup := setup.InitializeTestResources(t, nil, 2)
@@ -238,7 +238,7 @@ func TestDeclineFriendRequestAndVerify(t *testing.T) {
 
 // TestRemoveFriendAndVerify tests the flow of removing a friend.
 func TestRemoveFriendAndVerify(t *testing.T) {
-	t.Parallel()
+	// t.Parallel()
 
 	// Initialize resources with two clients for two different users
 	rpcClients, _, cleanup := setup.InitializeTestResources(t, nil, 2)

@@ -77,7 +77,10 @@ func TestTokenExpirationAndRefresh(t *testing.T) {
 	mockTime := &test.MockTimeProvider{CurrentTime: time.Now()}
 
 	// Create a custom server configuration with your desired token durations
-	customConfig := setup.NewDefaultTestServerConfig()
+	customConfig, err := setup.NewDefaultTestServerConfig(t)
+	if err != nil {
+		t.Fatalf("Failed to create default test server config: %v", err)
+	}
 	customConfig.AccessTokenDuration = time.Minute * 15    // Access token valid for 15 minutes
 	customConfig.RefreshTokenDuration = time.Hour * 24 * 7 // Refresh token valid for 7 days
 	customConfig.TimeProvider = mockTime                   // Inject the mock time provider
@@ -90,7 +93,7 @@ func TestTokenExpirationAndRefresh(t *testing.T) {
 
 	// Register and login the user
 	log.Infof("Registering user for expiration test")
-	err := rpcClient.AuthClient.RegisterUser("expiringuser", "testpassword")
+	err = rpcClient.AuthClient.RegisterUser("expiringuser", "testpassword")
 	if err != nil {
 		t.Fatalf("Failed to register user: %v", err)
 	}
