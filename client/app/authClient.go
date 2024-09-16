@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/RTann/libsignal-go/protocol/identity"
 	"github.com/sirupsen/logrus"
@@ -160,4 +161,24 @@ func fileExists(path string) bool {
 func (c *AuthClient) GetPrivateKeyPath(username string) (string, error) {
 	privateKeyPath := filepath.Join(c.AppDirPath, fmt.Sprintf("%s_identity_private_key.pem", username))
 	return privateKeyPath, nil
+}
+
+// GetPublicKey sends a request to the gRPC server to retrieve the public key for a user.
+func (c *AuthClient) GetPublicKey(userID int32) (*auth.GetPublicKeyResponse, error) {
+	// Step 1: Create a request object.
+	req := &auth.GetPublicKeyRequest{
+		UserId: userID,
+	}
+
+	// Step 2: Send the request to the gRPC server.
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second) // Set a timeout for the request.
+	defer cancel()
+
+	resp, err := c.Client.GetPublicKey(ctx, req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get public key: %v", err)
+	}
+
+	// Step 3: Return the response from the server.
+	return resp, nil
 }

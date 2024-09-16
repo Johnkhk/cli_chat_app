@@ -1,6 +1,7 @@
 package rpc
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -277,4 +278,67 @@ func TestUploadPublicKeyAfterRegistration(t *testing.T) {
 	}
 
 	log.Infof("Public key uploaded and stored successfully for user: %s", username)
+}
+
+// TestGetPublicKey tests that a user's public key can be retrieved correctly from the database.
+func TestGetPublicKey(t *testing.T) {
+	// Allow this test to run in parallel
+	t.Parallel()
+
+	// Initialize resources using default configuration
+	rpcClients, db, cleanup := setup.InitializeTestResources(t, nil, 1)
+	rpcClient := rpcClients[0]
+	defer cleanup()
+	log := rpcClient.Logger
+
+	// Register a new user
+	username := "testuser"
+	password := "securepassword"
+	log.Infof("Registering new user: %s", username)
+	err := rpcClient.AuthClient.RegisterUser(username, password)
+	if err != nil {
+		t.Fatalf("Failed to register new user: %v", err)
+	}
+
+	// Login the user (which should also upload the public key)
+	log.Infof("Logging in user: %s", username)
+	err = rpcClient.AuthClient.LoginUser(username, password)
+	if err != nil {
+		t.Fatalf("Failed to login user: %v", err)
+	}
+
+	// Fetch the user ID for the registered user
+	var userID int32
+	err = db.QueryRow("SELECT id FROM users WHERE username = ?", username).Scan(&userID)
+	if err != nil {
+		t.Fatalf("Failed to retrieve user ID from database: %v", err)
+	}
+
+	// Retrieve the public key using the GetPublicKey method
+	log.Infof("Retrieving public key for user: %s (ID: %d)", username, userID)
+	getPublicKeyResponse, err := rpcClient.AuthClient.GetPublicKey(userID)
+	if err != nil {
+		t.Fatalf("Failed to retrieve public key: %v", err)
+	}
+
+	// Verify that the response indicates success and the public key is not empty
+	if !getPublicKeyResponse.Success {
+		t.Fatalf("Expected success but got failure: %s", getPublicKeyResponse.Message)
+	}
+	if len(getPublicKeyResponse.PublicKey) == 0 {
+		t.Fatalf("Public key should not be empty")
+	}
+
+	// Verify that the retrieved public key matches what is stored in the database
+	var storedPublicKey []byte
+	err = db.QueryRow("SELECT identity_public_key FROM user_keys WHERE user_id = ?", userID).Scan(&storedPublicKey)
+	if err != nil {
+		t.Fatalf("Failed to retrieve public key from database: %v", err)
+	}
+
+	if !bytes.Equal(getPublicKeyResponse.PublicKey, storedPublicKey) {
+		t.Fatalf("Retrieved public key does not match stored public key")
+	}
+
+	log.Infof("Public key retrieved successfully and matches the stored value for user: %s (ID: %d)", username, userID)
 }

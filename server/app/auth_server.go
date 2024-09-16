@@ -176,3 +176,46 @@ func (s *AuthServer) saveUserPublicKey(username string, publicKey []byte) error 
 	log.Printf("Public key for user %s stored successfully.", username)
 	return nil
 }
+
+// GetPublicKey handles the RPC request to retrieve a public key using user_id.
+func (s *AuthServer) GetPublicKey(ctx context.Context, req *auth.GetPublicKeyRequest) (*auth.GetPublicKeyResponse, error) {
+	// Step 1: Validate the input.
+	if req.UserId == 0 {
+		return &auth.GetPublicKeyResponse{
+			Success: false,
+			Message: "Invalid input: User ID is required.",
+		}, fmt.Errorf("invalid input: missing user ID")
+	}
+
+	// Step 2: Retrieve the public key from the database.
+	publicKey, err := s.getUserPublicKeyByID(req.UserId)
+	if err != nil {
+		return &auth.GetPublicKeyResponse{
+			Success: false,
+			Message: fmt.Sprintf("Failed to retrieve public key: %v", err),
+		}, err
+	}
+
+	// Step 3: Return the public key in the response.
+	return &auth.GetPublicKeyResponse{
+		Success:   true,
+		PublicKey: publicKey,
+		Message:   "Public key retrieved successfully.",
+	}, nil
+}
+
+// getUserPublicKeyByID retrieves the public key for a user from the database using user_id.
+func (s *AuthServer) getUserPublicKeyByID(userID int32) ([]byte, error) {
+	// Find the public key based on the user ID.
+	var publicKey []byte
+	err := s.DB.QueryRow("SELECT identity_public_key FROM user_keys WHERE user_id = ?", userID).Scan(&publicKey)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("public key not found for user ID: %d", userID)
+		}
+		return nil, fmt.Errorf("failed to retrieve public key: %v", err)
+	}
+
+	log.Printf("Public key for user ID %d retrieved successfully.", userID)
+	return publicKey, nil
+}
