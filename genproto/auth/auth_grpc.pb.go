@@ -19,9 +19,10 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	AuthService_RegisterUser_FullMethodName = "/auth.AuthService/RegisterUser"
-	AuthService_LoginUser_FullMethodName    = "/auth.AuthService/LoginUser"
-	AuthService_RefreshToken_FullMethodName = "/auth.AuthService/RefreshToken"
+	AuthService_RegisterUser_FullMethodName    = "/auth.AuthService/RegisterUser"
+	AuthService_LoginUser_FullMethodName       = "/auth.AuthService/LoginUser"
+	AuthService_RefreshToken_FullMethodName    = "/auth.AuthService/RefreshToken"
+	AuthService_UploadPublicKey_FullMethodName = "/auth.AuthService/UploadPublicKey"
 )
 
 // AuthServiceClient is the client API for AuthService service.
@@ -33,6 +34,7 @@ type AuthServiceClient interface {
 	RegisterUser(ctx context.Context, in *RegisterRequest, opts ...grpc.CallOption) (*RegisterResponse, error)
 	LoginUser(ctx context.Context, in *LoginRequest, opts ...grpc.CallOption) (*LoginResponse, error)
 	RefreshToken(ctx context.Context, in *RefreshTokenRequest, opts ...grpc.CallOption) (*RefreshTokenResponse, error)
+	UploadPublicKey(ctx context.Context, in *UploadPublicKeyRequest, opts ...grpc.CallOption) (*UploadPublicKeyResponse, error)
 }
 
 type authServiceClient struct {
@@ -73,6 +75,16 @@ func (c *authServiceClient) RefreshToken(ctx context.Context, in *RefreshTokenRe
 	return out, nil
 }
 
+func (c *authServiceClient) UploadPublicKey(ctx context.Context, in *UploadPublicKeyRequest, opts ...grpc.CallOption) (*UploadPublicKeyResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(UploadPublicKeyResponse)
+	err := c.cc.Invoke(ctx, AuthService_UploadPublicKey_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // AuthServiceServer is the server API for AuthService service.
 // All implementations must embed UnimplementedAuthServiceServer
 // for forward compatibility.
@@ -82,6 +94,7 @@ type AuthServiceServer interface {
 	RegisterUser(context.Context, *RegisterRequest) (*RegisterResponse, error)
 	LoginUser(context.Context, *LoginRequest) (*LoginResponse, error)
 	RefreshToken(context.Context, *RefreshTokenRequest) (*RefreshTokenResponse, error)
+	UploadPublicKey(context.Context, *UploadPublicKeyRequest) (*UploadPublicKeyResponse, error)
 	mustEmbedUnimplementedAuthServiceServer()
 }
 
@@ -100,6 +113,9 @@ func (UnimplementedAuthServiceServer) LoginUser(context.Context, *LoginRequest) 
 }
 func (UnimplementedAuthServiceServer) RefreshToken(context.Context, *RefreshTokenRequest) (*RefreshTokenResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RefreshToken not implemented")
+}
+func (UnimplementedAuthServiceServer) UploadPublicKey(context.Context, *UploadPublicKeyRequest) (*UploadPublicKeyResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UploadPublicKey not implemented")
 }
 func (UnimplementedAuthServiceServer) mustEmbedUnimplementedAuthServiceServer() {}
 func (UnimplementedAuthServiceServer) testEmbeddedByValue()                     {}
@@ -176,6 +192,24 @@ func _AuthService_RefreshToken_Handler(srv interface{}, ctx context.Context, dec
 	return interceptor(ctx, in, info, handler)
 }
 
+func _AuthService_UploadPublicKey_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UploadPublicKeyRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthServiceServer).UploadPublicKey(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthService_UploadPublicKey_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthServiceServer).UploadPublicKey(ctx, req.(*UploadPublicKeyRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // AuthService_ServiceDesc is the grpc.ServiceDesc for AuthService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -194,6 +228,10 @@ var AuthService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "RefreshToken",
 			Handler:    _AuthService_RefreshToken_Handler,
+		},
+		{
+			MethodName: "UploadPublicKey",
+			Handler:    _AuthService_UploadPublicKey_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

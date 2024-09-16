@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -126,4 +127,52 @@ func (s *AuthServer) RefreshToken(ctx context.Context, req *auth.RefreshTokenReq
 
 	// Return the new access token
 	return &auth.RefreshTokenResponse{AccessToken: newAccessToken}, nil
+}
+
+// UploadPublicKey handles the RPC request to upload a public key.
+func (s *AuthServer) UploadPublicKey(ctx context.Context, req *auth.UploadPublicKeyRequest) (*auth.UploadPublicKeyResponse, error) {
+	// Step 1: Validate the input.
+	if req.Username == "" || len(req.PublicKey) == 0 {
+		return &auth.UploadPublicKeyResponse{
+			Success: false,
+			Message: "Invalid input: Username and public key are required.",
+		}, fmt.Errorf("invalid input: missing username or public key")
+	}
+
+	// Step 2: Store the public key.
+	err := s.saveUserPublicKey(req.Username, req.PublicKey)
+	if err != nil {
+		return &auth.UploadPublicKeyResponse{
+			Success: false,
+			Message: fmt.Sprintf("Failed to upload public key: %v", err),
+		}, err
+	}
+
+	// Step 3: Return a success response.
+	return &auth.UploadPublicKeyResponse{
+		Success: true,
+		Message: "Public key uploaded successfully.",
+	}, nil
+}
+
+func (s *AuthServer) saveUserPublicKey(username string, publicKey []byte) error {
+	// Find the user ID based on the username
+	var userID int
+	err := s.DB.QueryRow("SELECT id FROM users WHERE username = ?", username).Scan(&userID)
+	if err != nil {
+		return fmt.Errorf("failed to find user: %v", err)
+	}
+
+	// Insert or update the public key for the user
+	_, err = s.DB.Exec(`
+        INSERT INTO user_keys (user_id, identity_public_key) 
+        VALUES (?, ?)
+        ON DUPLICATE KEY UPDATE identity_public_key = VALUES(identity_public_key), updated_at = CURRENT_TIMESTAMP
+    `, userID, publicKey)
+	if err != nil {
+		return fmt.Errorf("failed to store public key: %v", err)
+	}
+
+	log.Printf("Public key for user %s stored successfully.", username)
+	return nil
 }

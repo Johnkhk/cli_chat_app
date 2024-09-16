@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 
 	"github.com/joho/godotenv"
 
@@ -23,25 +22,23 @@ func main() {
 	// Initialize the client logger
 	log := logger.InitLogger()
 	log.Info("Client application started")
+	// // Establish a single gRPC connection to the server
 
-	// Initialize the TokenManager with file path for token storage
-	homeDir, _ := os.UserHomeDir()
-	filePath := filepath.Join(homeDir, os.Getenv("APP_DIR_NAME"), "jwt_tokens") // For Linux/macOS
-	tokenManager := app.NewTokenManager(filePath, nil)                          // Will set the client later
-
+	rpcClientConfig := app.RpcClientConfig{
+		ServerAddress: "localhost:50051", // Replace with your server address
+		Logger:        log,
+		AppDirPath:    os.Getenv("APP_DIR_PATH"),
+	}
 	// Initialize the gRPC client using RpcClient
-	rpcClient, err := app.NewRpcClient("localhost:50051", log, tokenManager)
+	rpcClient, err := app.NewRpcClient(rpcClientConfig)
 	if err != nil {
 		log.Fatalf("Failed to initialize RPC clients: %v", err)
 	}
 	defer rpcClient.CloseConnections() // Ensure the connection is closed when the application exits
 	log.Info("gRPC clients initialized.")
 
-	// Set the AuthClient in the TokenManager
-	tokenManager.SetClient(rpcClient.AuthClient.Client)
-
 	// Attempt auto login
-	err = tokenManager.TryAutoLogin()
+	err = rpcClient.AuthClient.TokenManager.TryAutoLogin()
 	if err != nil {
 		log.Infof("Log in failed: %v", err)
 	} else {

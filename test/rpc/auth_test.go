@@ -13,7 +13,7 @@ import (
 
 // Test the registration and login flow
 func TestRegisterLoginFlow(t *testing.T) {
-	t.Parallel() // Allow this test to run in parallel
+	// t.Parallel() // Allow this test to run in parallel
 
 	// Initialize resources using default configuration
 	rpcClients, _, cleanup := setup.InitializeTestResources(t, nil, 1)
@@ -71,7 +71,7 @@ func TestRegisterLoginFlow(t *testing.T) {
 // If you have an expired access token, you can refresh it on any request.
 // The only way to get a new refresh token is to login.
 func TestTokenExpirationAndRefresh(t *testing.T) {
-	t.Parallel() // Allow this test to run in parallel
+	// t.Parallel() // Allow this test to run in parallel
 
 	// Create a mock time provider
 	mockTime := &test.MockTimeProvider{CurrentTime: time.Now()}
@@ -200,7 +200,7 @@ func TestTokenExpirationAndRefresh(t *testing.T) {
 
 // TestRegisterUserWithExistingUsername tests the registration of a user with an existing username
 func TestRegisterUserWithExistingUsername(t *testing.T) {
-	t.Parallel() // Allow this test to run in parallel
+	// t.Parallel() // Allow this test to run in parallel
 
 	// Initialize resources using default configuration
 	rpcClients, _, cleanup := setup.InitializeTestResources(t, nil, 1)
@@ -227,4 +227,54 @@ func TestRegisterUserWithExistingUsername(t *testing.T) {
 	if err.Error() != expectedErrMsg {
 		t.Fatalf("Expected error message: %q, got: %q", expectedErrMsg, err.Error())
 	}
+}
+
+// TestUploadPublicKeyAfterRegistration tests that a user's public key is correctly uploaded and stored in the database during registration.
+func TestUploadPublicKeyAfterRegistration(t *testing.T) {
+	// t.Parallel() // Allow this test to run in parallel
+
+	// Initialize resources using default configuration
+	rpcClients, db, cleanup := setup.InitializeTestResources(t, nil, 1)
+	rpcClient := rpcClients[0]
+	defer cleanup()
+	log := rpcClient.Logger
+
+	// Register a new user
+	username := "newuser"
+	password := "testpassword"
+	log.Infof("Registering new user: %s", username)
+	err := rpcClient.AuthClient.RegisterUser(username, password)
+	if err != nil {
+		t.Fatalf("Failed to register new user: %v", err)
+	}
+
+	// Login user (which should also upload the public key)
+	log.Infof("Logging in user: %s", username)
+	err = rpcClient.AuthClient.LoginUser(username, password)
+	if err != nil {
+		t.Fatalf("Failed to login user: %v", err)
+	}
+
+	// Verify that the public key was stored correctly in the database
+	var storedPublicKey []byte
+	err = db.QueryRow("SELECT identity_public_key FROM user_keys WHERE user_id = (SELECT id FROM users WHERE username = ?)", username).Scan(&storedPublicKey)
+	if err != nil {
+		t.Fatalf("Failed to retrieve public key from database: %v", err)
+	}
+
+	// Check that the stored public key is not nil or empty
+	if len(storedPublicKey) == 0 {
+		t.Fatalf("Public key should not be empty after registration")
+	}
+
+	// Check that the private key file exists
+	privateKeyPath, err := rpcClient.AuthClient.GetPrivateKeyPath(username)
+	if err != nil {
+		t.Fatalf("Failed to get private key path: %v", err)
+	}
+	if _, err := os.Stat(privateKeyPath); os.IsNotExist(err) {
+		t.Fatalf("Private key file does not exist for user: %s", username)
+	}
+
+	log.Infof("Public key uploaded and stored successfully for user: %s", username)
 }

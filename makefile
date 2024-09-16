@@ -20,36 +20,37 @@ ui_test:
 	export MYSQL_PASSWORD=$$(grep MYSQL_PASSWORD .env | cut -d '=' -f2) && mysql -u $(DB_USER) -p$$MYSQL_PASSWORD $(DB_NAME) < $(UI_TEST)
 # Target for cleaning JWT tokens
 clean:
-	rm -f $(HOME)/$(APP_DIR_NAME)/jwt_tokens
+	rm -f $(APP_DIR_PATH)/jwt_tokens
 
 # Target for tailing the client debug log
 tail-log:
-	tail -f $(HOME)/$(APP_DIR_NAME)/debug.log
+	tail -f $(APP_DIR_PATH)/debug.log
 
-# Target to run main.go with a numbered APP_DIR_NAME
+# Target to run main.go with a numbered APP_DIR_PATH
 # e.g make run-user USER_NUM=1
 run-user:
 	@if [ -z "$(USER_NUM)" ]; then \
 		echo "Please provide a USER_NUM, e.g., 'make run-user USER_NUM=1'"; \
 	else \
-		APP_DIR_NAME=".cli_chat_app_user$(USER_NUM)" go run cmd/client/main.go; \
+		export APP_DIR_PATH="$(APP_DIR_PATH)$(USER_NUM)"; \
+		go run cmd/client/main.go; \
 	fi
 
+
 # Target to tail the user log
-# e.g make tail-user-log USER_NUM=1
+# e.g., make tail-user-log USER_NUM=1
 tail-user-log:
 	@if [ -z "$(USER_NUM)" ]; then \
 		echo "Please provide a USER_NUM, e.g., 'make tail-user-log USER_NUM=1'"; \
 	else \
-		tail -f $(HOME)/.cli_chat_app_user$(USER_NUM)/debug.log; \
+		tail -f "$(HOME)/.cli_chat_app_user$(USER_NUM)/debug.log"; \
 	fi
 
-
 # Target to clean user JWT tokens
-# e.g make clean-user-token USER_NUM=1
+# e.g., make clean-user-token USER_NUM=1
 clean-user-token:
 	@if [ -z "$(USER_NUM)" ]; then \
-		echo "Please provide a USER_NUM, e.g., 'make clean-user USER_NUM=1'"; \
+		echo "Please provide a USER_NUM, e.g., 'make clean-user-token USER_NUM=1'"; \
 	else \
-		rm -f $(HOME)/.cli_chat_app_user$(USER_NUM)/jwt_tokens; \
+		rm -f "$(HOME)/.cli_chat_app_user$(USER_NUM)/jwt_tokens"; \
 	fi

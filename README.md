@@ -15,3 +15,7 @@ protoc --go_out=./genproto --go_opt=module=github.com/johnkhk/cli_chat_app/proto
 protoc --go_out=./genproto --go_opt=module=github.com/johnkhk/cli_chat_app/proto \
   --go-grpc_out=./genproto --go-grpc_opt=module=github.com/johnkhk/cli_chat_app/proto \
   proto/friends/friends.proto
+
+
+# Go libsignal lib
+<!-- https://github.com/RTann/libsignal-go -->

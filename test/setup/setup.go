@@ -13,8 +13,6 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/johnkhk/cli_chat_app/client/app"
-	"github.com/johnkhk/cli_chat_app/genproto/auth"
-	"github.com/johnkhk/cli_chat_app/genproto/friends"
 )
 
 // NewDefaultTestServerConfig creates a TestServerConfig with default values
@@ -116,38 +114,30 @@ func InitializeTestResources(t *testing.T, serverConfig *TestServerConfig, numCl
 
 	// Loop to initialize the desired number of RpcClients
 	for i := 0; i < numClients; i++ {
-		// Create a unique path for JWT tokens for each client
-		tokenDir := filepath.Join(os.TempDir(), fmt.Sprintf(".test_cli_chat_app_%s_client_%d", t.Name(), i))
-		filePath := filepath.Join(tokenDir, "jwt_tokens")
+		// Create a unique directory for each client
+		appDir := filepath.Join(os.TempDir(), fmt.Sprintf(".test_cli_chat_app_%s_client_%d", t.Name(), i))
+		tokenDir := filepath.Join(appDir, "jwt_tokens")
 
-		// Initialize the token manager with the unique path
-		tokenManager := app.NewTokenManager(filePath, nil)
+		// Create the TokenManager for the client
+		tokenManager := app.NewTokenManager(tokenDir, nil)
 		tokenManager.TimeProvider = serverConfig.TimeProvider
-
-		// Each client establishes its own connection to the server
 		conn := CreateTestClientConn(t, app.UnaryInterceptor(tokenManager, serverConfig.Log))
 
-		// Initialize the auth client
-		authClient := &app.AuthClient{
-			Client:       auth.NewAuthServiceClient(conn),
-			Logger:       serverConfig.Log,
-			TokenManager: tokenManager,
-		}
-		tokenManager.SetClient(authClient.Client)
-
-		// Initialize the friends client
-		friendsClient := &app.FriendsClient{
-			Client: friends.NewFriendManagementClient(conn),
-			Logger: serverConfig.Log,
-		}
-
-		// Create the RpcClient and add it to the slice
-		rpcClient := &app.RpcClient{
-			AuthClient:    authClient,
-			FriendsClient: friendsClient,
-			Conn:          conn,
+		// Include custom RPC client configuration
+		rpcClientConfig := app.RpcClientConfig{
+			ServerAddress: "", // Not needed since we pass the connection directly
 			Logger:        serverConfig.Log,
+			AppDirPath:    appDir,
+			Conn:          conn,
+			TokenManager:  tokenManager,
 		}
+		// Initialize the gRPC client using RpcClient
+		rpcClient, err := app.NewRpcClient(rpcClientConfig)
+		tokenManager.SetClient(rpcClient.AuthClient.Client)
+		if err != nil {
+			t.Fatalf("Failed to initialize RPC clients: %v", err)
+		}
+
 		rpcClients = append(rpcClients, rpcClient)
 	}
 

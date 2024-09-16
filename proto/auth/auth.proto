@@ -11,6 +11,7 @@ service AuthService {
   rpc RegisterUser (RegisterRequest) returns (RegisterResponse) {}
   rpc LoginUser (LoginRequest) returns (LoginResponse) {}
   rpc RefreshToken (RefreshTokenRequest) returns (RefreshTokenResponse) {}  // New method for token refresh
+  rpc UploadPublicKey (UploadPublicKeyRequest) returns (UploadPublicKeyResponse) {}  // New method to upload public key
 }
 
 // Define the request and response messages for registration.
@@ -44,4 +45,15 @@ message RefreshTokenRequest {
 
 message RefreshTokenResponse {
   string access_token = 1;  // The new access token issued by the server
+}
+
+// Define the request and response messages for uploading the public key.
+message UploadPublicKeyRequest {
+  string username = 1;    // Username of the user uploading the public key
+  bytes public_key = 2;   // The user's public key in bytes
+}
+
+message UploadPublicKeyResponse {
+  bool success = 1;       // Indicates if the upload was successful
+  string message = 2;     // A message indicating the result of the upload
 }
