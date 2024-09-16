@@ -1,3 +1,6 @@
+-- Drop the user keys table
+DROP TABLE IF EXISTS user_keys;
+
 -- Drop the friend_requests table
 DROP TABLE IF EXISTS friend_requests;
 
