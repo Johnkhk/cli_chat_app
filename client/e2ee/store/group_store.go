@@ -3,10 +3,12 @@ package store
 import (
 	"context"
 
-	"github.com/RTann/libsignal-go/protocol/address"
-	"github.com/RTann/libsignal-go/protocol/distribution"
-	"github.com/RTann/libsignal-go/protocol/session"
+	"github.com/Johnkhk/libsignal-go/protocol/address"
+	"github.com/Johnkhk/libsignal-go/protocol/distribution"
+	"github.com/Johnkhk/libsignal-go/protocol/session"
 )
+
+var _ session.GroupStore = (*GroupStore)(nil)
 
 type GroupStore struct{}
 
