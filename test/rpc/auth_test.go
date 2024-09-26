@@ -368,3 +368,107 @@ func TestOnLoginUploadKeysAndLocalIdentity(t *testing.T) {
 	// Optionally add more checks or validations here if necessary
 
 }
+
+func TestFetchPublicKeyBundle(t *testing.T) {
+	// Initialize resources using default configuration
+	rpcClients, db, cleanup := setup.InitializeTestResources(t, nil, 1)
+	rpcClient := rpcClients[0]
+	defer cleanup()
+	log := rpcClient.Logger
+
+	// Register a new user
+	log.Infof("Registering new user")
+	err := rpcClient.AuthClient.RegisterUser("newuser", "testpassword")
+	if err != nil {
+		t.Fatalf("Failed to register new user: %v", err)
+	}
+
+	// Login the user
+	log.Infof("Logging in user")
+	err = rpcClient.AuthClient.LoginUser("newuser", "testpassword")
+	if err != nil {
+		t.Fatalf("Failed to login user: %v", err)
+	}
+
+	// Extract user ID from JWT claims
+	claims, err := rpcClient.AuthClient.TokenManager.GetClaimsFromAccessToken()
+	if err != nil {
+		t.Fatalf("Failed to get claims from access token: %v", err)
+	}
+	userIDStr, ok := claims["sub"].(string)
+	if !ok {
+		t.Fatalf("Failed to extract user ID from claims")
+	}
+
+	// Convert userIDStr to int32 if necessary
+	userIDFromJWT, err := strconv.Atoi(userIDStr) // Atoi converts string to int
+	if err != nil {
+		t.Fatalf("Failed to convert user ID to integer: %v", err)
+	}
+
+	// Query the database for the registration ID associated with the user
+	var registrationID uint32
+	err = rpcClient.Store.DB.QueryRow("SELECT registration_id FROM local_identity WHERE user_id = ?", userIDFromJWT).Scan(&registrationID)
+	if err != nil {
+		t.Fatalf("Failed to query registration ID for user %d: %v", userIDFromJWT, err)
+	}
+	extractedUserID, deviceID := store.ExtractUserIDAndDeviceID(registrationID)
+	log.Infof("Extracted User ID: %d, Device ID: %d from Registration ID", extractedUserID, deviceID)
+
+	// Verify that the extracted userID matches the userID from the JWT
+	if extractedUserID != uint32(userIDFromJWT) {
+		t.Fatalf("Extracted userID (%d) does not match userID from JWT (%d)", extractedUserID, userIDFromJWT)
+	}
+
+	// Fetch the prekey bundle from the server using GetPublicKeyBundle RPC
+	log.Infof("Fetching prekey bundle for user %d", extractedUserID)
+	preKeyBundle, err := rpcClient.AuthClient.GetPublicKeyBundle(extractedUserID, deviceID)
+	if err != nil {
+		t.Fatalf("Failed to fetch prekey bundle: %v", err)
+	}
+
+	// Verify the fetched prekey bundle matches the values in the database
+	var dbIdentityKey, dbPreKey, dbSignedPreKey, dbSignedPreKeySignature []byte
+	var dbPreKeyID, dbSignedPreKeyID uint32
+
+	// Query the database for the prekey bundle
+	err = db.QueryRow(`
+        SELECT identity_key, pre_key_id, pre_key, signed_pre_key_id, signed_pre_key, signed_pre_key_signature
+        FROM prekey_bundle WHERE user_id = ? AND device_id = ?`, extractedUserID, deviceID).Scan(
+		&dbIdentityKey, &dbPreKeyID, &dbPreKey, &dbSignedPreKeyID, &dbSignedPreKey, &dbSignedPreKeySignature)
+	if err != nil {
+		t.Fatalf("Failed to query prekey bundle for user %d: %v", extractedUserID, err)
+	}
+
+	// Compare identity key
+	if !bytes.Equal(dbIdentityKey, preKeyBundle.IdentityKey) {
+		t.Fatalf("Expected IdentityKey %x, but got %x", dbIdentityKey, preKeyBundle.IdentityKey)
+	}
+
+	// Compare PreKey
+	if dbPreKeyID != preKeyBundle.PreKeyId {
+		t.Fatalf("Expected PreKeyID %d, but got %d", dbPreKeyID, preKeyBundle.PreKeyId)
+	}
+	if !bytes.Equal(dbPreKey, preKeyBundle.PreKey) {
+		t.Fatalf("Expected PreKey %x, but got %x", dbPreKey, preKeyBundle.PreKey)
+	}
+
+	// Compare Signed PreKey
+	if dbSignedPreKeyID != preKeyBundle.SignedPreKeyId {
+		t.Fatalf("Expected SignedPreKeyID %d, but got %d", dbSignedPreKeyID, preKeyBundle.SignedPreKeyId)
+	}
+	if !bytes.Equal(dbSignedPreKey, preKeyBundle.SignedPreKey) {
+		t.Fatalf("Expected Signed PreKey %x, but got %x", dbSignedPreKey, preKeyBundle.SignedPreKey)
+	}
+
+	// Compare Signed PreKey Signature
+	if !bytes.Equal(dbSignedPreKeySignature, preKeyBundle.SignedPreKeySignature) {
+		t.Fatalf("Expected Signed PreKey Signature %x, but got %x", dbSignedPreKeySignature, preKeyBundle.SignedPreKeySignature)
+	}
+
+	// Log for debugging
+	log.Infof("Verified prekey bundle for user %d", extractedUserID)
+	log.Infof("IdentityKey: %x, PreKeyID: %d, PreKey: %x, SignedPreKeyID: %d, SignedPreKey: %x", preKeyBundle.IdentityKey, preKeyBundle.PreKeyId, preKeyBundle.PreKey, preKeyBundle.SignedPreKeyId, preKeyBundle.SignedPreKey)
+
+	// Optionally add more checks or validations here if necessary
+}

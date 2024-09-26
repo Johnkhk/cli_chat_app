@@ -194,3 +194,48 @@ func (s *AuthServer) UploadPublicKeys(ctx context.Context, req *auth.PublicKeyUp
 		Success: true,
 	}, nil
 }
+
+func (s *AuthServer) GetPublicKeyBundle(ctx context.Context, req *auth.PublicKeyBundleRequest) (*auth.PublicKeyBundleResponse, error) {
+	// Fetch the prekey bundle from the database using the user_id (and optionally device_id)
+	var identityKey, preKey, signedPreKey, signedPreKeySignature []byte
+	var preKeyID, signedPreKeyID uint32
+	// var oneTimePreKeys []auth.OneTimePreKey
+
+	// Query the database to get the public keys for the requested user/device
+	query := `SELECT identity_key, pre_key_id, pre_key, signed_pre_key_id, signed_pre_key, signed_pre_key_signature 
+              FROM prekey_bundle WHERE user_id = ? AND device_id = ?`
+	err := s.DB.QueryRow(query, req.GetUserId(), req.GetDeviceId()).Scan(
+		&identityKey, &preKeyID, &preKey, &signedPreKeyID, &signedPreKey, &signedPreKeySignature)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch prekey bundle: %v", err)
+	}
+
+	// // Fetch one-time prekeys (if any)
+	// // One-time prekeys can be fetched from a separate table and added to the response
+	// oneTimePreKeysQuery := `SELECT pre_key_id, pre_key FROM one_time_prekeys WHERE user_id = ? AND device_id = ?`
+	// rows, err := s.DB.Query(oneTimePreKeysQuery, req.GetUserId(), req.GetDeviceId())
+	// if err != nil {
+	// 	return nil, fmt.Errorf("failed to fetch one-time prekeys: %v", err)
+	// }
+	// defer rows.Close()
+
+	// for rows.Next() {
+	// 	var oneTimePreKey auth.OneTimePreKey
+	// 	if err := rows.Scan(&oneTimePreKey.PreKeyId, &oneTimePreKey.PreKey); err != nil {
+	// 		return nil, fmt.Errorf("failed to scan one-time prekey: %v", err)
+	// 	}
+	// 	oneTimePreKeys = append(oneTimePreKeys,oneTimePreKey)
+	// }
+
+	// Return the public key bundle
+	return &auth.PublicKeyBundleResponse{
+		IdentityKey:           identityKey,
+		PreKeyId:              preKeyID,
+		PreKey:                preKey,
+		SignedPreKeyId:        signedPreKeyID,
+		SignedPreKey:          signedPreKey,
+		SignedPreKeySignature: signedPreKeySignature,
+		// OneTimePreKeys:        oneTimePreKeys,
+		OneTimePreKeys: nil,
+	}, nil
+}

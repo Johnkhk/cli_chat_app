@@ -19,10 +19,11 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	AuthService_RegisterUser_FullMethodName     = "/auth.AuthService/RegisterUser"
-	AuthService_LoginUser_FullMethodName        = "/auth.AuthService/LoginUser"
-	AuthService_RefreshToken_FullMethodName     = "/auth.AuthService/RefreshToken"
-	AuthService_UploadPublicKeys_FullMethodName = "/auth.AuthService/UploadPublicKeys"
+	AuthService_RegisterUser_FullMethodName       = "/auth.AuthService/RegisterUser"
+	AuthService_LoginUser_FullMethodName          = "/auth.AuthService/LoginUser"
+	AuthService_RefreshToken_FullMethodName       = "/auth.AuthService/RefreshToken"
+	AuthService_UploadPublicKeys_FullMethodName   = "/auth.AuthService/UploadPublicKeys"
+	AuthService_GetPublicKeyBundle_FullMethodName = "/auth.AuthService/GetPublicKeyBundle"
 )
 
 // AuthServiceClient is the client API for AuthService service.
@@ -35,6 +36,7 @@ type AuthServiceClient interface {
 	LoginUser(ctx context.Context, in *LoginRequest, opts ...grpc.CallOption) (*LoginResponse, error)
 	RefreshToken(ctx context.Context, in *RefreshTokenRequest, opts ...grpc.CallOption) (*RefreshTokenResponse, error)
 	UploadPublicKeys(ctx context.Context, in *PublicKeyUploadRequest, opts ...grpc.CallOption) (*PublicKeyUploadResponse, error)
+	GetPublicKeyBundle(ctx context.Context, in *PublicKeyBundleRequest, opts ...grpc.CallOption) (*PublicKeyBundleResponse, error)
 }
 
 type authServiceClient struct {
@@ -85,6 +87,16 @@ func (c *authServiceClient) UploadPublicKeys(ctx context.Context, in *PublicKeyU
 	return out, nil
 }
 
+func (c *authServiceClient) GetPublicKeyBundle(ctx context.Context, in *PublicKeyBundleRequest, opts ...grpc.CallOption) (*PublicKeyBundleResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(PublicKeyBundleResponse)
+	err := c.cc.Invoke(ctx, AuthService_GetPublicKeyBundle_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // AuthServiceServer is the server API for AuthService service.
 // All implementations must embed UnimplementedAuthServiceServer
 // for forward compatibility.
@@ -95,6 +107,7 @@ type AuthServiceServer interface {
 	LoginUser(context.Context, *LoginRequest) (*LoginResponse, error)
 	RefreshToken(context.Context, *RefreshTokenRequest) (*RefreshTokenResponse, error)
 	UploadPublicKeys(context.Context, *PublicKeyUploadRequest) (*PublicKeyUploadResponse, error)
+	GetPublicKeyBundle(context.Context, *PublicKeyBundleRequest) (*PublicKeyBundleResponse, error)
 	mustEmbedUnimplementedAuthServiceServer()
 }
 
@@ -116,6 +129,9 @@ func (UnimplementedAuthServiceServer) RefreshToken(context.Context, *RefreshToke
 }
 func (UnimplementedAuthServiceServer) UploadPublicKeys(context.Context, *PublicKeyUploadRequest) (*PublicKeyUploadResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method UploadPublicKeys not implemented")
+}
+func (UnimplementedAuthServiceServer) GetPublicKeyBundle(context.Context, *PublicKeyBundleRequest) (*PublicKeyBundleResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetPublicKeyBundle not implemented")
 }
 func (UnimplementedAuthServiceServer) mustEmbedUnimplementedAuthServiceServer() {}
 func (UnimplementedAuthServiceServer) testEmbeddedByValue()                     {}
@@ -210,6 +226,24 @@ func _AuthService_UploadPublicKeys_Handler(srv interface{}, ctx context.Context,
 	return interceptor(ctx, in, info, handler)
 }
 
+func _AuthService_GetPublicKeyBundle_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(PublicKeyBundleRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthServiceServer).GetPublicKeyBundle(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthService_GetPublicKeyBundle_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthServiceServer).GetPublicKeyBundle(ctx, req.(*PublicKeyBundleRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // AuthService_ServiceDesc is the grpc.ServiceDesc for AuthService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -232,6 +266,10 @@ var AuthService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "UploadPublicKeys",
 			Handler:    _AuthService_UploadPublicKeys_Handler,
+		},
+		{
+			MethodName: "GetPublicKeyBundle",
+			Handler:    _AuthService_GetPublicKeyBundle_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

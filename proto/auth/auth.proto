@@ -10,7 +10,8 @@ service AuthService {
   rpc RegisterUser (RegisterRequest) returns (RegisterResponse) {}
   rpc LoginUser (LoginRequest) returns (LoginResponse) {}
   rpc RefreshToken (RefreshTokenRequest) returns (RefreshTokenResponse) {}  
-  rpc UploadPublicKeys (PublicKeyUploadRequest) returns (PublicKeyUploadResponse);
+  rpc UploadPublicKeys (PublicKeyUploadRequest) returns (PublicKeyUploadResponse) {}
+  rpc GetPublicKeyBundle (PublicKeyBundleRequest) returns (PublicKeyBundleResponse) {}
 }
 
 // Define the request and response messages for registration.
@@ -68,4 +69,21 @@ message OneTimePreKey {
 message PublicKeyUploadResponse {
   bool success = 1;        // True if the upload was successful
   string message = 2;      // Optional message in case of failure or additional info
+}
+
+// Request message for fetching the public key bundle
+message PublicKeyBundleRequest {
+  uint32 user_id = 1;  // The ID of the user whose public keys you want to retrieve
+  uint32 device_id = 2; // The device ID of the target user (optional)
+}
+
+// Response message for fetching the public key bundle
+message PublicKeyBundleResponse {
+  bytes identity_key = 1;              // The public identity key for the device
+  uint32 pre_key_id = 2;               // The ID of the regular pre-key
+  bytes pre_key = 3;                   // The public pre-key (regular)
+  uint32 signed_pre_key_id = 4;        // The ID of the signed pre-key
+  bytes signed_pre_key = 5;            // The public signed pre-key
+  bytes signed_pre_key_signature = 6;  // Signature of the signed pre-key
+  repeated OneTimePreKey one_time_pre_keys = 7;  // Optional batch of one-time prekeys
 }

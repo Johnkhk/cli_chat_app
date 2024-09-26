@@ -191,77 +191,10 @@ func (c *AuthClient) OnLogIn(userID uint32) error {
 	return nil
 }
 
-///////////////////////////////////// Key Management /////////////
-
-// /////////////// Encryption Key Management ///////////////
-
-// func (c *AuthClient) storePrivateKey(username string, privateKey []byte) error {
-
-// 	// Define the file path for storing the private key
-// 	filePath, err := c.GetPrivateKeyPath(username)
-// 	if err != nil {
-// 		return fmt.Errorf("failed to get private key path: %v", err)
-// 	}
-
-// 	// Write the private key bytes to the file
-// 	err = os.WriteFile(filePath, privateKey, 0600) // 0600 ensures the file is only readable and writable by the owner
-// 	if err != nil {
-// 		return fmt.Errorf("failed to write private key to file: %v", err)
-// 	}
-
-// 	return nil
-// }
-
-// // UploadPublicKeyToServer uploads the public key of the user to the server.
-// func (c *AuthClient) UploadPublicKeyToServer(username string, publicKey []byte) error {
-// 	req := &auth.UploadPublicKeyRequest{
-// 		Username:  username,
-// 		PublicKey: publicKey,
-// 	}
-
-// 	// Make the RPC call to upload the public key
-// 	resp, err := c.Client.UploadPublicKey(context.Background(), req)
-// 	if err != nil {
-// 		c.Logger.Errorf("Failed to upload public key: %v", err)
-// 		return fmt.Errorf("failed to upload public key: %w", err)
-// 	}
-
-// 	if !resp.Success {
-// 		c.Logger.Infof("Failed to upload public key: %s", resp.Message)
-// 		return fmt.Errorf("failed to upload public key: %s", resp.Message)
-// 	}
-
-// 	c.Logger.Infof("Public key uploaded successfully for user: %s", username)
-// 	return nil
-// }
-
-// // fileExists checks if a file exists.
-// func fileExists(path string) bool {
-// 	_, err := os.Stat(path)
-// 	return err == nil
-// }
-
-// func (c *AuthClient) GetPrivateKeyPath(username string) (string, error) {
-// 	privateKeyPath := filepath.Join(c.AppDirPath, fmt.Sprintf("%s_identity_private_key.pem", username))
-// 	return privateKeyPath, nil
-// }
-
-// // GetPublicKey sends a request to the gRPC server to retrieve the public key for a user.
-// func (c *AuthClient) GetPublicKey(userID int32) (*auth.GetPublicKeyResponse, error) {
-// 	// Step 1: Create a request object.
-// 	req := &auth.GetPublicKeyRequest{
-// 		UserId: userID,
-// 	}
-
-// 	// Step 2: Send the request to the gRPC server.
-// 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second) // Set a timeout for the request.
-// 	defer cancel()
-
-// 	resp, err := c.Client.GetPublicKey(ctx, req)
-// 	if err != nil {
-// 		return nil, fmt.Errorf("failed to get public key: %v", err)
-// 	}
-
-// 	// Step 3: Return the response from the server.
-// 	return resp, nil
-// }
+func (c *AuthClient) GetPublicKeyBundle(userID, deviceID uint32) (*auth.PublicKeyBundleResponse, error) {
+	req := &auth.PublicKeyBundleRequest{
+		UserId:   userID,
+		DeviceId: deviceID,
+	}
+	return c.Client.GetPublicKeyBundle(context.Background(), req)
+}
