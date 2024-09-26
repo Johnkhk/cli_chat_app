@@ -428,16 +428,32 @@ func TestFetchPublicKeyBundle(t *testing.T) {
 	}
 
 	// Verify the fetched prekey bundle matches the values in the database
+	var dbUserID, dbRegistrationID, dbDeviceID uint32
 	var dbIdentityKey, dbPreKey, dbSignedPreKey, dbSignedPreKeySignature []byte
 	var dbPreKeyID, dbSignedPreKeyID uint32
 
 	// Query the database for the prekey bundle
 	err = db.QueryRow(`
-        SELECT identity_key, pre_key_id, pre_key, signed_pre_key_id, signed_pre_key, signed_pre_key_signature
+        SELECT user_id, registration_id, device_id, identity_key, pre_key_id, pre_key, signed_pre_key_id, signed_pre_key, signed_pre_key_signature
         FROM prekey_bundle WHERE user_id = ? AND device_id = ?`, extractedUserID, deviceID).Scan(
-		&dbIdentityKey, &dbPreKeyID, &dbPreKey, &dbSignedPreKeyID, &dbSignedPreKey, &dbSignedPreKeySignature)
+		&dbUserID, &dbRegistrationID, &dbDeviceID, &dbIdentityKey, &dbPreKeyID, &dbPreKey, &dbSignedPreKeyID, &dbSignedPreKey, &dbSignedPreKeySignature)
 	if err != nil {
 		t.Fatalf("Failed to query prekey bundle for user %d: %v", extractedUserID, err)
+	}
+
+	// Compare user_id
+	if dbUserID != preKeyBundle.UserId {
+		t.Fatalf("Expected userID %d, but got %d", dbUserID, preKeyBundle.UserId)
+	}
+
+	// Compare registration_id
+	if dbRegistrationID != preKeyBundle.RegistrationId {
+		t.Fatalf("Expected registrationID %d, but got %d", dbRegistrationID, preKeyBundle.RegistrationId)
+	}
+
+	// Compare device_id
+	if dbDeviceID != preKeyBundle.DeviceId {
+		t.Fatalf("Expected deviceID %d, but got %d", dbDeviceID, preKeyBundle.DeviceId)
 	}
 
 	// Compare identity key

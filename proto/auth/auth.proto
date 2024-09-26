@@ -79,11 +79,15 @@ message PublicKeyBundleRequest {
 
 // Response message for fetching the public key bundle
 message PublicKeyBundleResponse {
-  bytes identity_key = 1;              // The public identity key for the device
-  uint32 pre_key_id = 2;               // The ID of the regular pre-key
-  bytes pre_key = 3;                   // The public pre-key (regular)
-  uint32 signed_pre_key_id = 4;        // The ID of the signed pre-key
-  bytes signed_pre_key = 5;            // The public signed pre-key
-  bytes signed_pre_key_signature = 6;  // Signature of the signed pre-key
-  repeated OneTimePreKey one_time_pre_keys = 7;  // Optional batch of one-time prekeys
+  uint32 id = 1;                    // Unique ID of the key bundle (used for internal purposes)
+  uint32 user_id = 2;               // The unique user ID
+  uint32 registration_id = 3;       // The registration ID associated with the user
+  uint32 device_id = 4;             // The device ID associated with the user
+  bytes identity_key = 5;           // The public identity key for the device
+  uint32 pre_key_id = 6;            // The ID of the regular pre-key
+  bytes pre_key = 7;                // The public pre-key (regular)
+  uint32 signed_pre_key_id = 8;     // The ID of the signed pre-key
+  bytes signed_pre_key = 9;         // The public signed pre-key
+  bytes signed_pre_key_signature = 10; // Signature of the signed pre-key
+  repeated OneTimePreKey one_time_pre_keys = 11;  // Optional batch of one-time prekeys
 }

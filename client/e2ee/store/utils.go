@@ -225,3 +225,8 @@ func generateRandomID() (uint32, error) {
 	}
 	return id, nil
 }
+
+// To returns a pointer to the given type.
+func To[T any](t T) *T {
+	return &t
+}

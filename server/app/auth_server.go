@@ -196,46 +196,38 @@ func (s *AuthServer) UploadPublicKeys(ctx context.Context, req *auth.PublicKeyUp
 }
 
 func (s *AuthServer) GetPublicKeyBundle(ctx context.Context, req *auth.PublicKeyBundleRequest) (*auth.PublicKeyBundleResponse, error) {
-	// Fetch the prekey bundle from the database using the user_id (and optionally device_id)
 	var identityKey, preKey, signedPreKey, signedPreKeySignature []byte
-	var preKeyID, signedPreKeyID uint32
-	// var oneTimePreKeys []auth.OneTimePreKey
+	var preKeyID, signedPreKeyID, userID, registrationID, deviceID uint32
+	var query string
+	var err error
 
-	// Query the database to get the public keys for the requested user/device
-	query := `SELECT identity_key, pre_key_id, pre_key, signed_pre_key_id, signed_pre_key, signed_pre_key_signature 
-              FROM prekey_bundle WHERE user_id = ? AND device_id = ?`
-	err := s.DB.QueryRow(query, req.GetUserId(), req.GetDeviceId()).Scan(
-		&identityKey, &preKeyID, &preKey, &signedPreKeyID, &signedPreKey, &signedPreKeySignature)
+	// If device_id is 0, select the first device's pre-key bundle for the user
+	if req.GetDeviceId() == 0 {
+		query = `SELECT user_id, registration_id, device_id, identity_key, pre_key_id, pre_key, signed_pre_key_id, signed_pre_key, signed_pre_key_signature
+                 FROM prekey_bundle WHERE user_id = ? LIMIT 1`
+		err = s.DB.QueryRow(query, req.GetUserId()).Scan(&userID, &registrationID, &deviceID, &identityKey, &preKeyID, &preKey, &signedPreKeyID, &signedPreKey, &signedPreKeySignature)
+	} else {
+		// Fetch the prekey bundle for the specific device
+		query = `SELECT user_id, registration_id, device_id, identity_key, pre_key_id, pre_key, signed_pre_key_id, signed_pre_key, signed_pre_key_signature
+                 FROM prekey_bundle WHERE user_id = ? AND device_id = ?`
+		err = s.DB.QueryRow(query, req.GetUserId(), req.GetDeviceId()).Scan(&userID, &registrationID, &deviceID, &identityKey, &preKeyID, &preKey, &signedPreKeyID, &signedPreKey, &signedPreKeySignature)
+	}
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch prekey bundle: %v", err)
 	}
 
-	// // Fetch one-time prekeys (if any)
-	// // One-time prekeys can be fetched from a separate table and added to the response
-	// oneTimePreKeysQuery := `SELECT pre_key_id, pre_key FROM one_time_prekeys WHERE user_id = ? AND device_id = ?`
-	// rows, err := s.DB.Query(oneTimePreKeysQuery, req.GetUserId(), req.GetDeviceId())
-	// if err != nil {
-	// 	return nil, fmt.Errorf("failed to fetch one-time prekeys: %v", err)
-	// }
-	// defer rows.Close()
-
-	// for rows.Next() {
-	// 	var oneTimePreKey auth.OneTimePreKey
-	// 	if err := rows.Scan(&oneTimePreKey.PreKeyId, &oneTimePreKey.PreKey); err != nil {
-	// 		return nil, fmt.Errorf("failed to scan one-time prekey: %v", err)
-	// 	}
-	// 	oneTimePreKeys = append(oneTimePreKeys,oneTimePreKey)
-	// }
-
 	// Return the public key bundle
 	return &auth.PublicKeyBundleResponse{
+		UserId:                userID,
+		RegistrationId:        registrationID,
+		DeviceId:              deviceID,
 		IdentityKey:           identityKey,
 		PreKeyId:              preKeyID,
 		PreKey:                preKey,
 		SignedPreKeyId:        signedPreKeyID,
 		SignedPreKey:          signedPreKey,
 		SignedPreKeySignature: signedPreKeySignature,
-		// OneTimePreKeys:        oneTimePreKeys,
-		OneTimePreKeys: nil,
+		OneTimePreKeys:        nil, // Handle one-time prekeys if needed
 	}, nil
 }

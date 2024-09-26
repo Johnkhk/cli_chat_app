@@ -4,7 +4,6 @@ package chat;
 
 option go_package = "github.com/johnkhk/cli_chat_app/proto/chat";
 
-
 // Define the gRPC service for the chat application
 // Note only message content and files are encrypted
 // Metadata such as recipient_id and timestamp are not encrypted
