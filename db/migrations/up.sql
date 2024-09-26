@@ -5,14 +5,6 @@ CREATE TABLE users (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE user_keys (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    user_id INT NOT NULL,                     -- Foreign key to reference the users table
-    identity_public_key BLOB NOT NULL,        -- The long-term identity public key
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-);
 
 CREATE TABLE friend_requests (
     id SERIAL PRIMARY KEY,
@@ -33,4 +25,27 @@ CREATE TABLE friends (
     FOREIGN KEY (user_id) REFERENCES users(id),
     FOREIGN KEY (friend_id) REFERENCES users(id),
     UNIQUE(user_id, friend_id) -- Ensure that each friendship is unique
+);
+
+
+CREATE TABLE prekey_bundle (
+    id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY, 
+    user_id INT NOT NULL UNIQUE,  -- Make user_id unique
+    registration_id INT UNSIGNED NOT NULL,      
+    device_id INT UNSIGNED NOT NULL,            
+    identity_key BLOB NOT NULL,                 
+    pre_key_id INT UNSIGNED NOT NULL,           
+    pre_key BLOB NOT NULL,                      
+    signed_pre_key_id INT UNSIGNED NOT NULL,    
+    signed_pre_key BLOB NOT NULL,               
+    signed_pre_key_signature BLOB NOT NULL,     
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+
+CREATE TABLE IF NOT EXISTS onetime_prekeys (
+    user_id INT NOT NULL,                    -- Foreign key to reference prekey_bundles
+    prekey_id INT PRIMARY KEY,               -- ID of the one-time prekey
+    prekey BLOB NOT NULL,                    -- The one-time prekey
+    FOREIGN KEY (user_id) REFERENCES prekey_bundle(user_id)
 );

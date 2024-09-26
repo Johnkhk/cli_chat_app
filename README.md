@@ -18,4 +18,4 @@ protoc --go_out=./genproto --go_opt=module=github.com/johnkhk/cli_chat_app/proto
 
 
 # Go libsignal lib
-<!-- https://github.com/RTann/libsignal-go -->
+<!-- https://github.com/Johnkhk/libsignal-go -->

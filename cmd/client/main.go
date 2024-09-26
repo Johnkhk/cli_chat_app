@@ -24,6 +24,7 @@ func main() {
 	log.Info("Client application started")
 	// // Establish a single gRPC connection to the server
 
+	log.Infof("APPDIRPATH: %s", os.Getenv("APP_DIR_PATH"))
 	rpcClientConfig := app.RpcClientConfig{
 		ServerAddress: "localhost:50051", // Replace with your server address
 		Logger:        log,

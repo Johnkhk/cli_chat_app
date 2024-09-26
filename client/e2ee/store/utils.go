@@ -2,6 +2,7 @@ package store
 
 import (
 	"bytes"
+	"database/sql"
 	"encoding/gob"
 	"fmt"
 
@@ -9,10 +10,9 @@ import (
 	"github.com/Johnkhk/libsignal-go/protocol/identity"
 )
 
-// serializeKeyPairAndEncode serializes a struct to JSON format (mimics gobEncode).
-func serializeKeyPairAndEncode(keyPair interface{}) ([]byte, error) {
+// SerializeKeyPairAndEncode serializes a struct to JSON format (mimics gobEncode).
+func SerializeKeyPairAndEncode(keyPair interface{}) ([]byte, error) {
 	// Serialize the key pair to privateKeyBytes and publicKeyBytes
-	fmt.Printf("Type of keyPair: %T\n", keyPair) // Debugging line
 	privateKeyBytes, publicKeyBytes, err := serializeKeyPair(keyPair)
 	if err != nil {
 		return nil, fmt.Errorf("failed to serialize key pair: %v", err)
@@ -36,8 +36,8 @@ func serializeKeyPairAndEncode(keyPair interface{}) ([]byte, error) {
 	return encodedData, nil
 }
 
-// decodeAndDeserializeKeyPair deserializes a JSON-encoded byte slice into the provided struct (mimics gobDecode).
-func decodeAndDeserializeKeyPair(data []byte, value interface{}) error {
+// DecodeAndDeserializeKeyPair deserializes a JSON-encoded byte slice into the provided struct (mimics gobDecode).
+func DecodeAndDeserializeKeyPair(data []byte, value interface{}) error {
 	// Define a struct to hold the decoded private and public key bytes
 	var serialized struct {
 		PrivateKeyBytes []byte
@@ -89,8 +89,19 @@ func decodeAndDeserializeKeyPair(data []byte, value interface{}) error {
 	return nil
 }
 
-func generateRegistrationID(userID, deviceID uint32) uint32 {
+func GenerateRegistrationID(userID, deviceID uint32) uint32 {
 	return (userID << 10) | deviceID // Bit-shifting to combine userID and deviceID
+}
+
+// ExtractUserIDAndDeviceID extracts the userID and deviceID from a combined registrationID.
+func ExtractUserIDAndDeviceID(registrationID uint32) (uint32, uint32) {
+	// Extract userID by shifting right 10 bits (because deviceID was shifted left by 10 bits)
+	userID := registrationID >> 10
+
+	// Extract deviceID by masking the lower 10 bits (since deviceID is stored in the lower 10 bits)
+	deviceID := registrationID & ((1 << 10) - 1) // This masks the lower 10 bits (deviceID)
+
+	return userID, deviceID
 }
 
 type SerializableKeyPair struct {
@@ -125,17 +136,14 @@ func deserializeKeyPair(privateKeyBytes, publicKeyBytes []byte, isIdentityKey bo
 }
 
 func serializeKeyPair(keyPair interface{}) (privateKeyBytes, publicKeyBytes []byte, err error) {
-	fmt.Printf("Type of keyPair2222: %T\n", keyPair) // Debugging line
 	switch k := keyPair.(type) {
 	case identity.KeyPair:
-		fmt.Println("XDDDDDDDDDDDDDDd")
 		// Serialize the identity.KeyPair
 		privateKeyBytes = k.PrivateKey().Bytes() // Get the byte representation of the private key
 		publicKeyBytes = k.IdentityKey().Bytes() // Get the byte representation of the identity public key
 		return privateKeyBytes, publicKeyBytes, nil
 
 	case *curve.KeyPair:
-		fmt.Println("YYYYYYYYYYYYYYYYY")
 		// Serialize the curve.KeyPair
 		privateKeyBytes = k.PrivateKey().Bytes() // Get the byte representation of the private key
 		publicKeyBytes = k.PublicKey().Bytes()   // Get the byte representation of the public key
@@ -171,5 +179,38 @@ func gobDecode(data []byte, value interface{}) error {
 	if err != nil {
 		return fmt.Errorf("failed to decode gob: %v", err)
 	}
+	return nil
+}
+
+// Display the entire local_identity table for debugging purposes
+func showLocalIdentityTable(db *sql.DB) error {
+	// Query all rows from the local_identity table
+	rows, err := db.Query("SELECT key_pair, registration_id, user_id, device_id FROM local_identity")
+	if err != nil {
+		return fmt.Errorf("Failed to query local_identity table: %v", err)
+	}
+	defer rows.Close()
+
+	// Iterate over the result set and print each row
+	fmt.Println("local_identity table contents:")
+	for rows.Next() {
+		var keyPair []byte
+		var registrationID, userID, deviceID uint32
+
+		// Scan the current row into variables
+		err = rows.Scan(&keyPair, &registrationID, &userID, &deviceID)
+		if err != nil {
+			return fmt.Errorf("Failed to scan row: %v", err)
+		}
+
+		// Print the row data
+		fmt.Printf("KeyPair: %x, RegistrationID: %d, UserID: %d, DeviceID: %d\n", keyPair, registrationID, userID, deviceID)
+	}
+
+	// Check for any errors encountered during iteration
+	if err = rows.Err(); err != nil {
+		return fmt.Errorf("Error iterating over rows: %v", err)
+	}
+
 	return nil
 }

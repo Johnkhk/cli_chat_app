@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"log"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -102,6 +101,7 @@ func (s *AuthServer) LoginUser(ctx context.Context, req *auth.LoginRequest) (*au
 
 	return &auth.LoginResponse{
 		Success:      true,
+		UserId:       user.ID,
 		Message:      "Login successful",
 		AccessToken:  accessToken,
 		RefreshToken: refreshToken,
@@ -129,93 +129,68 @@ func (s *AuthServer) RefreshToken(ctx context.Context, req *auth.RefreshTokenReq
 	return &auth.RefreshTokenResponse{AccessToken: newAccessToken}, nil
 }
 
-// UploadPublicKey handles the RPC request to upload a public key.
-func (s *AuthServer) UploadPublicKey(ctx context.Context, req *auth.UploadPublicKeyRequest) (*auth.UploadPublicKeyResponse, error) {
-	// Step 1: Validate the input.
-	if req.Username == "" || len(req.PublicKey) == 0 {
-		return &auth.UploadPublicKeyResponse{
-			Success: false,
-			Message: "Invalid input: Username and public key are required.",
-		}, fmt.Errorf("invalid input: missing username or public key")
+// Implement the server-side handler for UploadPublicKeys
+func (s *AuthServer) UploadPublicKeys(ctx context.Context, req *auth.PublicKeyUploadRequest) (*auth.PublicKeyUploadResponse, error) {
+
+	// Retrieve userID from the context
+	// userID, ok := ctx.Value("userID").(int)
+	userID, ok := ctx.Value("userID").(string)
+	if !ok {
+		return nil, fmt.Errorf("failed to retrieve userID from context")
 	}
 
-	// Step 2: Store the public key.
-	err := s.saveUserPublicKey(req.Username, req.PublicKey)
+	// Begin a new transaction
+	tx, err := s.DB.BeginTx(ctx, nil)
 	if err != nil {
-		return &auth.UploadPublicKeyResponse{
-			Success: false,
-			Message: fmt.Sprintf("Failed to upload public key: %v", err),
-		}, err
+		return nil, fmt.Errorf("failed to begin transaction: %v", err)
 	}
 
-	// Step 3: Return a success response.
-	return &auth.UploadPublicKeyResponse{
+	// Insert the primary prekey bundle information, including user_id
+	insertQuery := `
+        INSERT INTO prekey_bundle (user_id, registration_id, device_id, identity_key, pre_key_id, pre_key, signed_pre_key_id, signed_pre_key, signed_pre_key_signature)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `
+	_, err = tx.ExecContext(ctx, insertQuery,
+		userID,                    // user_id from context
+		req.RegistrationId,        // registration_id
+		req.DeviceId,              // device_id
+		req.IdentityKey,           // identity_key
+		req.PreKeyId,              // pre_key_id
+		req.PreKey,                // pre_key
+		req.SignedPreKeyId,        // signed_pre_key_id
+		req.SignedPreKey,          // signed_pre_key
+		req.SignedPreKeySignature) // signed_pre_key_signature
+	if err != nil {
+		tx.Rollback() // Rollback in case of error
+		s.Logger.Errorf("failed to insert prekey bundle: %v", err)
+		return nil, fmt.Errorf("failed to insert prekey bundle: %v", err)
+	}
+
+	// Uncomment this part if you're handling One-Time PreKeys in the future
+	// if len(req.OneTimePreKeys) > 0 {
+	// 	oneTimePreKeyQuery := `
+	//         INSERT INTO one_time_prekeys (pre_key_id, pre_key, bundle_id)
+	//         VALUES (?, ?, LAST_INSERT_ID())  -- LAST_INSERT_ID() gets the last inserted bundle_id from prekey_bundle
+	//     `
+	// 	for _, oneTimePreKey := range req.OneTimePreKeys {
+	// 		_, err := tx.ExecContext(ctx, oneTimePreKeyQuery,
+	// 			oneTimePreKey.PreKeyId, // One-Time PreKey ID
+	// 			oneTimePreKey.PreKey)   // One-Time PreKey Public Key
+	// 		if err != nil {
+	// 			tx.Rollback() // Rollback in case of error
+	// 			return nil, fmt.Errorf("failed to insert one-time prekey: %v", err)
+	// 		}
+	// 	}
+	// }
+
+	// Commit the transaction
+	if err = tx.Commit(); err != nil {
+		return nil, fmt.Errorf("failed to commit transaction: %v", err)
+	}
+
+	s.Logger.Infof("Public keys uploaded successfully for user: %s", userID)
+	// Return a success response
+	return &auth.PublicKeyUploadResponse{
 		Success: true,
-		Message: "Public key uploaded successfully.",
 	}, nil
-}
-
-func (s *AuthServer) saveUserPublicKey(username string, publicKey []byte) error {
-	// Find the user ID based on the username
-	var userID int
-	err := s.DB.QueryRow("SELECT id FROM users WHERE username = ?", username).Scan(&userID)
-	if err != nil {
-		return fmt.Errorf("failed to find user: %v", err)
-	}
-
-	// Insert or update the public key for the user
-	_, err = s.DB.Exec(`
-        INSERT INTO user_keys (user_id, identity_public_key) 
-        VALUES (?, ?)
-        ON DUPLICATE KEY UPDATE identity_public_key = VALUES(identity_public_key), updated_at = CURRENT_TIMESTAMP
-    `, userID, publicKey)
-	if err != nil {
-		return fmt.Errorf("failed to store public key: %v", err)
-	}
-
-	log.Printf("Public key for user %s stored successfully.", username)
-	return nil
-}
-
-// GetPublicKey handles the RPC request to retrieve a public key using user_id.
-func (s *AuthServer) GetPublicKey(ctx context.Context, req *auth.GetPublicKeyRequest) (*auth.GetPublicKeyResponse, error) {
-	// Step 1: Validate the input.
-	if req.UserId == 0 {
-		return &auth.GetPublicKeyResponse{
-			Success: false,
-			Message: "Invalid input: User ID is required.",
-		}, fmt.Errorf("invalid input: missing user ID")
-	}
-
-	// Step 2: Retrieve the public key from the database.
-	publicKey, err := s.getUserPublicKeyByID(req.UserId)
-	if err != nil {
-		return &auth.GetPublicKeyResponse{
-			Success: false,
-			Message: fmt.Sprintf("Failed to retrieve public key: %v", err),
-		}, err
-	}
-
-	// Step 3: Return the public key in the response.
-	return &auth.GetPublicKeyResponse{
-		Success:   true,
-		PublicKey: publicKey,
-		Message:   "Public key retrieved successfully.",
-	}, nil
-}
-
-// getUserPublicKeyByID retrieves the public key for a user from the database using user_id.
-func (s *AuthServer) getUserPublicKeyByID(userID int32) ([]byte, error) {
-	// Find the public key based on the user ID.
-	var publicKey []byte
-	err := s.DB.QueryRow("SELECT identity_public_key FROM user_keys WHERE user_id = ?", userID).Scan(&publicKey)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, fmt.Errorf("public key not found for user ID: %d", userID)
-		}
-		return nil, fmt.Errorf("failed to retrieve public key: %v", err)
-	}
-
-	log.Printf("Public key for user ID %d retrieved successfully.", userID)
-	return publicKey, nil
 }

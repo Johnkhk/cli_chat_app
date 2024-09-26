@@ -16,17 +16,13 @@ import (
 var _ identity.Store = (*IdentityStore)(nil)
 
 type IdentityStore struct {
-	keyPair        identity.KeyPair
-	registrationID uint32
-	db             *sql.DB
+	db *sql.DB
 }
 
 // NewIdentityStore creates a new SQLite-backed identity store.
-func NewIdentityStore(keyPair identity.KeyPair, registrationID uint32, db *sql.DB) identity.Store {
+func NewIdentityStore(db *sql.DB) identity.Store {
 	return &IdentityStore{
-		db:             db,
-		keyPair:        keyPair,
-		registrationID: registrationID,
+		db: db,
 	}
 }
 
@@ -50,7 +46,7 @@ func (s *IdentityStore) KeyPair(_ context.Context) identity.KeyPair {
 	}
 
 	// Decode the key pair from gob format
-	err = decodeAndDeserializeKeyPair(keyPairData, &keyPair)
+	err = DecodeAndDeserializeKeyPair(keyPairData, &keyPair)
 	if err != nil {
 		// Log decoding error
 		log.Printf("Failed to decode identity key pair: %v", err)
@@ -156,7 +152,7 @@ func (s *IdentityStore) IsTrustedIdentity(ctx context.Context, addr address.Addr
 
 	// Decode the stored identity key
 	var storedKey identity.Key
-	err = decodeAndDeserializeKeyPair(keyData, &storedKey)
+	err = DecodeAndDeserializeKeyPair(keyData, &storedKey)
 	if err != nil {
 		return false, fmt.Errorf("failed to decode identity key: %w", err)
 	}

@@ -42,7 +42,7 @@ func (s *PreKeyStore) Load(ctx context.Context, id prekey.ID) (*prekey.PreKey, b
 
 	// Deserialize the pre-key key pair from the blob
 	var keyPair curve.KeyPair
-	err = decodeAndDeserializeKeyPair(blob, &keyPair)
+	err = DecodeAndDeserializeKeyPair(blob, &keyPair)
 	if err != nil {
 		return nil, false, fmt.Errorf("failed to decode pre-key key pair: %v", err)
 	}
@@ -62,7 +62,7 @@ func (s *PreKeyStore) Store(ctx context.Context, id prekey.ID, preKey *prekey.Pr
 	}
 
 	// Serialize the KeyPair
-	blob, err := serializeKeyPairAndEncode(preKeyPair)
+	blob, err := SerializeKeyPairAndEncode(preKeyPair)
 	if err != nil {
 		return fmt.Errorf("failed to encode pre-key key pair: %v", err)
 	}

@@ -8,6 +8,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
+	"github.com/johnkhk/cli_chat_app/client/e2ee/store"
 	"github.com/johnkhk/cli_chat_app/genproto/auth"
 	"github.com/johnkhk/cli_chat_app/genproto/chat"
 	"github.com/johnkhk/cli_chat_app/genproto/friends"
@@ -21,6 +22,7 @@ type RpcClient struct {
 	Conn          *grpc.ClientConn
 	Logger        *logrus.Logger
 	AppDirPath    string
+	Store         *store.SQLiteStore
 }
 
 type RpcClientConfig struct {
@@ -37,10 +39,20 @@ func NewRpcClient(config RpcClientConfig) (*RpcClient, error) {
 
 	// Create the application directory if it doesn't exist
 	dir := filepath.Dir(config.AppDirPath)
+	config.Logger.Infof("Creating App directory at: %s", dir)
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		logger.Errorf("Failed to create directory %s: %v", dir, err)
 		return nil, err
 	}
+
+	// Create a new Store instance
+	sqlite_path := filepath.Join(config.AppDirPath, "store.db")
+	sqlite_store, err := store.NewSQLiteStore(sqlite_path)
+	if err != nil {
+		logger.Errorf("Failed to create SQLite store: %v", err)
+		return nil, err
+	}
+	_ = sqlite_store // Use the store as needed
 
 	// Create a TokenManager instance
 	tokenManager := config.TokenManager
@@ -66,6 +78,7 @@ func NewRpcClient(config RpcClientConfig) (*RpcClient, error) {
 		Logger:       logger,
 		TokenManager: tokenManager,
 		AppDirPath:   config.AppDirPath,
+		SqliteStore:  sqlite_store,
 	}
 	tokenManager.SetClient(authClient.Client) // Set the client in the TokenManager
 
@@ -85,6 +98,7 @@ func NewRpcClient(config RpcClientConfig) (*RpcClient, error) {
 		ChatClient:    chatClient,
 		Conn:          conn,
 		Logger:        logger,
+		Store:         sqlite_store,
 	}, nil
 }
 

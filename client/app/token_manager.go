@@ -186,3 +186,32 @@ func (tm *TokenManager) RefreshAccessToken(refreshToken string) (string, error) 
 func (tm *TokenManager) SetClient(client auth.AuthServiceClient) {
 	tm.client = client
 }
+
+// GetClaimsFromAccessToken reads the stored access token and parses its JWT claims.
+func (tm *TokenManager) GetClaimsFromAccessToken() (map[string]interface{}, error) {
+	// Retrieve the stored access token using ReadTokens()
+	accessToken, _, err := tm.ReadTokens()
+	if err != nil {
+		return nil, fmt.Errorf("failed to read tokens: %w", err)
+	}
+
+	// Split the JWT into its parts: header, payload, signature
+	parts := strings.Split(accessToken, ".")
+	if len(parts) != 3 {
+		return nil, fmt.Errorf("invalid token format: expected 3 parts but got %d", len(parts))
+	}
+
+	// Decode the payload part (Base64URL encoded)
+	payload, err := decodeSegment(parts[1])
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode token payload: %w", err)
+	}
+
+	// Parse the JSON payload to extract the claims
+	var claims map[string]interface{}
+	if err := json.Unmarshal(payload, &claims); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal token claims: %w", err)
+	}
+
+	return claims, nil
+}

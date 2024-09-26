@@ -1,11 +1,17 @@
 package store
 
 import (
+	"context"
 	"crypto/rand"
+	"crypto/sha256"
 	"database/sql"
+	"encoding/binary"
 	"fmt"
 	"log"
+	"net"
+	"time"
 
+	"github.com/Johnkhk/libsignal-go/protocol/curve"
 	"github.com/Johnkhk/libsignal-go/protocol/identity"
 	"github.com/Johnkhk/libsignal-go/protocol/prekey"
 	"github.com/Johnkhk/libsignal-go/protocol/protocol"
@@ -17,7 +23,7 @@ import (
 var _ protocol.Store = (*SQLiteStore)(nil)
 
 type SQLiteStore struct {
-	db                *sql.DB
+	DB                *sql.DB
 	sessionStore      session.Store
 	preKeyStore       prekey.Store
 	signedPreKeyStore prekey.SignedStore
@@ -41,7 +47,7 @@ func (s *SQLiteStore) GroupStore() session.GroupStore {
 	return s.groupStore
 }
 
-func NewSQLiteStore(dbPath string, userID uint32, isSignup bool) (protocol.Store, error) {
+func NewSQLiteStore(dbPath string) (*SQLiteStore, error) {
 	// Initialize SQLite database connection
 	db, err := sql.Open("sqlite3", dbPath)
 	if err != nil {
@@ -54,31 +60,13 @@ func NewSQLiteStore(dbPath string, userID uint32, isSignup bool) (protocol.Store
 		return nil, fmt.Errorf("failed to create tables: %v", err)
 	}
 
-	// Generate registration ID (using default device ID = 1 for now)
-	deviceID := uint32(1)
-	registrationID := generateRegistrationID(userID, deviceID)
-
-	// If this is a signup, create and store the local identity
-	if isSignup {
-		err := createLocalIdentity(db, registrationID)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create local identity: %v", err)
-		}
-	}
-
-	// Load the local identity for subsequent app runs
-	keyPair, existingRegistrationID, err := loadLocalIdentity(db)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load local identity: %v", err)
-	}
-
 	// Initialize store components
 	return &SQLiteStore{
-		db:                db,
+		DB:                db,
 		sessionStore:      NewSessionStore(db),
 		preKeyStore:       NewPreKeyStore(db),
 		signedPreKeyStore: NewSignedPreKeyStore(db),
-		identityStore:     NewIdentityStore(keyPair, existingRegistrationID, db),
+		identityStore:     NewIdentityStore(db),
 		groupStore:        NewGroupStore(), // Group store is not yet supported
 	}, nil
 }
@@ -120,7 +108,9 @@ func CreateTables(db *sql.DB) error {
 	localIdentityTable := `
 	CREATE TABLE IF NOT EXISTS local_identity (
 		key_pair BLOB NOT NULL,
-		registration_id INTEGER NOT NULL
+		registration_id INTEGER NOT NULL,
+		user_id INTEGER NOT NULL,
+		device_id INTEGER NOT NULL
 	);
 	`
 
@@ -167,50 +157,217 @@ func CreateTables(db *sql.DB) error {
 	return nil
 }
 
-func createLocalIdentity(db *sql.DB, registrationID uint32) error {
-	// Generate a new key pair
-	keyPair, err := identity.GenerateKeyPair(rand.Reader) // Assume GenerateKeyPair exists
+type LocalIdentity struct {
+	IdentityPublicKey     []byte
+	PreKeyID              uint32
+	PreKeyPublicKey       []byte
+	SignedPreKeyID        uint32
+	SignedPreKeyPublicKey []byte
+	Signature             []byte
+}
+
+// func (s *SQLiteStore) CreateLocalIdentity(registrationID uint32) (*LocalIdentity, error) {
+// 	db := s.DB
+// 	ctx := context.Background()
+
+// 	// 1. Generate a new identity key pair
+// 	identityKeyPair, err := identity.GenerateKeyPair(rand.Reader)
+// 	if err != nil {
+// 		return nil, fmt.Errorf("failed to generate identity key pair: %v", err)
+// 	}
+
+// 	// Serialize the key pair for local storage
+// 	keyPairData, err := SerializeKeyPairAndEncode(identityKeyPair)
+// 	if err != nil {
+// 		return nil, fmt.Errorf("failed to encode identity key pair: %v", err)
+// 	}
+
+// 	// Insert the local identity into the database
+// 	insertQuery := "INSERT INTO local_identity (key_pair, registration_id) VALUES (?, ?)"
+// 	_, err = db.Exec(insertQuery, keyPairData, registrationID)
+// 	if err != nil {
+// 		return nil, fmt.Errorf("failed to store local identity: %v", err)
+// 	}
+
+// 	// Schema to generate unique IDs (incremental IDs)
+// 	preKeyID := uint32(1)       // Example ID schema
+// 	signedPreKeyID := uint32(1) // Example ID schema for signed prekey
+
+// 	// 2. Generate the PreKey
+// 	preKeyPair, err := curve.GenerateKeyPair(rand.Reader)
+// 	if err != nil {
+// 		return nil, fmt.Errorf("failed to generate pre-key pair: %v", err)
+// 	}
+
+// 	// Store PreKey locally (private part)
+// 	preKey := prekey.NewPreKey(prekey.ID(preKeyID), preKeyPair)
+// 	err = s.preKeyStore.Store(ctx, prekey.ID(preKeyID), preKey)
+// 	if err != nil {
+// 		return nil, fmt.Errorf("failed to store pre-key: %v", err)
+// 	}
+
+// 	// 3. Generate the Signed PreKey
+// 	signedPreKeyPair, err := curve.GenerateKeyPair(rand.Reader)
+// 	if err != nil {
+// 		return nil, fmt.Errorf("failed to generate signed pre-key pair: %v", err)
+// 	}
+
+// 	// Store Signed PreKey locally (private part)
+// 	signedPreKey := prekey.NewSigned(prekey.ID(signedPreKeyID), uint64(time.Now().Unix()), signedPreKeyPair, nil)
+// 	err = s.signedPreKeyStore.Store(ctx, prekey.ID(signedPreKeyID), signedPreKey)
+// 	if err != nil {
+// 		return nil, fmt.Errorf("failed to store signed pre-key: %v", err)
+// 	}
+
+// 	// 4. Sign the public part of the Signed PreKey with the private Identity Key
+// 	signature, err := identityKeyPair.PrivateKey().Sign(rand.Reader, signedPreKeyPair.PublicKey().Bytes())
+// 	if err != nil {
+// 		return nil, fmt.Errorf("failed to sign signed pre-key: %v", err)
+// 	}
+
+// 	// Return a struct with all the relevant fields
+// 	return &LocalIdentity{
+// 		IdentityPublicKey:     identityKeyPair.PublicKey().Bytes(),
+// 		PreKeyID:              preKeyID,
+// 		PreKeyPublicKey:       preKeyPair.PublicKey().Bytes(),
+// 		SignedPreKeyID:        signedPreKeyID,
+// 		SignedPreKeyPublicKey: signedPreKeyPair.PublicKey().Bytes(),
+// 		Signature:             signature,
+// 	}, nil
+// }
+
+func (s *SQLiteStore) CreateLocalIdentity(registrationID uint32) (*LocalIdentity, error) {
+	db := s.DB
+	ctx := context.Background()
+
+	// 1. Generate a new identity key pair
+	identityKeyPair, err := identity.GenerateKeyPair(rand.Reader)
 	if err != nil {
-		return fmt.Errorf("failed to generate key pair: %v", err)
+		return nil, fmt.Errorf("failed to generate identity key pair: %v", err)
 	}
 
-	// Serialize the key pair
-	keyPairData, err := serializeKeyPairAndEncode(keyPair)
-
+	// Serialize the key pair for local storage
+	keyPairData, err := SerializeKeyPairAndEncode(identityKeyPair)
 	if err != nil {
-		return fmt.Errorf("failed to encode key pair: %v", err)
+		return nil, fmt.Errorf("failed to encode identity key pair: %v", err)
 	}
 
 	// Insert the local identity into the database
-	insertQuery := "INSERT INTO local_identity (key_pair, registration_id) VALUES (?, ?)"
-	_, err = db.Exec(insertQuery, keyPairData, registrationID)
+	extractedUserID, deviceID := ExtractUserIDAndDeviceID(registrationID)
+	insertQuery := "INSERT INTO local_identity (key_pair, registration_id, user_id, device_id) VALUES (?, ?, ?, ?)"
+	_, err = db.Exec(insertQuery, keyPairData, registrationID, extractedUserID, deviceID)
 	if err != nil {
-		return fmt.Errorf("failed to store local identity: %v", err)
+		return nil, fmt.Errorf("failed to store local identity: %v", err)
 	}
 
-	return nil
+	// Schema to generate unique IDs (incremental IDs)
+	preKeyID := uint32(1)       // Example ID schema
+	signedPreKeyID := uint32(1) // Example ID schema for signed prekey
+
+	// 2. Generate the PreKey
+	preKeyPair, err := curve.GenerateKeyPair(rand.Reader)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate pre-key pair: %v", err)
+	}
+
+	// Store PreKey locally (private part)
+	preKey := prekey.NewPreKey(prekey.ID(preKeyID), preKeyPair)
+	err = s.preKeyStore.Store(ctx, prekey.ID(preKeyID), preKey)
+	if err != nil {
+		return nil, fmt.Errorf("failed to store pre-key: %v", err)
+	}
+
+	// 3. Generate the Signed PreKey
+	signedPreKeyPair, err := curve.GenerateKeyPair(rand.Reader)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate signed pre-key pair: %v", err)
+	}
+
+	// 4. Sign the public part of the Signed PreKey with the private Identity Key
+	signature, err := identityKeyPair.PrivateKey().Sign(rand.Reader, signedPreKeyPair.PublicKey().Bytes())
+	if err != nil {
+		return nil, fmt.Errorf("failed to sign signed pre-key: %v", err)
+	}
+
+	// 5. Store Signed PreKey locally (with the public key signature)
+	signedPreKey := prekey.NewSigned(prekey.ID(signedPreKeyID), uint64(time.Now().Unix()), signedPreKeyPair, signature)
+	err = s.signedPreKeyStore.Store(ctx, prekey.ID(signedPreKeyID), signedPreKey)
+	if err != nil {
+		return nil, fmt.Errorf("failed to store signed pre-key: %v", err)
+	}
+
+	// Return a struct with all the relevant fields
+	return &LocalIdentity{
+		IdentityPublicKey:     identityKeyPair.PublicKey().Bytes(),
+		PreKeyID:              preKeyID,
+		PreKeyPublicKey:       preKeyPair.PublicKey().Bytes(),
+		SignedPreKeyID:        signedPreKeyID,
+		SignedPreKeyPublicKey: signedPreKeyPair.PublicKey().Bytes(),
+		Signature:             signature,
+	}, nil
 }
 
-func loadLocalIdentity(db *sql.DB) (identity.KeyPair, uint32, error) {
-	var keyPairData []byte
-	var registrationID uint32
+// LoadLocalIdentity loads the identity key pair and registration ID based on the current device's MAC address.
+func LoadLocalIdentity(db *sql.DB, userID uint32) (identity.KeyPair, uint32, error) {
+	// Get MAC address
+	macAddress, err := GetMACAddress()
+	if err != nil {
+		return identity.KeyPair{}, 0, fmt.Errorf("failed to get MAC address: %v", err)
+	}
 
-	// Load key pair and registration ID from the database
-	query := "SELECT key_pair, registration_id FROM local_identity LIMIT 1"
-	err := db.QueryRow(query).Scan(&keyPairData, &registrationID)
+	// Convert MAC address to uint32 for deviceID
+	deviceID, err := MacToUint32(macAddress)
+	if err != nil {
+		return identity.KeyPair{}, 0, fmt.Errorf("failed to convert MAC address to uint32: %v", err)
+	}
+
+	// Generate registration ID using userID and deviceID
+	registrationID := GenerateRegistrationID(userID, deviceID)
+
+	// Query the database to load the key pair and registration ID
+	var keyPairData []byte
+	var storedRegistrationID uint32
+
+	query := "SELECT key_pair, registration_id FROM local_identity WHERE registration_id = ? LIMIT 1"
+	err = db.QueryRow(query, registrationID).Scan(&keyPairData, &storedRegistrationID)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return identity.KeyPair{}, 0, fmt.Errorf("local identity not found")
+			return identity.KeyPair{}, 0, fmt.Errorf("local identity not found for registration ID: %d", registrationID)
 		}
 		return identity.KeyPair{}, 0, fmt.Errorf("failed to load local identity: %v", err)
 	}
 
 	// Decode the key pair
 	var keyPair identity.KeyPair
-	err = decodeAndDeserializeKeyPair(keyPairData, &keyPair)
+	err = DecodeAndDeserializeKeyPair(keyPairData, &keyPair)
 	if err != nil {
 		return identity.KeyPair{}, 0, fmt.Errorf("failed to decode key pair: %v", err)
 	}
 
-	return keyPair, registrationID, nil
+	return keyPair, storedRegistrationID, nil
+}
+
+func GetMACAddress() (string, error) {
+	interfaces, err := net.Interfaces()
+	if err != nil {
+		return "", err
+	}
+
+	for _, i := range interfaces {
+		mac := i.HardwareAddr.String()
+		if len(mac) > 0 {
+			return mac, nil
+		}
+	}
+
+	return "", fmt.Errorf("no network interfaces found")
+}
+
+// Convert a MAC address string into a uint32 with a limit to 10 bits
+func MacToUint32(macAddr string) (uint32, error) {
+	// Hash the MAC address to get a larger value
+	hash := sha256.Sum256([]byte(macAddr))
+
+	// Take the first 4 bytes of the hash to form a uint32, then limit it to 10 bits
+	return binary.BigEndian.Uint32(hash[:4]) & 0x3FF, nil // Mask to get the lower 10 bits
 }

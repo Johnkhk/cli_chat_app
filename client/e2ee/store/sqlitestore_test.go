@@ -26,38 +26,17 @@ func createTestSQLiteStore(t *testing.T) *SQLiteStore {
 	assert.NoError(t, err, "should create tables without error")
 
 	store := &SQLiteStore{
-		db:                db,
+		DB:                db,
 		sessionStore:      NewSessionStore(db),
 		preKeyStore:       NewPreKeyStore(db),
 		signedPreKeyStore: NewSignedPreKeyStore(db),
-		identityStore:     NewIdentityStore(identity.KeyPair{}, 12345, db),
+		identityStore:     NewIdentityStore(db),
 	}
 	return store
 }
 
 // Session Store Tests
 func TestSessionStore(t *testing.T) {
-	// store := createTestSQLiteStore(t)
-
-	// ctx := context.Background()
-	// addr := address.Address{
-	// 	Name:     "testUser",
-	// 	DeviceID: 1,
-	// }
-
-	// // Create a sample session record
-	// record := &session.Record{}
-	// err := store.SessionStore().Store(ctx, addr, record)
-	// assert.NoError(t, err, "should store session record without error")
-
-	// // Load session record
-	// loadedRecord, found, err := store.SessionStore().Load(ctx, addr)
-	// assert.NoError(t, err, "should load session record without error")
-	// assert.True(t, found, "session record should be found")
-	// assert.Equal(t, record, loadedRecord, "loaded session record should match stored record")
-
-	// aliceRecord, bobRecord := testInitRecordsV3(t, random)
-
 	store := createTestSQLiteStore(t)
 	ctx := context.Background()
 	aliceIdentity, err := identity.GenerateKeyPair(rand.Reader)
