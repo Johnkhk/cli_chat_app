@@ -2,7 +2,9 @@ package store
 
 import (
 	"bytes"
+	"crypto/rand"
 	"database/sql"
+	"encoding/binary"
 	"encoding/gob"
 	"fmt"
 
@@ -213,4 +215,13 @@ func showLocalIdentityTable(db *sql.DB) error {
 	}
 
 	return nil
+}
+
+func generateRandomID() (uint32, error) {
+	var id uint32
+	err := binary.Read(rand.Reader, binary.LittleEndian, &id)
+	if err != nil {
+		return 0, fmt.Errorf("failed to generate random ID: %v", err)
+	}
+	return id, nil
 }

@@ -261,8 +261,17 @@ func (s *SQLiteStore) CreateLocalIdentity(registrationID uint32) (*LocalIdentity
 	}
 
 	// Schema to generate unique IDs (incremental IDs)
-	preKeyID := uint32(1)       // Example ID schema
-	signedPreKeyID := uint32(1) // Example ID schema for signed prekey
+	// preKeyID := uint32(1)       // Example ID schema
+	// signedPreKeyID := uint32(1) // Example ID schema for signed prekey
+	// Generate unique PreKeyID and SignedPreKeyID
+	preKeyID, err := generateRandomID()
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate PreKey ID: %v", err)
+	}
+	signedPreKeyID, err := generateRandomID()
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate Signed PreKey ID: %v", err)
+	}
 
 	// 2. Generate the PreKey
 	preKeyPair, err := curve.GenerateKeyPair(rand.Reader)
