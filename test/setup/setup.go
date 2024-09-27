@@ -85,7 +85,7 @@ func (hook *TestFieldHook) Levels() []logrus.Level {
 }
 
 // InitializeTestResources initializes the desired number of RpcClients for testing.
-func InitializeTestResources(t *testing.T, serverConfig *TestServerConfig, numClients int) ([]*app.RpcClient, *sql.DB, func()) {
+func InitializeTestResources(t *testing.T, serverConfig *TestServerConfig, numClients int) ([]*app.RpcClient, *sql.DB, func(), *ServerStruct) {
 
 	// Use default server configuration if none provided
 	if serverConfig == nil {
@@ -107,7 +107,7 @@ func InitializeTestResources(t *testing.T, serverConfig *TestServerConfig, numCl
 	}
 
 	// Initialize the in-memory gRPC server and test database
-	db := InitTestServer(t, *serverConfig)
+	db, server := InitTestServer(t, *serverConfig)
 
 	// Slice to hold the RpcClients
 	var rpcClients []*app.RpcClient
@@ -121,7 +121,8 @@ func InitializeTestResources(t *testing.T, serverConfig *TestServerConfig, numCl
 		// Create the TokenManager for the client
 		tokenManager := app.NewTokenManager(tokenDir, nil)
 		tokenManager.TimeProvider = serverConfig.TimeProvider
-		conn := CreateTestClientConn(t, app.UnaryInterceptor(tokenManager, serverConfig.Log))
+
+		conn := CreateTestClientConn(t, app.UnaryInterceptor(tokenManager, serverConfig.Log), app.StreamInterceptor(tokenManager, serverConfig.Log))
 
 		// Include custom RPC client configuration
 		rpcClientConfig := app.RpcClientConfig{
@@ -160,5 +161,5 @@ func InitializeTestResources(t *testing.T, serverConfig *TestServerConfig, numCl
 	}
 
 	// Return the initialized RpcClients, the database handle, and the cleanup function
-	return rpcClients, db, cleanup
+	return rpcClients, db, cleanup, server
 }

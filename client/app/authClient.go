@@ -19,6 +19,7 @@ type AuthClient struct {
 	TokenManager *TokenManager
 	AppDirPath   string
 	SqliteStore  *store.SQLiteStore
+	ParentClient *RpcClient // Reference to the parent RpcClient
 }
 
 // RegisterUser sends a registration request to the server.
@@ -44,7 +45,7 @@ func (c *AuthClient) RegisterUser(username, password string) error {
 }
 
 // LoginUser sends a login request to the server.
-func (c *AuthClient) LoginUser(username, password string) error {
+func (c *AuthClient) LoginUser(username, password string) (error, uint32) {
 	req := &auth.LoginRequest{
 		Username: username,
 		Password: password,
@@ -53,7 +54,7 @@ func (c *AuthClient) LoginUser(username, password string) error {
 	resp, err := c.Client.LoginUser(context.Background(), req)
 	if err != nil {
 		c.Logger.Warnf("Failed to login: %v", err)
-		return fmt.Errorf("failed to login: %v", err)
+		return fmt.Errorf("failed to login: %v", err), 0
 	}
 
 	if resp.Success {
@@ -62,58 +63,30 @@ func (c *AuthClient) LoginUser(username, password string) error {
 		// Store jwt tokens after successful login
 		if err := c.TokenManager.StoreTokens(resp.AccessToken, resp.RefreshToken); err != nil {
 			c.Logger.Errorf("Failed to store tokens: %v", err)
-			return fmt.Errorf("failed to store tokens: %v", err)
+			return fmt.Errorf("failed to store tokens: %v", err), 0
 		}
 		c.Logger.Infof("JWT Tokens stored successfully to %s", c.TokenManager.filePath)
-
-		// // Check if the user already has a private key stored locally
-		// privateKeyPath, err := c.GetPrivateKeyPath(username)
-		// if err != nil {
-		// 	c.Logger.Errorf("Failed to get private key path: %v", err)
-		// 	return fmt.Errorf("failed to get private key path: %v", err)
-		// }
-
-		// if !fileExists(privateKeyPath) {
-		// 	c.Logger.Infof("Private key not found for user %s. Generating new key pair...", username)
-
-		// 	// Generate a new public-private key pair for the user
-		// 	identityKeyPair, err := identity.GenerateKeyPair(rand.Reader)
-		// 	if err != nil {
-		// 		c.Logger.Errorf("Failed to generate identity key pair: %v", err)
-		// 		return fmt.Errorf("failed to generate identity key pair: %v", err)
-		// 	}
-		// 	publicKeyBytes := identityKeyPair.PublicKey().Bytes()
-
-		// 	// Upload the public key to the server
-		// 	err = c.UploadPublicKeyToServer(username, publicKeyBytes)
-		// 	if err != nil {
-		// 		c.Logger.Errorf("Failed to upload public key: %v", err)
-		// 		return fmt.Errorf("failed to upload public key: %v", err)
-		// 	}
-		// 	// Store the private key locally
-		// 	err = c.storePrivateKey(username, identityKeyPair.PrivateKey().Bytes())
-		// 	if err != nil {
-		// 		c.Logger.Errorf("Failed to store private key: %v", err)
-		// 		return fmt.Errorf("failed to store private key: %v", err)
-		// 	}
-		// 	// Store the public key locally
-		// 	// TODO
-
-		// 	c.Logger.Infof("Public key uploaded successfully for user %s", username)
-		// } else {
-		// 	c.Logger.Infof("Private key already exists for user %s", username)
-		// }
 
 		// Create local identity
 		err = c.OnLogIn(resp.UserId)
 		if err != nil {
-			return fmt.Errorf("failed to create local identity: %v", err)
+			return fmt.Errorf("failed to create local identity: %v", err), 0
 		}
 
-		return nil
+		// Task A: Open the persistent stream
+		if err := c.ParentClient.ChatClient.OpenPersistentStream(context.Background()); err != nil {
+			return fmt.Errorf("failed to open persistent stream: %v", err), 0
+		}
+
+		// // Task B: Send a registration message
+		// if err := c.sendRegistrationMessage(context.Background(), resp.UserId); err != nil {
+		// 	return fmt.Errorf("failed to send registration message: %v", err)
+		// }
+
+		return nil, resp.UserId
 	} else {
 		c.Logger.Infof("Login failed: %s", resp.Message)
-		return fmt.Errorf("login failed: %s", resp.Message)
+		return fmt.Errorf("login failed: %s", resp.Message), 0
 	}
 }
 
@@ -137,7 +110,7 @@ func (c *AuthClient) OnLogIn(userID uint32) error {
 	// Generate registration ID using userID and deviceID
 	registrationID := store.GenerateRegistrationID(userID, deviceID)
 
-	// Check if the registration ID already exists in the database
+	// Check if the registration ID already exists in the local_identity database
 	var existingID uint32
 	err = db.QueryRow("SELECT registration_id FROM local_identity WHERE registration_id = ?", registrationID).Scan(&existingID)
 	if err != nil {

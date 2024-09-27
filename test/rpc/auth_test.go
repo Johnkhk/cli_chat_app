@@ -22,7 +22,7 @@ func TestRegisterLoginFlow(t *testing.T) {
 	// t.Parallel() // Allow this test to run in parallel
 
 	// Initialize resources using default configuration
-	rpcClients, _, cleanup := setup.InitializeTestResources(t, nil, 1)
+	rpcClients, _, cleanup, _ := setup.InitializeTestResources(t, nil, 1)
 	rpcClient := rpcClients[0]
 	defer cleanup()
 	log := rpcClient.Logger
@@ -33,7 +33,7 @@ func TestRegisterLoginFlow(t *testing.T) {
 
 	// Test the login of an unregistered/wrong credentials user
 	log.Infof("Testing unregistered user login")
-	err := rpcClient.AuthClient.LoginUser("unregistered", "testpassword")
+	err, _ := rpcClient.AuthClient.LoginUser("unregistered", "testpassword")
 	if err == nil {
 		t.Fatalf("Login should fail for unregistered user")
 	}
@@ -59,7 +59,7 @@ func TestRegisterLoginFlow(t *testing.T) {
 
 	// Test the login of the registered user
 	log.Infof("Testing registered user login")
-	err = rpcClient.AuthClient.LoginUser("unregistered", "testpassword")
+	err, _ = rpcClient.AuthClient.LoginUser("unregistered", "testpassword")
 	if err != nil {
 		t.Fatalf("Failed to login: %v", err)
 	}
@@ -92,7 +92,7 @@ func TestTokenExpirationAndRefresh(t *testing.T) {
 	customConfig.TimeProvider = mockTime                   // Inject the mock time provider
 
 	// Initialize resources with the custom server configuration
-	rpcClients, _, cleanup := setup.InitializeTestResources(t, customConfig, 1)
+	rpcClients, _, cleanup, _ := setup.InitializeTestResources(t, customConfig, 1)
 	defer cleanup()
 	rpcClient := rpcClients[0]
 	log := rpcClient.Logger
@@ -105,7 +105,7 @@ func TestTokenExpirationAndRefresh(t *testing.T) {
 	}
 
 	log.Infof("Logging in user for expiration test")
-	err = rpcClient.AuthClient.LoginUser("expiringuser", "testpassword")
+	err, _ = rpcClient.AuthClient.LoginUser("expiringuser", "testpassword")
 	if err != nil {
 		t.Fatalf("Failed to login user: %v", err)
 	}
@@ -132,7 +132,7 @@ func TestTokenExpirationAndRefresh(t *testing.T) {
 
 	// Attempt to get a new access token
 	log.Infof("Attempting to get a new access token")
-	err = rpcClient.AuthClient.LoginUser("expiringuser", "testpassword")
+	err, _ = rpcClient.AuthClient.LoginUser("expiringuser", "testpassword")
 	if err != nil {
 		t.Fatalf("Failed to login with expired access token but valid refresh token: %v", err)
 	}
@@ -173,7 +173,7 @@ func TestTokenExpirationAndRefresh(t *testing.T) {
 
 	// Attempt to login with an expired refresh token. Should get new tokens if successful
 	log.Infof("Attempting to login with expired refresh token")
-	err = rpcClient.AuthClient.LoginUser("expiringuser", "testpassword")
+	err, _ = rpcClient.AuthClient.LoginUser("expiringuser", "testpassword")
 	if err != nil {
 		t.Fatalf("Failed to login with expired refresh token: %v", err)
 	}
@@ -209,7 +209,7 @@ func TestRegisterUserWithExistingUsername(t *testing.T) {
 	// t.Parallel() // Allow this test to run in parallel
 
 	// Initialize resources using default configuration
-	rpcClients, _, cleanup := setup.InitializeTestResources(t, nil, 1)
+	rpcClients, _, cleanup, _ := setup.InitializeTestResources(t, nil, 1)
 	rpcClient := rpcClients[0]
 	defer cleanup()
 	log := rpcClient.Logger
@@ -239,7 +239,7 @@ func TestOnLoginUploadKeysAndLocalIdentity(t *testing.T) {
 	// t.Parallel() // Allow this test to run in parallel
 
 	// Initialize resources using default configuration
-	rpcClients, db, cleanup := setup.InitializeTestResources(t, nil, 1)
+	rpcClients, db, cleanup, _ := setup.InitializeTestResources(t, nil, 1)
 	rpcClient := rpcClients[0]
 	defer cleanup()
 	log := rpcClient.Logger
@@ -253,7 +253,7 @@ func TestOnLoginUploadKeysAndLocalIdentity(t *testing.T) {
 
 	// Login the user
 	log.Infof("Logging in user")
-	err = rpcClient.AuthClient.LoginUser("newuser", "testpassword")
+	err, _ = rpcClient.AuthClient.LoginUser("newuser", "testpassword")
 	if err != nil {
 		t.Fatalf("Failed to login user: %v", err)
 	}
@@ -371,7 +371,7 @@ func TestOnLoginUploadKeysAndLocalIdentity(t *testing.T) {
 
 func TestFetchPublicKeyBundle(t *testing.T) {
 	// Initialize resources using default configuration
-	rpcClients, db, cleanup := setup.InitializeTestResources(t, nil, 1)
+	rpcClients, db, cleanup, _ := setup.InitializeTestResources(t, nil, 1)
 	rpcClient := rpcClients[0]
 	defer cleanup()
 	log := rpcClient.Logger
@@ -385,7 +385,7 @@ func TestFetchPublicKeyBundle(t *testing.T) {
 
 	// Login the user
 	log.Infof("Logging in user")
-	err = rpcClient.AuthClient.LoginUser("newuser", "testpassword")
+	err, _ = rpcClient.AuthClient.LoginUser("newuser", "testpassword")
 	if err != nil {
 		t.Fatalf("Failed to login user: %v", err)
 	}

@@ -46,13 +46,12 @@ func NewRpcClient(config RpcClientConfig) (*RpcClient, error) {
 	}
 
 	// Create a new Store instance
-	sqlite_path := filepath.Join(config.AppDirPath, "store.db")
-	sqlite_store, err := store.NewSQLiteStore(sqlite_path)
+	sqlitePath := filepath.Join(config.AppDirPath, "store.db")
+	sqliteStore, err := store.NewSQLiteStore(sqlitePath)
 	if err != nil {
 		logger.Errorf("Failed to create SQLite store: %v", err)
 		return nil, err
 	}
-	_ = sqlite_store // Use the store as needed
 
 	// Create a TokenManager instance
 	tokenManager := config.TokenManager
@@ -63,43 +62,59 @@ func NewRpcClient(config RpcClientConfig) (*RpcClient, error) {
 	// Establish a single gRPC connection to the server
 	conn := config.Conn
 	if conn == nil {
-		var err error
-		conn, err = grpc.Dial(config.ServerAddress, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithUnaryInterceptor(UnaryInterceptor(tokenManager, logger))) // Add the interceptor here
-
+		// Your unary and stream interceptor functions
+		unaryInterceptor := UnaryInterceptor(tokenManager, logger)
+		streamInterceptor := StreamInterceptor(tokenManager, logger)
+		conn, err = grpc.Dial(
+			config.ServerAddress,
+			grpc.WithTransportCredentials(insecure.NewCredentials()), // Using insecure credentials for local development/testing
+			grpc.WithChainUnaryInterceptor(unaryInterceptor),         // Add the unary interceptor
+			grpc.WithChainStreamInterceptor(streamInterceptor),       // Add the stream interceptor
+		)
 		if err != nil {
 			logger.Errorf("Failed to connect to server: %v", err)
 			return nil, err
 		}
 	}
 
-	// Initialize individual clients with the shared connection
+	// Create the RpcClient instance
+	rpcClient := &RpcClient{
+		Logger: logger,
+		Conn:   conn,
+		Store:  sqliteStore,
+	}
+
+	// Initialize individual clients and set the ParentClient
 	authClient := &AuthClient{
 		Client:       auth.NewAuthServiceClient(conn),
 		Logger:       logger,
 		TokenManager: tokenManager,
 		AppDirPath:   config.AppDirPath,
-		SqliteStore:  sqlite_store,
+		SqliteStore:  sqliteStore,
+		ParentClient: rpcClient, // Set reference to the parent RpcClient
 	}
-	tokenManager.SetClient(authClient.Client) // Set the client in the TokenManager
+
+	chatClient := &ChatClient{
+		Client:     chat.NewChatServiceClient(conn),
+		AuthClient: authClient,
+		store:      sqliteStore,
+		Logger:     logger,
+	}
 
 	friendsClient := &FriendsClient{
 		Client: friends.NewFriendManagementClient(conn),
 		Logger: logger,
 	}
 
-	chatClient := &ChatClient{
-		Client: chat.NewChatServiceClient(conn),
-		Logger: logger,
-	}
+	// Set clients in RpcClient
+	rpcClient.AuthClient = authClient
+	rpcClient.ChatClient = chatClient
+	rpcClient.FriendsClient = friendsClient
 
-	return &RpcClient{
-		AuthClient:    authClient,
-		FriendsClient: friendsClient,
-		ChatClient:    chatClient,
-		Conn:          conn,
-		Logger:        logger,
-		Store:         sqlite_store,
-	}, nil
+	// Set the AuthService client in the TokenManager
+	tokenManager.SetClient(authClient.Client)
+
+	return rpcClient, nil
 }
 
 // CloseConnections closes the shared gRPC connection.
