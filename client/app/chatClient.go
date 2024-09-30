@@ -22,11 +22,13 @@ import (
 
 // ChatClient encapsulates the gRPC client for chat services.
 type ChatClient struct {
-	Client     chat.ChatServiceClient                // gRPC client for chat service
-	AuthClient *AuthClient                           // Reference to AuthClient for authentication purposes
-	store      *store.SQLiteStore                    // Access to session and identity stores
-	Logger     *logrus.Logger                        // Logger for logging messages and errors
-	Stream     chat.ChatService_StreamMessagesClient // Persistent gRPC stream for sending messages
+	Client           chat.ChatServiceClient                // gRPC client for chat service
+	AuthClient       *AuthClient                           // Reference to AuthClient for authentication purposes
+	store            *store.SQLiteStore                    // Access to session and identity stores
+	Logger           *logrus.Logger                        // Logger for logging messages and errors
+	Stream           chat.ChatService_StreamMessagesClient // Persistent gRPC stream for sending messages
+	ListenCancelFunc context.CancelFunc                    // Cancel function for stopping the message listener
+	MessageChannel   chan *chat.MessageResponse            // Channel to send received messages
 }
 
 // OpenPersistentStream opens a persistent gRPC stream for sending and receiving messages.
@@ -178,28 +180,66 @@ func (cc *ChatClient) SendMessage(ctx context.Context, recipientID, deviceID uin
 	return nil
 }
 
-// listenForMessages continuously listens for messages on the open stream.
-func (cc *ChatClient) listenForMessages() {
+// SendUnencryptedMessage sends a plaintext message to the recipient through the chat service without encryption.
+func (cc *ChatClient) SendUnencryptedMessage(ctx context.Context, recipientID uint32, plaintext string) error {
+	// Ensure that the persistent stream is open
+	if cc.Stream == nil {
+		return fmt.Errorf("no active stream found. Ensure that openPersistentStream has been called.")
+	}
+
+	// Create a new message request with the plaintext content
+	msgRequest := &chat.MessageRequest{
+		RecipientId:      recipientID,                     // Set recipient ID
+		EncryptedMessage: []byte(plaintext),               // Use plaintext directly as the message content
+		MessageId:        uuid.NewString(),                // Generate a unique message ID
+		Timestamp:        time.Now().Format(time.RFC3339), // Timestamp in ISO 8601 format
+	}
+
+	// Send the message using the persistent stream
+	if err := cc.Stream.Send(msgRequest); err != nil {
+		return fmt.Errorf("failed to send message request: %v", err)
+	}
+
+	cc.Logger.Infof("Unencrypted message sent to recipient %d successfully", recipientID)
+	return nil
+}
+
+// listenForMessages continuously listens for messages on the open stream and handles context cancellations.
+func (cc *ChatClient) listenForMessages(ctx context.Context) {
 	for {
-		resp, err := cc.Stream.Recv()
-		if err == io.EOF {
-			cc.Logger.Info("Stream closed by server")
+		select {
+		case <-ctx.Done():
+			cc.Logger.Info("Stopping message listener due to context cancellation")
 			return
-		}
-		if err != nil {
-			cc.Logger.Errorf("Failed to receive message: %v", err)
-			return
-		}
+		default:
+			resp, err := cc.Stream.Recv()
+			if err == io.EOF {
+				cc.Logger.Info("Stream closed by server")
+				return
+			}
+			if err != nil {
+				cc.Logger.Errorf("Failed to receive message: %v", err)
+				return
+			}
 
-		cc.Logger.Infof("Received message response: %s", resp.MessageId)
+			cc.Logger.Infof("Received message response: %s", resp.GetEncryptedMessage())
 
-		// Here you can handle different types of responses.
-		// If it’s a delivery confirmation, update the UI or logs.
-		// If it’s a new message from a sender, decrypt and process it.
+			// Send the message to the MessageChannel if it exists
+			if cc.MessageChannel != nil {
+				cc.MessageChannel <- resp
+			} else {
+				cc.Logger.Warn("Message channel is not set. Ignoring received message.")
+			}
 
-		// For example, handle a delivered message:
-		if resp.Status == "delivered" {
-			cc.Logger.Infof("Message %s was delivered successfully at %s", resp.MessageId, resp.Timestamp)
+			// Handle different types of responses
+			switch resp.Status {
+			case "delivered":
+				cc.Logger.Infof("Message %s was delivered successfully at %s", resp.MessageId, resp.Timestamp)
+			case "connected":
+				cc.Logger.Infof("User Connected at %s", resp.Timestamp)
+			default:
+				cc.Logger.Warnf("Unknown response type: %s", resp.Status)
+			}
 		}
 	}
 }

@@ -25,10 +25,21 @@ message MessageRequest {
   uint64 file_size = 8;             // (Optional) Size of the file in bytes
 }
 
-// MessageResponse is used by the server to acknowledge receipt of a message or file
+// // MessageResponse is used by the server to acknowledge receipt of a message or file
+// message MessageResponse {
+//   string message_id = 1;           // The message ID of the message being acknowledged
+//   string status = 2;               // Status of the message (e.g., "delivered", "read", "error")
+//   string timestamp = 3;            // Timestamp of when the server processed or acknowledged the message
+//   string error_message = 4;        // (Optional) Error message if the message processing failed
+// }
+
+// MessageResponse is used by the server to deliver messages to the recipient.
 message MessageResponse {
-  string message_id = 1;           // The message ID of the message being acknowledged
-  string status = 2;               // Status of the message (e.g., "delivered", "read", "error")
-  string timestamp = 3;            // Timestamp of when the server processed or acknowledged the message
-  string error_message = 4;        // (Optional) Error message if the message processing failed
+  uint32 sender_id = 1;             // Unique identifier of the sender
+  uint32 recipient_id = 2;          // Unique identifier of the recipient
+  string message_id = 3;            // The message ID of the message being acknowledged or delivered
+  bytes encrypted_message = 4;      // The message content encrypted with the recipient's public key
+  string status = 5;                // Status of the message (e.g., "delivered", "read", "received")
+  string timestamp = 6;             // Timestamp of when the server processed or delivered the message
 }
+

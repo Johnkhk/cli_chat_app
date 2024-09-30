@@ -215,3 +215,26 @@ func (tm *TokenManager) GetClaimsFromAccessToken() (map[string]interface{}, erro
 
 	return claims, nil
 }
+
+func (tm *TokenManager) GetUserIdFromAccessToken() (uint32, error) {
+	claims, err := tm.GetClaimsFromAccessToken()
+	if err != nil {
+		return 0, fmt.Errorf("failed to get claims from access token: %w", err)
+	}
+	// print the claims
+	fmt.Println(claims)
+
+	// The "sub" claim is most likely a string, so you need to handle it as such
+	sub, ok := claims["sub"].(string)
+	if !ok {
+		return 0, fmt.Errorf("UserId (sub) claim not found or not a string")
+	}
+
+	// Convert the string to uint32
+	userID, err := strconv.ParseUint(sub, 10, 32)
+	if err != nil {
+		return 0, fmt.Errorf("failed to parse UserId (sub) claim: %w", err)
+	}
+
+	return uint32(userID), nil
+}

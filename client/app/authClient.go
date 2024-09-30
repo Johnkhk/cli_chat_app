@@ -83,6 +83,13 @@ func (c *AuthClient) LoginUser(username, password string) (error, uint32) {
 		// 	return fmt.Errorf("failed to send registration message: %v", err)
 		// }
 
+		// Task B: Create a context with cancel function to control lifecycle of message listening
+		listenCtx, cancelFunc := context.WithCancel(context.Background())
+		c.ParentClient.ChatClient.ListenCancelFunc = cancelFunc // Store cancel function in ChatClient for later use
+
+		// Task C: Listen for incoming messages
+		go c.ParentClient.ChatClient.listenForMessages(listenCtx)
+
 		return nil, resp.UserId
 	} else {
 		c.Logger.Infof("Login failed: %s", resp.Message)
@@ -170,4 +177,21 @@ func (c *AuthClient) GetPublicKeyBundle(userID, deviceID uint32) (*auth.PublicKe
 		DeviceId: deviceID,
 	}
 	return c.Client.GetPublicKeyBundle(context.Background(), req)
+}
+
+// LogoutUser handles logging out the user and stops the message listener.
+func (c *AuthClient) LogoutUser() error {
+	// Implement your logout logic, such as invalidating tokens or closing streams
+	c.Logger.Info("Logging out user...")
+
+	// Call the cancel function to stop listening for messages
+	if c.ParentClient.ChatClient.ListenCancelFunc != nil {
+		c.ParentClient.ChatClient.ListenCancelFunc() // Stop the listener
+		c.Logger.Info("Message listener stopped successfully.")
+	} else {
+		c.Logger.Warn("No message listener to stop.")
+	}
+
+	c.Logger.Info("User logged out successfully.")
+	return nil
 }

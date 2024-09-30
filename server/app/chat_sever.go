@@ -121,10 +121,11 @@ func (s *ChatServiceServer) IsActiveClient(userID uint32) bool {
 // 	}
 // }
 
-// StreamMessages handles bidirectional message streaming between users
+// StreamMessages handles bidirectional message streaming between users.
 func (s *ChatServiceServer) StreamMessages(stream chat.ChatService_StreamMessagesServer) error {
 	s.Logger.Info("StreamMessages called")
-	// Extract sender's userID from the stream context
+
+	// Extract sender's userID from the stream context.
 	ctx := stream.Context()
 	senderID, err := s.extractSenderIDFromContext(ctx)
 	if err != nil {
@@ -133,71 +134,75 @@ func (s *ChatServiceServer) StreamMessages(stream chat.ChatService_StreamMessage
 	}
 	s.Logger.Infof("User %d connected with stream", senderID)
 
-	// Register the sender's stream in the active clients map when the stream is established
+	// Register the sender's stream in the active clients map when the stream is established.
 	s.registerClient(senderID, stream)
 	defer s.unregisterClient(senderID)
 
-	s.Logger.Infof("User %d connected with stream", senderID)
+	// Send a welcome message after the stream is established.
+	welcomeResponse := &chat.MessageResponse{
+		SenderId:    0, // Use 0 or a special ID to indicate server-originated message.
+		RecipientId: senderID,
+		MessageId:   "welcome",
+		Status:      "connected",
+		Timestamp:   time.Now().Format(time.RFC3339),
+	}
 
-	// Perform any additional initial registration logic here
-	// For example, mark the user as active or send a welcome message.
-	// Example: update user status in a database or notify other users
-	s.Logger.Infof("User %d is now active and registered with the chat service", senderID)
-
-	// // Send a welcome message or registration response to the user (if needed)
-	// welcomeResponse := &chat.MessageResponse{
-	// 	MessageId: fmt.Sprintf("welcome-%d", senderID),
-	// 	Status:    "registered",
-	// 	Timestamp: time.Now().Format(time.RFC3339),
-	// }
-	// if err := stream.Send(welcomeResponse); err != nil {
-	// 	s.Logger.Errorf("Failed to send welcome message to user %d: %v", senderID, err)
-	// 	return err
-	// }
-	s.Logger.Infof("Welcome message sent to user %d", senderID)
+	// Send the welcome message to the client.
+	if err := stream.Send(welcomeResponse); err != nil {
+		s.Logger.Errorf("Failed to send welcome message to user %d: %v", senderID, err)
+		return err
+	}
+	s.Logger.Infof("Sent welcome message to user %d", senderID)
 
 	for {
-		// Receive a message from the client stream
-		req, err := stream.Recv()
+		req, err := stream.Recv() // Blocking call to receive a message.
 		if err == io.EOF {
-			return nil // End of stream
+			s.Logger.Infof("Stream closed by client %d", senderID)
+			return nil // Client closed the stream.
 		}
 		if err != nil {
 			s.Logger.Errorf("Error receiving message from user %d: %v", senderID, err)
-			return err
+			if err == context.Canceled || err == context.DeadlineExceeded {
+				s.Logger.Infof("Client %d disconnected: %v", senderID, err)
+				return nil
+			}
+			return err // Handle other errors.
 		}
 
-		// Log received message details
 		s.Logger.Infof("Received message with ID %s from user %d to recipient %d", req.MessageId, senderID, req.RecipientId)
 
-		// Directly send the message to the recipient's stream if they are connected
+		// Send the message directly to the recipient's stream if they are connected.
 		if err := s.sendMessageToRecipient(req); err != nil {
 			s.Logger.Errorf("Failed to send message ID %s to recipient %d: %v", req.MessageId, req.RecipientId, err)
-			// Optionally, send an error response back to the sender
-			response := &chat.MessageResponse{
-				MessageId:    req.MessageId,
-				Status:       "error",
-				Timestamp:    time.Now().Format(time.RFC3339),
-				ErrorMessage: fmt.Sprintf("Failed to deliver message to recipient %d: %v", req.RecipientId, err),
+
+			// Send a response back to the sender indicating a failed delivery.
+			failedDeliveryResponse := &chat.MessageResponse{
+				SenderId:    senderID,
+				RecipientId: req.RecipientId,
+				MessageId:   req.MessageId,
+				Status:      "delivery_failed",
+				Timestamp:   time.Now().Format(time.RFC3339),
 			}
-			if err := stream.Send(response); err != nil {
-				s.Logger.Errorf("Failed to send error response to sender %d: %v", senderID, err)
-				return err
+			if sendErr := stream.Send(failedDeliveryResponse); sendErr != nil {
+				s.Logger.Errorf("Failed to send delivery failure response to sender %d: %v", senderID, sendErr)
+				return sendErr
 			}
 		} else {
-			// Send a response back to the sender confirming message delivery
-			response := &chat.MessageResponse{
-				MessageId: req.MessageId,
-				Status:    "delivered",                     // Indicate that the message was delivered to the recipient
-				Timestamp: time.Now().Format(time.RFC3339), // Use ISO 8601 format
-			}
+			s.Logger.Infof("Message ID %s successfully sent to recipient %d", req.MessageId, req.RecipientId)
 
-			// Send the response back to the sender
-			if err := stream.Send(response); err != nil {
+			// Send a response back to the sender confirming message delivery.
+			deliveryResponse := &chat.MessageResponse{
+				SenderId:         senderID,
+				RecipientId:      req.RecipientId,
+				MessageId:        req.MessageId,
+				EncryptedMessage: req.EncryptedMessage, // Include the actual message content for confirmation.
+				Status:           "delivered",
+				Timestamp:        time.Now().Format(time.RFC3339),
+			}
+			if err := stream.Send(deliveryResponse); err != nil {
 				s.Logger.Errorf("Failed to send delivery confirmation to sender %d: %v", senderID, err)
 				return err
 			}
-
 			s.Logger.Infof("Sent delivery confirmation for message ID %s", req.MessageId)
 		}
 	}
