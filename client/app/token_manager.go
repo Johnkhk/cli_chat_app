@@ -82,6 +82,10 @@ func (tm *TokenManager) GetAccessToken() (string, error) {
 // Otherwise, does nothing.
 func (tm *TokenManager) TryAutoLogin() error {
 	_, err := tm.GetAccessToken() // Attempt to get a valid access token
+	if err != nil {
+		return fmt.Errorf("failed to auto-login: %w", err)
+	}
+	err = tm.AuthClient.PostLoginTasks()
 	return err
 }
 

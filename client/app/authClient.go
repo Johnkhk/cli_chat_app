@@ -68,27 +68,23 @@ func (c *AuthClient) LoginUser(username, password string) (error, uint32) {
 		c.Logger.Infof("JWT Tokens stored successfully to %s", c.TokenManager.filePath)
 
 		// Create local identity
-		err = c.OnLogIn(resp.UserId)
+		err = c.CreateLocalIdentityIfNewUserDevice(resp.UserId)
 		if err != nil {
 			return fmt.Errorf("failed to create local identity: %v", err), 0
 		}
 
-		// Task A: Open the persistent stream
-		if err := c.ParentClient.ChatClient.OpenPersistentStream(context.Background()); err != nil {
-			return fmt.Errorf("failed to open persistent stream: %v", err), 0
-		}
-
-		// // Task B: Send a registration message
-		// if err := c.sendRegistrationMessage(context.Background(), resp.UserId); err != nil {
-		// 	return fmt.Errorf("failed to send registration message: %v", err)
+		// // Task A: Open the persistent stream
+		// if err := c.ParentClient.ChatClient.OpenPersistentStream(context.Background()); err != nil {
+		// 	return fmt.Errorf("failed to open persistent stream: %v", err), 0
 		// }
 
-		// Task B: Create a context with cancel function to control lifecycle of message listening
-		listenCtx, cancelFunc := context.WithCancel(context.Background())
-		c.ParentClient.ChatClient.ListenCancelFunc = cancelFunc // Store cancel function in ChatClient for later use
+		// // Task B: Create a context with cancel function to control lifecycle of message listening
+		// listenCtx, cancelFunc := context.WithCancel(context.Background())
+		// c.ParentClient.ChatClient.ListenCancelFunc = cancelFunc // Store cancel function in ChatClient for later use
 
-		// Task C: Listen for incoming messages
-		go c.ParentClient.ChatClient.listenForMessages(listenCtx)
+		// // Task C: Listen for incoming messages
+		// go c.ParentClient.ChatClient.listenForMessages(listenCtx)
+		c.PostLoginTasks()
 
 		return nil, resp.UserId
 	} else {
@@ -98,8 +94,8 @@ func (c *AuthClient) LoginUser(username, password string) (error, uint32) {
 }
 
 // ////////////////////////// Encryption key management////
-// OnLogIn checks if the user-device is already registered, and if not, generates keys and uploads them.
-func (c *AuthClient) OnLogIn(userID uint32) error {
+// CreateLocalIdentityIfNewUserDevice checks if the user-device is already registered, and if not, generates keys and uploads them.
+func (c *AuthClient) CreateLocalIdentityIfNewUserDevice(userID uint32) error {
 	db := c.SqliteStore.DB
 
 	// Get MAC address
@@ -193,5 +189,21 @@ func (c *AuthClient) LogoutUser() error {
 	}
 
 	c.Logger.Info("User logged out successfully.")
+	return nil
+}
+
+func (c *AuthClient) PostLoginTasks() error {
+	// Implement any post-login tasks here
+	// Task A: Open the persistent stream
+	if err := c.ParentClient.ChatClient.OpenPersistentStream(context.Background()); err != nil {
+		return fmt.Errorf("failed to open persistent stream: %v", err)
+	}
+
+	// Task B: Create a context with cancel function to control lifecycle of message listening
+	listenCtx, cancelFunc := context.WithCancel(context.Background())
+	c.ParentClient.ChatClient.ListenCancelFunc = cancelFunc // Store cancel function in ChatClient for later use
+
+	// Task C: Listen for incoming messages
+	go c.ParentClient.ChatClient.listenForMessages(listenCtx)
 	return nil
 }
