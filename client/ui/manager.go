@@ -13,13 +13,15 @@ import (
 
 // Run the appropriate Bubble Tea program based on the login status
 func RunUIBasedOnAuthStatus(isLoggedIn bool, log *logrus.Logger, rpcClient *app.RpcClient) {
-	if isLoggedIn {
-		// log.Info("User automatically logged in with stored tokens.")
-		runTeaProgram(pages.NewFriendManagementModel(rpcClient)) // Start the main menu if auto-login succeeds
-	} else {
-		// log.Info("Automatic login failed or no valid token found.")
-		runTeaProgram(pages.NewLandingModel(rpcClient)) // Start the landing page if auto-login fails
-	}
+	// if isLoggedIn {
+	// 	// log.Info("User automatically logged in with stored tokens.")
+	// 	runTeaProgram(pages.NewFriendManagementModel(rpcClient)) // Start the main menu if auto-login succeeds
+	// } else {
+	// 	// log.Info("Automatic login failed or no valid token found.")
+	// 	runTeaProgram(pages.NewLandingModel(rpcClient)) // Start the landing page if auto-login fails
+	// }
+	// runTeaProgram(pages.NewChatModel())
+	runTeaProgram((pages.NewMainMenuModel(rpcClient)))
 }
 
 // Function to run the Bubble Tea program
