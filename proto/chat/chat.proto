@@ -36,10 +36,11 @@ message MessageRequest {
 // MessageResponse is used by the server to deliver messages to the recipient.
 message MessageResponse {
   uint32 sender_id = 1;             // Unique identifier of the sender
-  uint32 recipient_id = 2;          // Unique identifier of the recipient
-  string message_id = 3;            // The message ID of the message being acknowledged or delivered
-  bytes encrypted_message = 4;      // The message content encrypted with the recipient's public key
-  string status = 5;                // Status of the message (e.g., "delivered", "read", "received")
-  string timestamp = 6;             // Timestamp of when the server processed or delivered the message
+  string sender_username = 2;       // Username of the sender
+  uint32 recipient_id = 3;          // Unique identifier of the recipient
+  string message_id = 4;            // The message ID of the message being acknowledged or delivered
+  bytes encrypted_message = 5;      // The message content encrypted with the recipient's public key
+  string status = 6;                // Status of the message (e.g., "delivered", "read", "received")
+  string timestamp = 7;             // Timestamp of when the server processed or delivered the message
 }
 
