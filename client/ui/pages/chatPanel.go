@@ -26,10 +26,13 @@ const (
 
 // Initialize the main menu model
 func NewMainMenuModel(rpcClient *app.RpcClient) mainMenuModel {
+	x := NewChatModel(rpcClient)
+	x.Init()
 	return mainMenuModel{
 		rpcClient:    rpcClient,
-		friendsModel: NewDummyModel(),         // Replace with actual friends list model.
-		chatModel:    NewChatModel(rpcClient), // Initialize the chat model.
+		friendsModel: NewDummyModel(), // Replace with actual friends list model.
+		// chatModel:    NewChatModel(rpcClient), // Initialize the chat model.
+		chatModel: x,
 	}
 }
 
@@ -37,6 +40,7 @@ func NewMainMenuModel(rpcClient *app.RpcClient) mainMenuModel {
 func (m mainMenuModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 
+	// Handle global messages first, like window resizing and quitting
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.terminalWidth = msg.Width
@@ -59,20 +63,20 @@ func (m mainMenuModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	}
 
+	// Always update the chat model, regardless of the focus state
+	updatedChatModel, chatCmd := m.chatModel.Update(msg)
+	cmd = tea.Batch(cmd, chatCmd)
+	m.chatModel = updatedChatModel.(ChatModel)
+
+	// Now, update based on the focus state
 	switch m.focusState {
 	case mainPanel:
 		// Update the main panel (no additional logic here)
 	case leftPanel:
-		// Update the left panel (friends list, etc.)
+		// Update the left panel (e.g., friends list)
 		// m.friendsModel, _ = m.friendsModel.Update(msg)
 	case rightPanel:
-		// Update the chat model when the right panel is focused
-		// var chatCmd tea.Cmd
-		// m.chatModel, chatCmd = m.chatModel.Update(msg)
-		// cmd = tea.Batch(cmd, chatCmd)
-		updatedChatModel, subCmd := m.chatModel.Update(msg)
-		cmd = tea.Batch(cmd, subCmd)
-		m.chatModel = updatedChatModel.(ChatModel)
+		// If specific logic is needed for right panel, handle here
 	}
 
 	return m, cmd

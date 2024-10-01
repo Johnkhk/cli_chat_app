@@ -222,10 +222,11 @@ func (cc *ChatClient) listenForMessages(ctx context.Context) {
 				return
 			}
 
-			cc.Logger.Infof("Received message response: %s", resp.GetEncryptedMessage())
+			cc.Logger.Infof("Received message response: %s, with status: %s", resp.EncryptedMessage, resp.Status)
 
 			// Send the message to the MessageChannel if it exists
 			if cc.MessageChannel != nil {
+				cc.Logger.Info("Sending received message to message channel")
 				cc.MessageChannel <- resp
 			} else {
 				cc.Logger.Warn("Message channel is not set. Ignoring received message.")
