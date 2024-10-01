@@ -113,7 +113,7 @@ func NewRpcClient(config RpcClientConfig) (*RpcClient, error) {
 	rpcClient.FriendsClient = friendsClient
 
 	// Set the AuthService client in the TokenManager
-	tokenManager.SetClient(authClient.Client)
+	tokenManager.SetClient(authClient)
 
 	return rpcClient, nil
 }

@@ -30,10 +30,10 @@ func (RealTimeProvider) Now() time.Time {
 type TokenManager struct {
 	TimeProvider TimeProvider
 	filePath     string
-	client       auth.AuthServiceClient // Use the gRPC client passed during initialization
+	AuthClient   *AuthClient // Reference to the parent AuthClient
 }
 
-func NewTokenManager(filePath string, client auth.AuthServiceClient) *TokenManager {
+func NewTokenManager(filePath string, client *AuthClient) *TokenManager {
 	// Ensure the directory exists
 	dir := filepath.Dir(filePath)
 	if err := os.MkdirAll(dir, 0755); err != nil {
@@ -41,7 +41,7 @@ func NewTokenManager(filePath string, client auth.AuthServiceClient) *TokenManag
 	}
 	return &TokenManager{
 		filePath:     filePath,
-		client:       client,
+		AuthClient:   client,
 		TimeProvider: RealTimeProvider{}, // Default TimeProvider
 	}
 }
@@ -173,7 +173,7 @@ func (tm *TokenManager) RefreshAccessToken(refreshToken string) (string, error) 
 	defer cancel()
 
 	// Make the gRPC call to refresh the token
-	resp, err := tm.client.RefreshToken(ctx, &auth.RefreshTokenRequest{RefreshToken: refreshToken})
+	resp, err := tm.AuthClient.Client.RefreshToken(ctx, &auth.RefreshTokenRequest{RefreshToken: refreshToken})
 	if err != nil {
 		return "", fmt.Errorf("failed to refresh access token: %w", err)
 	}
@@ -183,8 +183,8 @@ func (tm *TokenManager) RefreshAccessToken(refreshToken string) (string, error) 
 }
 
 // SetClient allows updating the gRPC client.
-func (tm *TokenManager) SetClient(client auth.AuthServiceClient) {
-	tm.client = client
+func (tm *TokenManager) SetClient(client *AuthClient) {
+	tm.AuthClient = client
 }
 
 // GetClaimsFromAccessToken reads the stored access token and parses its JWT claims.

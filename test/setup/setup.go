@@ -134,7 +134,7 @@ func InitializeTestResources(t *testing.T, serverConfig *TestServerConfig, numCl
 		}
 		// Initialize the gRPC client using RpcClient
 		rpcClient, err := app.NewRpcClient(rpcClientConfig)
-		tokenManager.SetClient(rpcClient.AuthClient.Client)
+		tokenManager.SetClient(rpcClient.AuthClient)
 		if err != nil {
 			t.Fatalf("Failed to initialize RPC clients: %v", err)
 		}
