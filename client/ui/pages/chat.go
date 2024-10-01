@@ -170,11 +170,13 @@ func (m ChatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case ReceivedMessage:
 		// Handle incoming messages from the channel.
+		m.rpcClient.Logger.Infof("Received message from sender %s: %s", msg.Sender, msg.Message)
 		m.messages = append(m.messages, ChatMessage{
 			Sender:  msg.Sender,
 			Message: msg.Message,
 		})
 		m.viewport.SetContent(m.renderMessages())
+		m.textarea.Reset()
 		m.viewport.GotoBottom()
 		return m, m.listenToMessageChannel() // Continue listening to the message channel.
 
@@ -200,12 +202,14 @@ func (m ChatModel) View() string {
 func (m ChatModel) renderMessages() string {
 	var renderedMessages []string
 	viewportWidth := m.viewport.Width // Use viewport width to determine right alignment.
+
 	for _, msg := range m.messages {
 		var styledMessage string
 		switch msg.Sender {
 		case "self":
 			// Render self messages with the left-aligned style.
 			styledMessage = m.selfStyle.Render(fmt.Sprintf("You: %s", msg.Message))
+
 		case "other":
 			// Render other messages right-aligned with padding to push to the right side.
 			msgContent := fmt.Sprintf("Other: %s", msg.Message)
@@ -214,8 +218,19 @@ func (m ChatModel) renderMessages() string {
 			if spacesNeeded > 0 {
 				styledMessage = lipgloss.NewStyle().MarginLeft(spacesNeeded).Render(styledMessage)
 			}
+
+		default:
+			// Render messages from any other sender with a default style
+			defaultStyle := lipgloss.NewStyle().
+				Foreground(lipgloss.Color("6")). // Use a unique color for other usernames.
+				Align(lipgloss.Left).
+				PaddingLeft(1) // Left padding to differentiate from "self"
+			styledMessage = defaultStyle.Render(fmt.Sprintf("%s: %s", msg.Sender, msg.Message))
 		}
+
+		// Append the rendered message to the list
 		renderedMessages = append(renderedMessages, styledMessage)
 	}
+
 	return strings.Join(renderedMessages, "\n")
 }
