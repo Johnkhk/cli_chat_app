@@ -8,6 +8,8 @@ import (
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+
+	"github.com/johnkhk/cli_chat_app/client/app"
 )
 
 // ChatMessage represents a message in the chat.
@@ -23,9 +25,10 @@ type ChatModel struct {
 	selfStyle  lipgloss.Style
 	otherStyle lipgloss.Style
 	err        error
+	rpcClient  *app.RpcClient
 }
 
-func NewChatModel() ChatModel {
+func NewChatModel(rpcClient *app.RpcClient) ChatModel {
 	ta := textarea.New()
 	ta.Placeholder = "Send a message..."
 	ta.Focus()
@@ -53,6 +56,7 @@ Type a message and press Enter to send.`)
 		selfStyle:  lipgloss.NewStyle().Foreground(lipgloss.Color("5")).PaddingLeft(2),                        // Purple for self messages with left padding
 		otherStyle: lipgloss.NewStyle().Foreground(lipgloss.Color("2")).Align(lipgloss.Right).PaddingRight(2), // Green for other messages and right-aligned
 		err:        nil,
+		rpcClient:  rpcClient,
 	}
 }
 

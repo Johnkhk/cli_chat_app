@@ -28,8 +28,8 @@ const (
 func NewMainMenuModel(rpcClient *app.RpcClient) mainMenuModel {
 	return mainMenuModel{
 		rpcClient:    rpcClient,
-		friendsModel: NewDummyModel(), // Replace with actual friends list model.
-		chatModel:    NewChatModel(),  // Initialize the chat model.
+		friendsModel: NewDummyModel(),         // Replace with actual friends list model.
+		chatModel:    NewChatModel(rpcClient), // Initialize the chat model.
 	}
 }
 
