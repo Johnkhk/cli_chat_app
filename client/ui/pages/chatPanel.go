@@ -21,17 +21,22 @@ type mainMenuModel struct {
 	terminalWidth  int
 	terminalHeight int
 	focusState     focusState
-	friendsModel   DummyModel // Replace with actual friends list model.
-	chatModel      *ChatModel // Use a pointer to the ChatModel.
+	// friendsModel   DummyModel // Replace with actual friends list model.
+	friendsModel *FriendManagementModel // Replace with actual friends list model.
+	chatModel    *ChatModel             // Use a pointer to the ChatModel.
 }
 
 // Initialize the main menu model
 func NewMainMenuModel(rpcClient *app.RpcClient) mainMenuModel {
 	chat := NewChatModel(rpcClient)
+	// friend := NewFriendListModel(rpcClient)
+	friend := NewFriendManagementModel(rpcClient)
 	return mainMenuModel{
-		rpcClient:    rpcClient,
-		friendsModel: NewDummyModel(), // Replace with actual friends list model.
-		chatModel:    &chat,           // Pass chat as a pointer.
+		rpcClient: rpcClient,
+		// friendsModel: NewDummyModel(), // Replace with actual friends list model.
+		friendsModel: &friend, // Replace with actual friends list model.
+
+		chatModel: &chat, // Pass chat as a pointer.
 	}
 }
 
@@ -74,6 +79,25 @@ func (m mainMenuModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	m.chatModel = &castedChatModel // Use the address-of operator to get the pointer
 	cmd = tea.Batch(cmd, chatCmd)
 
+	// Always update the friends model
+	// m.friendsModel, friendCmd = m.friendsModel.Update(msg)
+	// castedFriendModel, ok := m.friendsModel.(FriendListModel)
+	// if !ok {
+	// 	m.rpcClient.Logger.Error("Failed to assert tea.Model to friendListModel")
+	// 	return m, nil
+	// }
+	// m.friendsModel = &castedFriendModel
+	// cmd = tea.Batch(cmd, friendCmd)
+	// Update friends model and handle pointer reference
+	friendModel, friendCmd := m.friendsModel.Update(msg)
+	castedFriendModel, ok := friendModel.(FriendManagementModel)
+	if !ok {
+		m.rpcClient.Logger.Error("Failed to assert tea.Model to FriendListModel")
+		return m, nil
+	}
+	m.friendsModel = &castedFriendModel
+	cmd = tea.Batch(cmd, friendCmd)
+
 	// Update other models based on focus state if necessary
 	switch m.focusState {
 	case leftPanel:
@@ -88,7 +112,8 @@ func (m mainMenuModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 // View function renders the Main Menu UI
 func (m mainMenuModel) View() string {
-	leftPanelContent := "Friends List\n1. Alice\n2. Bob\n3. Charlie"
+	// leftPanelContent := "Friends List\n1. Alice\n2. Bob\n3. Charlie"
+	leftPanelContent := m.friendsModel.tabContent[0].View()
 	rightPanelContent := m.chatModel.View()
 
 	// Define the margin from all edges
@@ -134,7 +159,16 @@ func (m mainMenuModel) View() string {
 	return finalView + helpBar
 }
 
-// Init function for main menu model
+// // Init function for main menu model
+// func (m mainMenuModel) Init() tea.Cmd {
+// 	return m.chatModel.Init() // Initialize the chat model with a command.
+
+// }
+
 func (m mainMenuModel) Init() tea.Cmd {
-	return m.chatModel.Init() // Initialize the chat model with a command.
+	// Initialize both chatModel and friendsModel and batch their commands together
+	return tea.Batch(
+		m.chatModel.Init(),
+		m.friendsModel.Init(),
+	)
 }
