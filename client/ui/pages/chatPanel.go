@@ -22,15 +22,15 @@ type mainMenuModel struct {
 	terminalHeight int
 	focusState     focusState
 	// friendsModel   DummyModel // Replace with actual friends list model.
-	friendsModel *FriendManagementModel // Replace with actual friends list model.
-	chatModel    *ChatModel             // Use a pointer to the ChatModel.
+	friendsModel *ChatFriendListModel // Replace with actual friends list model.
+	chatModel    *ChatModel           // Use a pointer to the ChatModel.
 }
 
 // Initialize the main menu model
 func NewMainMenuModel(rpcClient *app.RpcClient) mainMenuModel {
 	chat := NewChatModel(rpcClient)
 	// friend := NewFriendListModel(rpcClient)
-	friend := NewFriendManagementModel(rpcClient)
+	friend := NewChatFriendListModel(rpcClient)
 	return mainMenuModel{
 		rpcClient: rpcClient,
 		// friendsModel: NewDummyModel(), // Replace with actual friends list model.
@@ -90,7 +90,7 @@ func (m mainMenuModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// cmd = tea.Batch(cmd, friendCmd)
 	// Update friends model and handle pointer reference
 	friendModel, friendCmd := m.friendsModel.Update(msg)
-	castedFriendModel, ok := friendModel.(FriendManagementModel)
+	castedFriendModel, ok := friendModel.(ChatFriendListModel)
 	if !ok {
 		m.rpcClient.Logger.Error("Failed to assert tea.Model to FriendListModel")
 		return m, nil
@@ -113,7 +113,7 @@ func (m mainMenuModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 // View function renders the Main Menu UI
 func (m mainMenuModel) View() string {
 	// leftPanelContent := "Friends List\n1. Alice\n2. Bob\n3. Charlie"
-	leftPanelContent := m.friendsModel.tabContent[0].View()
+	leftPanelContent := m.friendsModel.View()
 	rightPanelContent := m.chatModel.View()
 
 	// Define the margin from all edges
