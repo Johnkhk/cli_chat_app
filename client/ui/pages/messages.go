@@ -57,3 +57,8 @@ type RemoveFriendResultMsg struct {
 	FriendID int32
 	Err      error
 }
+
+type FriendSelectedMsg struct {
+	UserID   int32
+	Username string
+}

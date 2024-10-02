@@ -25,15 +25,17 @@ type ReceivedMessage struct {
 	Message string
 }
 type ChatModel struct {
-	viewport   viewport.Model
-	messages   []ChatMessage
-	textarea   textarea.Model
-	selfStyle  lipgloss.Style
-	otherStyle lipgloss.Style
-	err        error
-	rpcClient  *app.RpcClient
-	ctx        context.Context
-	cancel     context.CancelFunc
+	viewport       viewport.Model
+	messages       []ChatMessage
+	textarea       textarea.Model
+	selfStyle      lipgloss.Style
+	otherStyle     lipgloss.Style
+	err            error
+	rpcClient      *app.RpcClient
+	ctx            context.Context
+	cancel         context.CancelFunc
+	activeUserID   int32 // Add this field to track the active user ID
+	activeUsername string
 }
 
 // NewChatModel initializes a new ChatModel.
@@ -107,16 +109,11 @@ func (m ChatModel) listenToMessageChannel() tea.Cmd {
 				}
 
 				// Log the received message and return it as a ReceivedMessage.
-				m.rpcClient.Logger.Infof("Received message from channel: Sender=%s, Message=%s", msg.SenderUsername, string(msg.EncryptedMessage))
+				m.rpcClient.Logger.Infof("Received message from channel: Sender=%s, Message=%s, Status=%s", msg.SenderUsername, string(msg.EncryptedMessage), msg.Status)
 				return ReceivedMessage{
 					Sender:  msg.SenderUsername,
 					Message: string(msg.EncryptedMessage),
 				}
-
-				// default:
-				// 	// Add logging to confirm the `default` case is being reached.
-				// 	m.rpcClient.Logger.Info("Message channel is currently empty or no new messages to process. Re-checking...")
-				// 	time.Sleep(500 * time.Millisecond) // Add a small delay to avoid spamming logs
 			}
 		}
 	}
@@ -158,7 +155,7 @@ func (m ChatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.viewport.GotoBottom()
 
 			// Send the message to the server.
-			err := m.rpcClient.ChatClient.SendUnencryptedMessage(m.ctx, 1, userMessage) // Assuming recipient ID is 1.
+			err := m.rpcClient.ChatClient.SendUnencryptedMessage(m.ctx, uint32(m.activeUserID), userMessage) // Assuming recipient ID is 1.
 			if err != nil {
 				m.rpcClient.Logger.Errorf("Failed to send message: %v", err)
 				return m, tea.Quit
@@ -241,4 +238,13 @@ func (m ChatModel) renderMessages() string {
 	}
 
 	return strings.Join(renderedMessages, "\n")
+}
+
+// SetActiveUser sets the active user for the chat and clears the message history.
+func (m *ChatModel) SetActiveUser(userID int32, username string) {
+	m.activeUserID = userID
+	m.activeUsername = username
+	m.messages = []ChatMessage{} // Clear existing messages when switching users. or load history eventually
+	content := fmt.Sprintf("No messages yet. Start the conversation with %s", username)
+	m.viewport.SetContent(content) // Update viewport content.
 }

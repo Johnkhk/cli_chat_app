@@ -31,13 +31,14 @@ func NewMainMenuModel(rpcClient *app.RpcClient) mainMenuModel {
 	chat := NewChatModel(rpcClient)
 	// friend := NewFriendListModel(rpcClient)
 	friend := NewChatFriendListModel(rpcClient)
-	return mainMenuModel{
+	mm := mainMenuModel{
 		rpcClient: rpcClient,
 		// friendsModel: NewDummyModel(), // Replace with actual friends list model.
 		friendsModel: &friend, // Replace with actual friends list model.
 
 		chatModel: &chat, // Pass chat as a pointer.
 	}
+	return mm
 }
 
 // Update function for main menu
@@ -64,7 +65,23 @@ func (m mainMenuModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Quit the program on "ctrl+c" or "q"
 		case "ctrl+c", "q":
 			return m, tea.Quit
+
 		}
+	case FriendSelectedMsg:
+		// When a friend is selected, set the active user ID in the chat model.
+		m.chatModel.SetActiveUser(msg.UserID, msg.Username)
+		m.rpcClient.Logger.Infof("Switched to chat with user ID: %d", msg.UserID)
+		return m, nil
+	case FriendListMsg:
+		// When friends list is updated, update the friend list model.
+		friendModel, friendCmd := m.friendsModel.Update(msg)
+		castedFriendModel, ok := friendModel.(ChatFriendListModel)
+		if !ok {
+			m.rpcClient.Logger.Error("Failed to assert tea.Model to ChatFriendListModel")
+			return m, nil
+		}
+		m.friendsModel = &castedFriendModel
+		cmd = tea.Batch(cmd, friendCmd)
 	}
 
 	// Always update the chat model, regardless of the focus state

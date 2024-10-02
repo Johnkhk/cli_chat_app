@@ -39,33 +39,37 @@ func (m ChatFriendListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.selected < len(m.friends)-1 {
 				m.selected++
 			}
+		case "enter":
+			// Trigger a user selection event by pressing "enter".
+			if m.selected >= 0 && m.selected < len(m.friends) {
+				selectedUserID := m.friends[m.selected].UserId
+				selectedUsername := m.friends[m.selected].Username
+				m.rpcClient.Logger.Infof("Selected User ID: %d", selectedUserID)
+				return m, func() tea.Msg {
+					return FriendSelectedMsg{UserID: selectedUserID, Username: selectedUsername}
+				}
+			}
 		}
 	case FriendListMsg:
 		// Update the friend list once the data is fetched
 		if msg.Err == nil {
 			m.friends = msg.Friends
 			m.loading = false
+			if len(m.friends) > 0 {
+				defaultUserID := m.friends[m.selected].UserId
+				defaultUsername := m.friends[m.selected].Username
+				return m, func() tea.Msg {
+					return FriendSelectedMsg{UserID: defaultUserID, Username: defaultUsername}
+				}
+			}
 		} else {
 			// m.friends = []string{"Failed to load friends."}
 			m.rpcClient.Logger.Errorf("Error fetching friend list: %v", msg.Err)
 			m.loading = false
+
 		}
 		// return m, nil
 	}
-	// case FriendListMsg:
-	// 	// updatedModel, subCmd := m
-	// 	// m.tabContent[0] = updatedModel
-	// 	// cmds = append(cmds, subCmd)
-	// 	if msg.Err != nil {
-	// 		m.rpcClient.Logger.Errorf("Error fetching friend list: %v", msg.Err)
-	// 	} else {
-	// 		m.rpcClient.Logger.Infof("Received friend list: %v", msg.Friends)
-	// 		m.friends = msg.Friends
-	// 		m.loading = false
-	// 	}
-
-	// return m, nil
-	// }
 
 	return m, nil
 }
