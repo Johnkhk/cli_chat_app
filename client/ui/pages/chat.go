@@ -122,7 +122,6 @@ func (m ChatModel) listenToMessageChannel() tea.Cmd {
 	}
 }
 
-// Update handles incoming messages and commands.
 func (m ChatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var (
 		tiCmd tea.Cmd
@@ -140,8 +139,16 @@ func (m ChatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		case tea.KeyEnter:
 			m.rpcClient.Logger.Info("Enter key pressed.")
-			// Add the user's message with "self" style and send it to the server.
+
+			// Check if the textarea has content before sending the message.
 			userMessage := m.textarea.Value()
+			if strings.TrimSpace(userMessage) == "" {
+				// If the message is empty, don't send it.
+				m.rpcClient.Logger.Warn("Attempted to send an empty message.")
+				return m, nil
+			}
+
+			// Add the user's message with "self" style and send it to the server.
 			m.messages = append(m.messages, ChatMessage{
 				Sender:  "self",
 				Message: userMessage,
