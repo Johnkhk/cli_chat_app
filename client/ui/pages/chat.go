@@ -218,7 +218,8 @@ func (m ChatModel) renderMessages() string {
 			if spacesNeeded > 0 {
 				styledMessage = lipgloss.NewStyle().MarginLeft(spacesNeeded).Render(styledMessage)
 			}
-
+		case "server":
+			continue // Skip rendering server welcome messages.
 		default:
 			// Render messages from any other sender with a default style
 			defaultStyle := lipgloss.NewStyle().
