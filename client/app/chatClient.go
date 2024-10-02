@@ -224,16 +224,16 @@ func (cc *ChatClient) listenForMessages(ctx context.Context) {
 
 			cc.Logger.Infof("Received message response: %s, with status: %s", resp.EncryptedMessage, resp.Status)
 
-			// Send the message to the MessageChannel if it exists
-			if cc.MessageChannel != nil {
-				cc.Logger.Info("Sending received message to message channel")
-				cc.MessageChannel <- resp
-			} else {
-				cc.Logger.Warn("Message channel is not set. Ignoring received message.")
-			}
-
 			// Handle different types of responses
 			switch resp.Status {
+			case "received":
+				// Send the message to the MessageChannel if it exists
+				if cc.MessageChannel != nil {
+					cc.Logger.Info("Sending received message to message channel")
+					cc.MessageChannel <- resp
+				} else {
+					cc.Logger.Warn("Message channel is not set. Ignoring received message.")
+				}
 			case "delivered":
 				cc.Logger.Infof("Message %s was delivered successfully at %s", resp.MessageId, resp.Timestamp)
 			case "connected":
