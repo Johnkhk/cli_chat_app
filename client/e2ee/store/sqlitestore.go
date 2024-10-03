@@ -114,6 +114,17 @@ func CreateTables(db *sql.DB) error {
 	);
 	`
 
+	chatHistoryTable := `
+	CREATE TABLE IF NOT EXISTS chat_history (
+		messageId TEXT PRIMARY KEY,  -- UUID as the primary key
+		sender_id INTEGER NOT NULL,
+		receiver_id INTEGER NOT NULL,
+		message TEXT NOT NULL,
+		timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,  -- Timestamp of when the message was sent/received
+		delivered INTEGER DEFAULT 0  -- 0: Not delivered, 1: Delivered
+	);
+	`
+
 	// Create table queries in a transaction
 	tx, err := db.Begin()
 	if err != nil {
@@ -148,6 +159,11 @@ func CreateTables(db *sql.DB) error {
 		return fmt.Errorf("failed to create local identity table table: %v", err)
 	}
 
+	_, err = tx.Exec(chatHistoryTable)
+	if err != nil {
+		return fmt.Errorf("failed to create chat history table: %v", err)
+	}
+
 	err = tx.Commit()
 	if err != nil {
 		return fmt.Errorf("failed to commit transaction: %v", err)
@@ -165,76 +181,6 @@ type LocalIdentity struct {
 	SignedPreKeyPublicKey []byte
 	Signature             []byte
 }
-
-// func (s *SQLiteStore) CreateLocalIdentity(registrationID uint32) (*LocalIdentity, error) {
-// 	db := s.DB
-// 	ctx := context.Background()
-
-// 	// 1. Generate a new identity key pair
-// 	identityKeyPair, err := identity.GenerateKeyPair(rand.Reader)
-// 	if err != nil {
-// 		return nil, fmt.Errorf("failed to generate identity key pair: %v", err)
-// 	}
-
-// 	// Serialize the key pair for local storage
-// 	keyPairData, err := SerializeKeyPairAndEncode(identityKeyPair)
-// 	if err != nil {
-// 		return nil, fmt.Errorf("failed to encode identity key pair: %v", err)
-// 	}
-
-// 	// Insert the local identity into the database
-// 	insertQuery := "INSERT INTO local_identity (key_pair, registration_id) VALUES (?, ?)"
-// 	_, err = db.Exec(insertQuery, keyPairData, registrationID)
-// 	if err != nil {
-// 		return nil, fmt.Errorf("failed to store local identity: %v", err)
-// 	}
-
-// 	// Schema to generate unique IDs (incremental IDs)
-// 	preKeyID := uint32(1)       // Example ID schema
-// 	signedPreKeyID := uint32(1) // Example ID schema for signed prekey
-
-// 	// 2. Generate the PreKey
-// 	preKeyPair, err := curve.GenerateKeyPair(rand.Reader)
-// 	if err != nil {
-// 		return nil, fmt.Errorf("failed to generate pre-key pair: %v", err)
-// 	}
-
-// 	// Store PreKey locally (private part)
-// 	preKey := prekey.NewPreKey(prekey.ID(preKeyID), preKeyPair)
-// 	err = s.preKeyStore.Store(ctx, prekey.ID(preKeyID), preKey)
-// 	if err != nil {
-// 		return nil, fmt.Errorf("failed to store pre-key: %v", err)
-// 	}
-
-// 	// 3. Generate the Signed PreKey
-// 	signedPreKeyPair, err := curve.GenerateKeyPair(rand.Reader)
-// 	if err != nil {
-// 		return nil, fmt.Errorf("failed to generate signed pre-key pair: %v", err)
-// 	}
-
-// 	// Store Signed PreKey locally (private part)
-// 	signedPreKey := prekey.NewSigned(prekey.ID(signedPreKeyID), uint64(time.Now().Unix()), signedPreKeyPair, nil)
-// 	err = s.signedPreKeyStore.Store(ctx, prekey.ID(signedPreKeyID), signedPreKey)
-// 	if err != nil {
-// 		return nil, fmt.Errorf("failed to store signed pre-key: %v", err)
-// 	}
-
-// 	// 4. Sign the public part of the Signed PreKey with the private Identity Key
-// 	signature, err := identityKeyPair.PrivateKey().Sign(rand.Reader, signedPreKeyPair.PublicKey().Bytes())
-// 	if err != nil {
-// 		return nil, fmt.Errorf("failed to sign signed pre-key: %v", err)
-// 	}
-
-// 	// Return a struct with all the relevant fields
-// 	return &LocalIdentity{
-// 		IdentityPublicKey:     identityKeyPair.PublicKey().Bytes(),
-// 		PreKeyID:              preKeyID,
-// 		PreKeyPublicKey:       preKeyPair.PublicKey().Bytes(),
-// 		SignedPreKeyID:        signedPreKeyID,
-// 		SignedPreKeyPublicKey: signedPreKeyPair.PublicKey().Bytes(),
-// 		Signature:             signature,
-// 	}, nil
-// }
 
 func (s *SQLiteStore) CreateLocalIdentity(registrationID uint32) (*LocalIdentity, error) {
 	db := s.DB
@@ -380,5 +326,3 @@ func MacToUint32(macAddr string) (uint32, error) {
 	// Take the first 4 bytes of the hash to form a uint32, then limit it to 10 bits
 	return binary.BigEndian.Uint32(hash[:4]) & 0x3FF, nil // Mask to get the lower 10 bits
 }
-
-////////////////////////////// Session Management //////////////////////////////////

@@ -24,7 +24,7 @@ import (
 type ChatClient struct {
 	Client           chat.ChatServiceClient                // gRPC client for chat service
 	AuthClient       *AuthClient                           // Reference to AuthClient for authentication purposes
-	store            *store.SQLiteStore                    // Access to session and identity stores
+	Store            *store.SQLiteStore                    // Access to session and identity stores
 	Logger           *logrus.Logger                        // Logger for logging messages and errors
 	Stream           chat.ChatService_StreamMessagesClient // Persistent gRPC stream for sending messages
 	ListenCancelFunc context.CancelFunc                    // Cancel function for stopping the message listener
@@ -71,7 +71,7 @@ func (cc *ChatClient) initializeSessionWithDevice(ctx context.Context, recipient
 		DeviceID: address.DeviceID(deviceID),
 	}
 
-	_, exists, err := cc.store.SessionStore().Load(ctx, remoteAddress)
+	_, exists, err := cc.Store.SessionStore().Load(ctx, remoteAddress)
 	if err != nil {
 		return fmt.Errorf("failed to load existing session: %v", err)
 	}
@@ -116,8 +116,8 @@ func (cc *ChatClient) initializeSessionWithDevice(ctx context.Context, recipient
 	// Initialize Alice's session with Bob using Bob's pre-key bundle
 	aliceSession := &session.Session{
 		RemoteAddress:    remoteAddress,
-		SessionStore:     cc.store.SessionStore(),
-		IdentityKeyStore: cc.store.IdentityStore(),
+		SessionStore:     cc.Store.SessionStore(),
+		IdentityKeyStore: cc.Store.IdentityStore(),
 	}
 
 	// Call ProcessPreKeyBundle to initialize the session using Bob's bundle
@@ -142,7 +142,7 @@ func (cc *ChatClient) SendMessage(ctx context.Context, recipientID, deviceID uin
 		DeviceID: address.DeviceID(deviceID),
 	}
 
-	_, exists, err := cc.store.SessionStore().Load(ctx, remoteAddress)
+	_, exists, err := cc.Store.SessionStore().Load(ctx, remoteAddress)
 	if err != nil {
 		return fmt.Errorf("failed to load session: %v", err)
 	}
@@ -153,8 +153,8 @@ func (cc *ChatClient) SendMessage(ctx context.Context, recipientID, deviceID uin
 	// Create a session object from the record
 	session := &session.Session{
 		RemoteAddress:    remoteAddress,
-		SessionStore:     cc.store.SessionStore(),
-		IdentityKeyStore: cc.store.IdentityStore(),
+		SessionStore:     cc.Store.SessionStore(),
+		IdentityKeyStore: cc.Store.IdentityStore(),
 	}
 
 	// Encrypt the plaintext message using the session
@@ -187,11 +187,12 @@ func (cc *ChatClient) SendUnencryptedMessage(ctx context.Context, recipientID ui
 		return fmt.Errorf("no active stream found. Ensure that openPersistentStream has been called.")
 	}
 
+	messageId := uuid.NewString()
 	// Create a new message request with the plaintext content
 	msgRequest := &chat.MessageRequest{
 		RecipientId:      recipientID,                     // Set recipient ID
 		EncryptedMessage: []byte(plaintext),               // Use plaintext directly as the message content
-		MessageId:        uuid.NewString(),                // Generate a unique message ID
+		MessageId:        messageId,                       // Generate a unique message ID
 		Timestamp:        time.Now().Format(time.RFC3339), // Timestamp in ISO 8601 format
 	}
 
@@ -201,11 +202,39 @@ func (cc *ChatClient) SendUnencryptedMessage(ctx context.Context, recipientID ui
 	}
 
 	cc.Logger.Infof("Unencrypted message sent to recipient %d successfully", recipientID)
+
+	userId, err := cc.AuthClient.TokenManager.GetUserIdFromAccessToken()
+	if err != nil {
+		return fmt.Errorf("failed to get user ID from access token: %v", err)
+	}
+	// Store the message in the sender's local chat history after successfully sending
+	err = cc.Store.SaveChatMessage(
+		messageId,
+		userId,
+		recipientID, // Receiver ID
+		plaintext,   // The plaintext message
+		0,           // delivered status is set to 0 (false) initially
+	)
+	if err != nil {
+		cc.Logger.Errorf("Failed to store sent message in chat history: %v", err)
+	}
+
+	cc.Logger.Infof("Sent message stored in chat history with ID %s", messageId)
+
 	return nil
 }
 
 // listenForMessages continuously listens for messages on the open stream and handles context cancellations.
 func (cc *ChatClient) listenForMessages(ctx context.Context) {
+	defer func() {
+		cc.Logger.Info("Closing the gRPC stream")
+		if err := cc.Stream.CloseSend(); err != nil {
+			cc.Logger.Errorf("Failed to close stream: %v", err)
+		} else {
+			cc.Logger.Info("Stream closed successfully")
+		}
+	}()
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -227,19 +256,34 @@ func (cc *ChatClient) listenForMessages(ctx context.Context) {
 			// Handle different types of responses
 			switch resp.Status {
 			case "received":
-				// Send the message to the MessageChannel if it exists
-				if cc.MessageChannel != nil {
-					cc.Logger.Info("Sending received message to message channel")
-					cc.MessageChannel <- resp
-				} else {
-					cc.Logger.Warn("Message channel is not set. Ignoring received message.")
+				cc.Logger.Infof("Message %s was received successfully at %s", resp.MessageId, resp.Timestamp)
+				// for now
+				unecryptedMessage := string(resp.EncryptedMessage)
+
+				err := cc.Store.SaveChatMessage(resp.MessageId, resp.SenderId, resp.RecipientId, unecryptedMessage, 1)
+				if err != nil {
+					cc.Logger.Errorf("Failed to save message %s in chat history: %v", resp.MessageId, err)
 				}
+
 			case "delivered":
 				cc.Logger.Infof("Message %s was delivered successfully at %s", resp.MessageId, resp.Timestamp)
+				// Update the delivered status in the sender's database.
+				err := cc.Store.UpdateMessageDeliveryStatus(resp.MessageId, true)
+				if err != nil {
+					cc.Logger.Errorf("Failed to update delivery status for message %s: %v", resp.MessageId, err)
+				}
+				continue
 			case "connected":
 				cc.Logger.Infof("User Connected at %s", resp.Timestamp)
 			default:
 				cc.Logger.Warnf("Unknown response type: %s", resp.Status)
+			}
+			// Send the message to the MessageChannel if it exists
+			if cc.MessageChannel != nil {
+				cc.Logger.Info("Sending received message to message channel")
+				cc.MessageChannel <- resp
+			} else {
+				cc.Logger.Warn("Message channel is not set. Ignoring received message.")
 			}
 		}
 	}

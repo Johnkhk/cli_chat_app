@@ -97,7 +97,7 @@ func NewRpcClient(config RpcClientConfig) (*RpcClient, error) {
 	chatClient := &ChatClient{
 		Client:         chat.NewChatServiceClient(conn),
 		AuthClient:     authClient,
-		store:          sqliteStore,
+		Store:          sqliteStore,
 		Logger:         logger,
 		MessageChannel: make(chan *chat.MessageResponse, 10), // Initialize the channel with a buffer size of 10
 	}

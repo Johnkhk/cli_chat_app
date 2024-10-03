@@ -175,35 +175,46 @@ func (c *AuthClient) GetPublicKeyBundle(userID, deviceID uint32) (*auth.PublicKe
 	return c.Client.GetPublicKeyBundle(context.Background(), req)
 }
 
-// LogoutUser handles logging out the user and stops the message listener.
+// LogoutUser gracefully logs out the user by canceling the context and closing the stream.
 func (c *AuthClient) LogoutUser() error {
-	// Implement your logout logic, such as invalidating tokens or closing streams
 	c.Logger.Info("Logging out user...")
 
-	// Call the cancel function to stop listening for messages
+	// Call the cancel function to stop listening for messages.
 	if c.ParentClient.ChatClient.ListenCancelFunc != nil {
+		c.Logger.Info("Canceling the message listener context")
 		c.ParentClient.ChatClient.ListenCancelFunc() // Stop the listener
-		c.Logger.Info("Message listener stopped successfully.")
 	} else {
 		c.Logger.Warn("No message listener to stop.")
+	}
+
+	// Close the gRPC stream explicitly.
+	if c.ParentClient.ChatClient.Stream != nil {
+		c.Logger.Info("Closing the gRPC stream explicitly on logout")
+		if err := c.ParentClient.ChatClient.Stream.CloseSend(); err != nil {
+			c.Logger.Errorf("Failed to close gRPC stream: %v", err)
+		} else {
+			c.Logger.Info("Stream closed successfully on logout")
+		}
+	} else {
+		c.Logger.Warn("No stream to close.")
 	}
 
 	c.Logger.Info("User logged out successfully.")
 	return nil
 }
 
+// PostLoginTasks opens the stream and starts listening for messages.
 func (c *AuthClient) PostLoginTasks() error {
-	// Implement any post-login tasks here
-	// Task A: Open the persistent stream
+	// Task A: Open the persistent stream.
 	if err := c.ParentClient.ChatClient.OpenPersistentStream(context.Background()); err != nil {
 		return fmt.Errorf("failed to open persistent stream: %v", err)
 	}
 
-	// Task B: Create a context with cancel function to control lifecycle of message listening
+	// Task B: Create a context with cancel function to control lifecycle of message listening.
 	listenCtx, cancelFunc := context.WithCancel(context.Background())
-	c.ParentClient.ChatClient.ListenCancelFunc = cancelFunc // Store cancel function in ChatClient for later use
+	c.ParentClient.ChatClient.ListenCancelFunc = cancelFunc // Store cancel function in ChatClient for later use.
 
-	// Task C: Listen for incoming messages
+	// Task C: Listen for incoming messages.
 	go c.ParentClient.ChatClient.listenForMessages(listenCtx)
 	return nil
 }

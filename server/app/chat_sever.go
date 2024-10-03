@@ -69,65 +69,71 @@ func (s *ChatServiceServer) StreamMessages(stream chat.ChatService_StreamMessage
 	s.Logger.Infof("Sent welcome message to user %d", senderID)
 
 	for {
-		req, err := stream.Recv() // Blocking call to receive a message.
-		if err == io.EOF {
-			s.Logger.Infof("Stream closed by client %d", senderID)
-			return nil // Client closed the stream.
-		}
-		if err != nil {
-			s.Logger.Errorf("Error receiving message from user %d: %v", senderID, err)
-			if err == context.Canceled || err == context.DeadlineExceeded {
-				s.Logger.Infof("Client %d disconnected: %v", senderID, err)
-				return nil
+		select {
+		case <-ctx.Done(): // Handle client disconnection more explicitly.
+			s.Logger.Infof("Client %d context closed: %v", senderID, ctx.Err())
+			return nil
+		default:
+			req, err := stream.Recv() // Blocking call to receive a message.
+			if err == io.EOF {
+				s.Logger.Infof("Stream closed by client %d", senderID)
+				return nil // Client closed the stream.
 			}
-			return err // Handle other errors.
-		}
-
-		s.Logger.Infof("Received message with ID %s from user %d to recipient %d", req.MessageId, senderID, req.RecipientId)
-
-		// Send the message directly to the recipient's stream if they are connected.
-		if err := s.sendMessageToRecipient(&chat.MessageResponse{
-			SenderId:         senderID,
-			SenderUsername:   senderUsername, // Include sender's username
-			RecipientId:      req.RecipientId,
-			MessageId:        req.MessageId,
-			EncryptedMessage: req.EncryptedMessage, // Include the actual message content for the recipient
-			Status:           "received",
-			Timestamp:        time.Now().Format(time.RFC3339), // Timestamp for when the recipient received it
-		}); err != nil {
-			s.Logger.Errorf("Failed to send message ID %s to recipient %d: %v", req.MessageId, req.RecipientId, err)
-
-			// Send a response back to the sender indicating a failed delivery.
-			failedDeliveryResponse := &chat.MessageResponse{
-				SenderId:       senderID,
-				SenderUsername: "server", // Indicate that this is a server response
-				RecipientId:    req.RecipientId,
-				MessageId:      req.MessageId,
-				Status:         "delivery_failed",
-				Timestamp:      time.Now().Format(time.RFC3339),
+			if err != nil {
+				s.Logger.Errorf("Error receiving message from user %d: %v", senderID, err)
+				if err == context.Canceled || err == context.DeadlineExceeded {
+					s.Logger.Infof("Client %d disconnected: %v", senderID, err)
+					return nil
+				}
+				return err // Handle other errors.
 			}
-			if sendErr := stream.Send(failedDeliveryResponse); sendErr != nil {
-				s.Logger.Errorf("Failed to send delivery failure response to sender %d: %v", senderID, sendErr)
-				return sendErr
-			}
-		} else {
-			s.Logger.Infof("Message ID %s successfully sent to recipient %d", req.MessageId, req.RecipientId)
 
-			// Send a response back to the sender confirming message delivery.
-			deliveryResponse := &chat.MessageResponse{
+			s.Logger.Infof("Received message with ID %s from user %d to recipient %d", req.MessageId, senderID, req.RecipientId)
+
+			// Send the message directly to the recipient's stream if they are connected.
+			if err := s.sendMessageToRecipient(&chat.MessageResponse{
 				SenderId:         senderID,
-				SenderUsername:   senderUsername, // Include sender's username in confirmation response
+				SenderUsername:   senderUsername, // Include sender's username
 				RecipientId:      req.RecipientId,
 				MessageId:        req.MessageId,
-				EncryptedMessage: req.EncryptedMessage, // Include the actual message content for confirmation.
-				Status:           "delivered",
-				Timestamp:        time.Now().Format(time.RFC3339),
+				EncryptedMessage: req.EncryptedMessage, // Include the actual message content for the recipient
+				Status:           "received",
+				Timestamp:        time.Now().Format(time.RFC3339), // Timestamp for when the recipient received it
+			}); err != nil {
+				s.Logger.Errorf("Failed to send message ID %s to recipient %d: %v", req.MessageId, req.RecipientId, err)
+
+				// Send a response back to the sender indicating a failed delivery.
+				failedDeliveryResponse := &chat.MessageResponse{
+					SenderId:       senderID,
+					SenderUsername: "server", // Indicate that this is a server response
+					RecipientId:    req.RecipientId,
+					MessageId:      req.MessageId,
+					Status:         "delivery_failed",
+					Timestamp:      time.Now().Format(time.RFC3339),
+				}
+				if sendErr := stream.Send(failedDeliveryResponse); sendErr != nil {
+					s.Logger.Errorf("Failed to send delivery failure response to sender %d: %v", senderID, sendErr)
+					return sendErr
+				}
+			} else {
+				s.Logger.Infof("Message ID %s successfully sent to recipient %d", req.MessageId, req.RecipientId)
+
+				// Send a response back to the sender confirming message delivery.
+				deliveryResponse := &chat.MessageResponse{
+					SenderId:         senderID,
+					SenderUsername:   senderUsername, // Include sender's username in confirmation response
+					RecipientId:      req.RecipientId,
+					MessageId:        req.MessageId,
+					EncryptedMessage: req.EncryptedMessage, // Include the actual message content for confirmation.
+					Status:           "delivered",
+					Timestamp:        time.Now().Format(time.RFC3339),
+				}
+				if err := stream.Send(deliveryResponse); err != nil {
+					s.Logger.Errorf("Failed to send delivery confirmation to sender %d: %v", senderID, err)
+					return err
+				}
+				s.Logger.Infof("Sent delivery confirmation for message ID %s", req.MessageId)
 			}
-			if err := stream.Send(deliveryResponse); err != nil {
-				s.Logger.Errorf("Failed to send delivery confirmation to sender %d: %v", senderID, err)
-				return err
-			}
-			s.Logger.Infof("Sent delivery confirmation for message ID %s", req.MessageId)
 		}
 
 	}
