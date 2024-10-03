@@ -123,6 +123,10 @@ func (r *RpcClient) CloseConnections() {
 	if err := r.Conn.Close(); err != nil {
 		r.Logger.Errorf("Failed to close the connection: %v", err)
 	}
+
+	if err := r.AuthClient.LogoutUser(); err != nil {
+		r.Logger.Errorf("Failed to log out user: %v", err)
+	}
 }
 
 func (r *RpcClient) GetAppDirPath() string {

@@ -7,7 +7,6 @@ import (
 	"database/sql"
 	"encoding/binary"
 	"fmt"
-	"log"
 	"net"
 	"time"
 
@@ -169,7 +168,6 @@ func CreateTables(db *sql.DB) error {
 		return fmt.Errorf("failed to commit transaction: %v", err)
 	}
 
-	log.Println("All necessary tables created successfully.")
 	return nil
 }
 
