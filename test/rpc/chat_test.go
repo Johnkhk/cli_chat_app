@@ -254,7 +254,7 @@ func TestLogoutUser(t *testing.T) {
 }
 
 func TestReceiverIsOfflineWhenSenderSends(t *testing.T) {
-	rpcClients, _, cleanup, _ := setup.InitializeTestResources(t, nil, 2)
+	rpcClients, _, cleanup, server := setup.InitializeTestResources(t, nil, 2)
 	defer cleanup()
 
 	client1 := rpcClients[0] // Represents User1
@@ -319,5 +319,29 @@ func TestReceiverIsOfflineWhenSenderSends(t *testing.T) {
 		t.Fatalf("Expected empty chat history for User 2, but got: %d", len(chatMessages))
 	}
 
-	// Message should be in server buffer
+	// Message should be in server buffer for later delivery
+	if len(server.ChatServer.UndeliveredMessages) != 1 {
+		t.Fatalf("Expected 1 undelivered message in server buffer, but got: %d", len(server.ChatServer.UndeliveredMessages))
+	}
+
+	// Log in User2
+	if err, _ := client2.AuthClient.LoginUser("user2", "password"); err != nil {
+		t.Fatalf("Failed to login user2: %v", err)
+	}
+	time.Sleep(2 * time.Second)
+
+	// Buffer should be empty after User2 logs in
+	if len(server.ChatServer.UndeliveredMessages) != 0 {
+		t.Fatalf("Expected 0 undelivered message in server buffer, but got: %d", len(server.ChatServer.UndeliveredMessages))
+	}
+
+	// User 2 should have received the message
+	chatMessages, err = client2.ChatClient.Store.GetChatHistory(user1ID, user2ID)
+	if err != nil {
+		t.Fatalf("Failed to get chat history for User 2: %v", err)
+	}
+	msgReceived := chatMessages[0]
+	if msgReceived.Message != messageFromUser1 {
+		t.Fatalf("Expected message %s, but got: %s", messageFromUser1, msgReceived.Message)
+	}
 }

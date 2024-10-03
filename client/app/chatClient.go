@@ -275,6 +275,8 @@ func (cc *ChatClient) listenForMessages(ctx context.Context) {
 				continue
 			case "connected":
 				cc.Logger.Infof("User Connected at %s", resp.Timestamp)
+			case "stored":
+				cc.Logger.Infof("Message %s was stored in server buffer for later delivery at %s", resp.MessageId, resp.Timestamp)
 			default:
 				cc.Logger.Warnf("Unknown response type: %s", resp.Status)
 			}

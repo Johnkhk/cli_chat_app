@@ -14,15 +14,17 @@ import (
 
 type ChatServiceServer struct {
 	chat.UnimplementedChatServiceServer
-	ActiveClients map[uint32]chat.ChatService_StreamMessagesServer // Map from userID to their active stream
-	mu            sync.RWMutex                                     // Protect access to ActiveClients
-	Logger        *logrus.Logger
+	ActiveClients       map[uint32]chat.ChatService_StreamMessagesServer // Map from userID to their active stream
+	UndeliveredMessages map[uint32][]*chat.MessageResponse               // Map from userID to their undelivered messages
+	mu                  sync.RWMutex                                     // Protect access to ActiveClients and UndeliveredMessages
+	Logger              *logrus.Logger
 }
 
 func NewChatServiceServer(logger *logrus.Logger) *ChatServiceServer {
 	return &ChatServiceServer{
-		ActiveClients: make(map[uint32]chat.ChatService_StreamMessagesServer),
-		Logger:        logger,
+		ActiveClients:       make(map[uint32]chat.ChatService_StreamMessagesServer),
+		UndeliveredMessages: make(map[uint32][]*chat.MessageResponse),
+		Logger:              logger,
 	}
 }
 
@@ -68,6 +70,11 @@ func (s *ChatServiceServer) StreamMessages(stream chat.ChatService_StreamMessage
 	}
 	s.Logger.Infof("Sent welcome message to user %d", senderID)
 
+	// Deliver any undelivered messages to the client.
+	if err := s.deliverUndeliveredMessages(senderID); err != nil {
+		s.Logger.Errorf("Failed to deliver undelivered messages to user %d: %v", senderID, err)
+	}
+
 	for {
 		select {
 		case <-ctx.Done(): // Handle client disconnection more explicitly.
@@ -100,7 +107,7 @@ func (s *ChatServiceServer) StreamMessages(stream chat.ChatService_StreamMessage
 				Status:           "received",
 				Timestamp:        time.Now().Format(time.RFC3339), // Timestamp for when the recipient received it
 			}); err != nil {
-				s.Logger.Errorf("Failed to send message ID %s to recipient %d: %v", req.MessageId, req.RecipientId, err)
+				s.Logger.Errorf("Failed to send/store message ID %s to recipient %d: %v", req.MessageId, req.RecipientId, err)
 
 				// Send a response back to the sender indicating a failed delivery.
 				failedDeliveryResponse := &chat.MessageResponse{
@@ -116,26 +123,31 @@ func (s *ChatServiceServer) StreamMessages(stream chat.ChatService_StreamMessage
 					return sendErr
 				}
 			} else {
-				s.Logger.Infof("Message ID %s successfully sent to recipient %d", req.MessageId, req.RecipientId)
+				var status string
+				if s.IsActiveClient(req.RecipientId) {
+					status = "delivered"
+				} else {
+					status = "stored"
+				}
+				s.Logger.Infof("Message ID %s successfully processed for recipient %d with status %s", req.MessageId, req.RecipientId, status)
 
-				// Send a response back to the sender confirming message delivery.
+				// Send a response back to the sender indicating message status.
 				deliveryResponse := &chat.MessageResponse{
 					SenderId:         senderID,
 					SenderUsername:   senderUsername, // Include sender's username in confirmation response
 					RecipientId:      req.RecipientId,
 					MessageId:        req.MessageId,
 					EncryptedMessage: req.EncryptedMessage, // Include the actual message content for confirmation.
-					Status:           "delivered",
+					Status:           status,
 					Timestamp:        time.Now().Format(time.RFC3339),
 				}
 				if err := stream.Send(deliveryResponse); err != nil {
 					s.Logger.Errorf("Failed to send delivery confirmation to sender %d: %v", senderID, err)
 					return err
 				}
-				s.Logger.Infof("Sent delivery confirmation for message ID %s", req.MessageId)
+				s.Logger.Infof("Sent delivery confirmation for message ID %s with status %s", req.MessageId, status)
 			}
 		}
-
 	}
 }
 
@@ -179,15 +191,19 @@ func (s *ChatServiceServer) unregisterClient(userID uint32) {
 }
 
 // sendMessageToRecipient attempts to send a message directly to the recipient if they are connected.
-// Accepts a MessageResponse instead of MessageRequest.
+// If the recipient is not connected, it stores the message in the undelivered messages buffer.
 func (s *ChatServiceServer) sendMessageToRecipient(resp *chat.MessageResponse) error {
 	s.mu.RLock()
 	recipientStream, recipientConnected := s.ActiveClients[resp.RecipientId]
 	s.mu.RUnlock()
 
 	if !recipientConnected {
-		s.Logger.Warnf("Recipient %d is not connected", resp.RecipientId)
-		return fmt.Errorf("recipient %d is not connected", resp.RecipientId)
+		s.Logger.Warnf("Recipient %d is not connected, storing message ID %s in buffer", resp.RecipientId, resp.MessageId)
+		// Store the message in the undelivered messages buffer
+		s.mu.Lock()
+		s.UndeliveredMessages[resp.RecipientId] = append(s.UndeliveredMessages[resp.RecipientId], resp)
+		s.mu.Unlock()
+		return nil
 	}
 
 	// Forward the response to the recipient's stream
@@ -198,5 +214,49 @@ func (s *ChatServiceServer) sendMessageToRecipient(resp *chat.MessageResponse) e
 	}
 
 	s.Logger.Infof("Message ID %s successfully delivered to recipient %d", resp.MessageId, resp.RecipientId)
+	return nil
+}
+
+// deliverUndeliveredMessages sends any stored messages to the user upon reconnection.
+func (s *ChatServiceServer) deliverUndeliveredMessages(userID uint32) error {
+	var messages []*chat.MessageResponse
+
+	// Lock the UndeliveredMessages map and get the messages
+	s.mu.Lock()
+	if msgs, exists := s.UndeliveredMessages[userID]; exists && len(msgs) > 0 {
+		messages = msgs
+		// Remove messages from buffer
+		delete(s.UndeliveredMessages, userID)
+	}
+	s.mu.Unlock()
+
+	if len(messages) == 0 {
+		s.Logger.Infof("No undelivered messages for user %d", userID)
+		return nil
+	}
+
+	s.Logger.Infof("Delivering %d undelivered messages to user %d", len(messages), userID)
+
+	s.mu.RLock()
+	recipientStream, recipientConnected := s.ActiveClients[userID]
+	s.mu.RUnlock()
+	if !recipientConnected {
+		s.Logger.Warnf("Recipient %d is not connected while trying to deliver undelivered messages", userID)
+		// If recipient is not connected, put the messages back into the buffer
+		s.mu.Lock()
+		s.UndeliveredMessages[userID] = messages // Put messages back
+		s.mu.Unlock()
+		return fmt.Errorf("recipient %d is not connected", userID)
+	}
+
+	for _, msg := range messages {
+		if err := recipientStream.Send(msg); err != nil {
+			s.Logger.Errorf("Failed to send undelivered message ID %s to user %d: %v", msg.MessageId, userID, err)
+			// Optionally, handle error
+		} else {
+			s.Logger.Infof("Delivered undelivered message ID %s to user %d", msg.MessageId, userID)
+		}
+	}
+
 	return nil
 }
