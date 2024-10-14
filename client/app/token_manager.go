@@ -225,8 +225,6 @@ func (tm *TokenManager) GetUserIdFromAccessToken() (uint32, error) {
 	if err != nil {
 		return 0, fmt.Errorf("failed to get claims from access token: %w", err)
 	}
-	// print the claims
-	fmt.Println(claims)
 
 	// The "sub" claim is most likely a string, so you need to handle it as such
 	sub, ok := claims["sub"].(string)

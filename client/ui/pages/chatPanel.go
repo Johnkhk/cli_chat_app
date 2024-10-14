@@ -10,13 +10,12 @@ import (
 type focusState uint
 
 const (
-	mainPanel focusState = iota
-	leftPanel
+	leftPanel focusState = iota
 	rightPanel
 )
 
 // Main menu model now has ChatModel as a pointer for in-place updates
-type mainMenuModel struct {
+type ChatPanelModel struct {
 	rpcClient      *app.RpcClient
 	terminalWidth  int
 	terminalHeight int
@@ -27,11 +26,11 @@ type mainMenuModel struct {
 }
 
 // Initialize the main menu model
-func NewMainMenuModel(rpcClient *app.RpcClient) mainMenuModel {
+func NewChatPanelModel(rpcClient *app.RpcClient) ChatPanelModel {
 	chat := NewChatModel(rpcClient)
 	// friend := NewFriendListModel(rpcClient)
 	friend := NewChatFriendListModel(rpcClient)
-	mm := mainMenuModel{
+	mm := ChatPanelModel{
 		rpcClient: rpcClient,
 		// friendsModel: NewDummyModel(), // Replace with actual friends list model.
 		friendsModel: &friend, // Replace with actual friends list model.
@@ -41,8 +40,7 @@ func NewMainMenuModel(rpcClient *app.RpcClient) mainMenuModel {
 	return mm
 }
 
-// Update function for main menu
-func (m mainMenuModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m ChatPanelModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 
 	// Handle global messages first, like window resizing and quitting
@@ -50,30 +48,78 @@ func (m mainMenuModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.terminalWidth = msg.Width
 		m.terminalHeight = msg.Height
+		// Pass the window size message to both panels
+		// m.friendsModel, _ = m.friendsModel.Update(msg)
+		// m.chatModel, _ = m.chatModel.Update(msg)
+
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "tab":
-			// Cycle through the focus states
-			switch m.focusState {
-			case mainPanel:
-				m.focusState = leftPanel
-			case leftPanel:
+			// Switch focus between panels
+			if m.focusState == leftPanel {
 				m.focusState = rightPanel
-			case rightPanel:
-				m.focusState = mainPanel
+			} else {
+				m.focusState = leftPanel
 			}
-		// Quit the program on "ctrl+c" or "q"
 		case "ctrl+c", "q":
 			return m, tea.Quit
 
+		default:
+
+			// Pass key messages to the active panel only
+			switch m.focusState {
+			case leftPanel:
+				if msg.String() == "f" {
+					friendManagementModel := NewFriendManagementModel(m.rpcClient)
+
+					// Initialize the chat panel (e.g., fetch friends) and get the command for it
+					chatCmd := friendManagementModel.Init() // Init returns the command for loading friends
+
+					// Update the chat panel to handle the incoming message
+					// updatedChatPanelModel, updateCmd := chatPanelModel.Update(msg)
+					updatedChatPanelModel, updateCmd := friendManagementModel.Update(tea.WindowSizeMsg{Width: m.terminalWidth, Height: m.terminalHeight})
+
+					// Return only the updated chat model and its commands, ignoring the previous model's cmds
+					return updatedChatPanelModel, tea.Batch(chatCmd, updateCmd)
+				}
+				// Switch to the friend management page
+
+				// var friendCmd tea.Cmd
+				// m.friendsModel, friendCmd = m.friendsModel.Update(msg)
+				// cmd = tea.Batch(cmd, friendCmd)
+				friendModel, friendCmd := m.friendsModel.Update(msg)
+				castedFriendModel, ok := friendModel.(ChatFriendListModel)
+				if !ok {
+					m.rpcClient.Logger.Error("Failed to assert tea.Model to ChatFriendListModel")
+					return m, nil
+				}
+				m.friendsModel = &castedFriendModel
+				cmd = tea.Batch(cmd, friendCmd)
+			case rightPanel:
+				// var chatCmd tea.Cmd
+				// m.chatModel, chatCmd = m.chatModel.Update(msg)
+				// cmd = tea.Batch(cmd, chatCmd)
+				chatModel, chatCmd := m.chatModel.Update(msg)
+				castedChatModel, ok := chatModel.(ChatModel) // Assert the tea.Model to ChatModel type
+				if !ok {
+					// If type assertion fails, return the current state and log an error
+					m.rpcClient.Logger.Error("Failed to assert tea.Model to ChatModel")
+					return m, nil
+				}
+				m.chatModel = &castedChatModel // Use the address-of operator to get the pointer
+				cmd = tea.Batch(cmd, chatCmd)
+			}
 		}
+
 	case FriendSelectedMsg:
 		// When a friend is selected, set the active user ID in the chat model.
 		m.chatModel.SetActiveUser(msg.UserID, msg.Username)
 		m.rpcClient.Logger.Infof("Switched to chat with user ID: %d", msg.UserID)
-		return m, nil
-	case FriendListMsg:
-		// When friends list is updated, update the friend list model.
+		m.focusState = rightPanel
+
+	default:
+		// For other messages, update both models as necessary
+		// m.friendsModel, _ = m.friendsModel.Update(msg)
 		friendModel, friendCmd := m.friendsModel.Update(msg)
 		castedFriendModel, ok := friendModel.(ChatFriendListModel)
 		if !ok {
@@ -82,53 +128,23 @@ func (m mainMenuModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.friendsModel = &castedFriendModel
 		cmd = tea.Batch(cmd, friendCmd)
-	}
-
-	// Always update the chat model, regardless of the focus state
-	// First, assert it to the concrete type `ChatModel`, then convert it to a pointer
-	chatModel, chatCmd := m.chatModel.Update(msg)
-	castedChatModel, ok := chatModel.(ChatModel) // Assert the tea.Model to ChatModel type
-	if !ok {
-		// If type assertion fails, return the current state and log an error
-		m.rpcClient.Logger.Error("Failed to assert tea.Model to ChatModel")
-		return m, nil
-	}
-	m.chatModel = &castedChatModel // Use the address-of operator to get the pointer
-	cmd = tea.Batch(cmd, chatCmd)
-
-	// Always update the friends model
-	// m.friendsModel, friendCmd = m.friendsModel.Update(msg)
-	// castedFriendModel, ok := m.friendsModel.(FriendListModel)
-	// if !ok {
-	// 	m.rpcClient.Logger.Error("Failed to assert tea.Model to friendListModel")
-	// 	return m, nil
-	// }
-	// m.friendsModel = &castedFriendModel
-	// cmd = tea.Batch(cmd, friendCmd)
-	// Update friends model and handle pointer reference
-	friendModel, friendCmd := m.friendsModel.Update(msg)
-	castedFriendModel, ok := friendModel.(ChatFriendListModel)
-	if !ok {
-		m.rpcClient.Logger.Error("Failed to assert tea.Model to FriendListModel")
-		return m, nil
-	}
-	m.friendsModel = &castedFriendModel
-	cmd = tea.Batch(cmd, friendCmd)
-
-	// Update other models based on focus state if necessary
-	switch m.focusState {
-	case leftPanel:
-		// Update the left panel (e.g., friends list)
-		// m.friendsModel, _ = m.friendsModel.Update(msg)
-	case rightPanel:
-		// Any specific logic for right panel can be handled here.
+		// m.chatModel, _ = m.chatModel.Update(msg)
+		chatModel, chatCmd := m.chatModel.Update(msg)
+		castedChatModel, ok := chatModel.(ChatModel) // Assert the tea.Model to ChatModel type
+		if !ok {
+			// If type assertion fails, return the current state and log an error
+			m.rpcClient.Logger.Error("Failed to assert tea.Model to ChatModel")
+			return m, nil
+		}
+		m.chatModel = &castedChatModel // Use the address-of operator to get the pointer
+		cmd = tea.Batch(cmd, chatCmd)
 	}
 
 	return m, cmd
 }
 
 // View function renders the Main Menu UI
-func (m mainMenuModel) View() string {
+func (m ChatPanelModel) View() string {
 	// leftPanelContent := "Friends List\n1. Alice\n2. Bob\n3. Charlie"
 	leftPanelContent := m.friendsModel.View()
 	rightPanelContent := m.chatModel.View()
@@ -144,9 +160,6 @@ func (m mainMenuModel) View() string {
 	var leftPanelStyle, rightPanelStyle lipgloss.Style
 
 	switch m.focusState {
-	case mainPanel:
-		leftPanelStyle = grayBorderStyle
-		rightPanelStyle = grayBorderStyle
 	case leftPanel:
 		leftPanelStyle = blueBorderStyle
 		rightPanelStyle = grayBorderStyle
@@ -171,18 +184,26 @@ func (m mainMenuModel) View() string {
 	finalView := lipgloss.JoinHorizontal(lipgloss.Top, leftPanel, rightPanel)
 
 	// Add a help bar or instructions at the bottom
-	helpBar := lipgloss.NewStyle().Foreground(lipgloss.Color("241")).Render("\nPress Tab to switch panels | esc/ctrl+c: quit")
 
-	return finalView + helpBar
+	return finalView + m.renderHelpBar()
 }
 
-// // Init function for main menu model
-// func (m mainMenuModel) Init() tea.Cmd {
-// 	return m.chatModel.Init() // Initialize the chat model with a command.
+func (m ChatPanelModel) renderHelpBar() string {
+	helpBarStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("241"))
 
-// }
+	// Determine the content based on the focused state
+	var helpBarContent string
+	if m.focusState == leftPanel {
+		helpBarContent = "\nPress Tab to switch panels | esc/ctrl+c: quit | f: friends management"
+	} else {
+		helpBarContent = "\nPress Tab to switch panels | esc/ctrl+c: quit"
+	}
 
-func (m mainMenuModel) Init() tea.Cmd {
+	// Render and return the styled help bar
+	return helpBarStyle.Render(helpBarContent)
+}
+
+func (m ChatPanelModel) Init() tea.Cmd {
 	// Initialize both chatModel and friendsModel and batch their commands together
 	return tea.Batch(
 		m.chatModel.Init(),

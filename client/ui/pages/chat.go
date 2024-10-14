@@ -144,6 +144,7 @@ func (m ChatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.rpcClient.Logger.Warn("Attempted to send an empty message.")
 				return m, nil
 			}
+			m.rpcClient.Logger.Infof("Sending message: %s", userMessage)
 
 			// Add the user's message with "self" style and send it to the server.
 			m.messages = append(m.messages, ChatMessage{
@@ -242,6 +243,7 @@ func (m ChatModel) renderMessages() string {
 
 // SetActiveUser sets the active user for the chat and clears the message history.
 func (m *ChatModel) SetActiveUser(userID int32, username string) {
+	m.rpcClient.Logger.Infof("Setting active user for chat: ID=%d, Username=%s", userID, username)
 	m.activeUserID = userID
 	m.activeUsername = username
 	m.messages = []ChatMessage{} // Clear existing messages when switching users. or load history eventually
