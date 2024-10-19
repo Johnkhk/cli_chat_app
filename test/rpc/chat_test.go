@@ -183,7 +183,7 @@ func TestSenderAndReceiverSavesChatHistory(t *testing.T) {
 
 	time.Sleep(2 * time.Second) // Sleep to allow the message to be processed (before context cancel from test cleanup)
 
-	// Make sure the message is saved in the chat history of User1
+	// Make sure the message is saved in the chat history of User1 (the sender)
 	chatMessages, err := client1.ChatClient.Store.GetChatHistory(user1ID, user2ID)
 
 	message := chatMessages[0]
@@ -191,6 +191,7 @@ func TestSenderAndReceiverSavesChatHistory(t *testing.T) {
 		t.Fatalf("Expected message %s, but got: %s", messageFromUser1, message.Message)
 	}
 
+	time.Sleep(2 * time.Second) // Sleep to allow the message to be processed (before context cancel from test cleanup)
 	// Delievered status should be 1 since user 1 should have received the message
 	if message.Delivered != 1 {
 		t.Fatalf("Expected delivered status for sender to be 1, but got: %d", message.Delivered)
