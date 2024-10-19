@@ -23,6 +23,7 @@ type RpcClient struct {
 	Logger        *logrus.Logger
 	AppDirPath    string
 	Store         *store.SQLiteStore
+	CurrentUserID uint32
 }
 
 type RpcClientConfig struct {
@@ -47,6 +48,7 @@ func NewRpcClient(config RpcClientConfig) (*RpcClient, error) {
 
 	// Create a new Store instance
 	sqlitePath := filepath.Join(config.AppDirPath, "store.db")
+	logger.Info("Creating SQLite store at: ", sqlitePath)
 	sqliteStore, err := store.NewSQLiteStore(sqlitePath)
 	if err != nil {
 		logger.Errorf("Failed to create SQLite store: %v", err)
