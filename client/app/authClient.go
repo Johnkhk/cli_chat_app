@@ -205,6 +205,11 @@ func (c *AuthClient) LogoutUser() error {
 
 // PostLoginTasks opens the stream and starts listening for messages.
 func (c *AuthClient) PostLoginTasks() error {
+	var err error
+	c.ParentClient.CurrentUserID, err = c.TokenManager.GetUserIdFromAccessToken()
+	if err != nil {
+		return fmt.Errorf("failed to get user ID from access token: %v", err)
+	}
 	// Task A: Open the persistent stream.
 	if err := c.ParentClient.ChatClient.OpenPersistentStream(context.Background()); err != nil {
 		return fmt.Errorf("failed to open persistent stream: %v", err)
