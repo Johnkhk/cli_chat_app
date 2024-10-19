@@ -16,14 +16,15 @@ import (
 
 // RpcClient manages multiple gRPC clients for different services.
 type RpcClient struct {
-	AuthClient    *AuthClient
-	FriendsClient *FriendsClient
-	ChatClient    *ChatClient
-	Conn          *grpc.ClientConn
-	Logger        *logrus.Logger
-	AppDirPath    string
-	Store         *store.SQLiteStore
-	CurrentUserID uint32
+	AuthClient      *AuthClient
+	FriendsClient   *FriendsClient
+	ChatClient      *ChatClient
+	Conn            *grpc.ClientConn
+	Logger          *logrus.Logger
+	AppDirPath      string
+	Store           *store.SQLiteStore
+	CurrentUserID   uint32
+	CurrentDeviceID uint32
 }
 
 type RpcClientConfig struct {

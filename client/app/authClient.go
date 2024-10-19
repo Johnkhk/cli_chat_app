@@ -98,17 +98,20 @@ func (c *AuthClient) LoginUser(username, password string) (error, uint32) {
 func (c *AuthClient) CreateLocalIdentityIfNewUserDevice(userID uint32) error {
 	db := c.SqliteStore.DB
 
-	// Get MAC address
-	macAddress, err := getMACAddress()
-	if err != nil {
-		return fmt.Errorf("failed to get MAC address: %v", err)
-	}
+	// // Get MAC address
+	// macAddress, err := getMACAddress()
+	// if err != nil {
+	// 	return fmt.Errorf("failed to get MAC address: %v", err)
+	// }
 
-	// Convert MAC address to uint32 for deviceID
-	deviceID, err := store.MacToUint32(macAddress)
-	if err != nil {
-		return fmt.Errorf("failed to convert MAC address to uint32: %v", err)
-	}
+	// // Convert MAC address to uint32 for deviceID
+	// deviceID, err := store.MacToUint32(macAddress)
+	// if err != nil {
+	// 	return fmt.Errorf("failed to convert MAC address to uint32: %v", err)
+	// }
+
+	var err error
+	deviceID := uint32(0)
 
 	// Generate registration ID using userID and deviceID
 	registrationID := store.GenerateRegistrationID(userID, deviceID)
@@ -210,6 +213,11 @@ func (c *AuthClient) PostLoginTasks() error {
 	if err != nil {
 		return fmt.Errorf("failed to get user ID from access token: %v", err)
 	}
+
+	c.ParentClient.CurrentDeviceID, err = c.GetDeviceId()
+	if err != nil {
+		return fmt.Errorf("failed to get device ID: %v", err)
+	}
 	// Task A: Open the persistent stream.
 	if err := c.ParentClient.ChatClient.OpenPersistentStream(context.Background()); err != nil {
 		return fmt.Errorf("failed to open persistent stream: %v", err)
@@ -222,4 +230,12 @@ func (c *AuthClient) PostLoginTasks() error {
 	// Task C: Listen for incoming messages.
 	go c.ParentClient.ChatClient.listenForMessages(listenCtx)
 	return nil
+}
+
+func (c *AuthClient) GetDeviceId() (uint32, error) {
+
+	var deviceID uint32
+	c.SqliteStore.DB.QueryRow("SELECT device_id FROM local_identity").Scan(&deviceID)
+	c.Logger.Infof("Device ID: %d", deviceID)
+	return deviceID, nil
 }
