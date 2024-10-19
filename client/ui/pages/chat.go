@@ -241,16 +241,6 @@ func (m ChatModel) renderMessages() string {
 	return strings.Join(renderedMessages, "\n")
 }
 
-// SetActiveUser sets the active user for the chat and clears the message history.
-// func (m *ChatModel) SetActiveUser(userID int32, username string) {
-// 	m.rpcClient.Logger.Infof("Setting active user for chat: ID=%d, Username=%s", userID, username)
-// 	m.activeUserID = userID
-// 	m.activeUsername = username
-// 	m.messages = []ChatMessage{} // Clear existing messages when switching users. or load history eventually
-// 	content := fmt.Sprintf("No messages yet. Start the conversation with %s", username)
-// 	m.viewport.SetContent(content) // Update viewport content.
-// }
-
 func (m *ChatModel) SetActiveUser(userID int32, username string) {
 	m.rpcClient.Logger.Infof("Setting active user for chat: ID=%d, Username=%s", userID, username)
 	m.activeUserID = userID
@@ -269,7 +259,6 @@ func (m *ChatModel) SetActiveUser(userID int32, username string) {
 
 	// Load chat history into the model.
 	for _, msg := range chatHistory {
-		// m.rpcClient.Logger.Info("msg: ", msg)
 		sender := "self"
 		if msg.SenderID != m.rpcClient.CurrentUserID {
 			sender = username
