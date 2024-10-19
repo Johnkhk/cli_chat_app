@@ -242,11 +242,48 @@ func (m ChatModel) renderMessages() string {
 }
 
 // SetActiveUser sets the active user for the chat and clears the message history.
+// func (m *ChatModel) SetActiveUser(userID int32, username string) {
+// 	m.rpcClient.Logger.Infof("Setting active user for chat: ID=%d, Username=%s", userID, username)
+// 	m.activeUserID = userID
+// 	m.activeUsername = username
+// 	m.messages = []ChatMessage{} // Clear existing messages when switching users. or load history eventually
+// 	content := fmt.Sprintf("No messages yet. Start the conversation with %s", username)
+// 	m.viewport.SetContent(content) // Update viewport content.
+// }
+
 func (m *ChatModel) SetActiveUser(userID int32, username string) {
 	m.rpcClient.Logger.Infof("Setting active user for chat: ID=%d, Username=%s", userID, username)
 	m.activeUserID = userID
 	m.activeUsername = username
-	m.messages = []ChatMessage{} // Clear existing messages when switching users. or load history eventually
-	content := fmt.Sprintf("No messages yet. Start the conversation with %s", username)
-	m.viewport.SetContent(content) // Update viewport content.
+	m.messages = []ChatMessage{} // Clear existing messages when switching users.
+
+	// Fetch chat history between the current user and the active user.
+	m.rpcClient.Logger.Infof("Fetching chat history between users: CurrentUserID=%d, ActiveUserID=%d", m.rpcClient.CurrentUserID, userID)
+	chatHistory, err := m.rpcClient.ChatClient.Store.GetChatHistoryBetweenUsers(m.rpcClient.CurrentUserID, uint32(userID))
+	// chatHistory, err := m.rpcClient.ChatClient.Store.GetAllChatHistory()
+	if err != nil {
+		m.rpcClient.Logger.Errorf("Failed to get chat history: %v", err)
+		m.viewport.SetContent(fmt.Sprintf("Failed to load chat history with %s", username))
+		return
+	}
+
+	// Load chat history into the model.
+	for _, msg := range chatHistory {
+		// m.rpcClient.Logger.Info("msg: ", msg)
+		sender := "self"
+		if msg.SenderID != m.rpcClient.CurrentUserID {
+			sender = username
+		}
+		m.messages = append(m.messages, ChatMessage{
+			Sender:  sender,
+			Message: msg.Message,
+		})
+	}
+
+	if len(m.messages) == 0 {
+		m.viewport.SetContent(fmt.Sprintf("No messages yet. Start the conversation with %s", username))
+	} else {
+		m.viewport.SetContent(m.renderMessages())
+		m.viewport.GotoBottom()
+	}
 }

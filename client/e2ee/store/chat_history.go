@@ -106,3 +106,30 @@ func (s *SQLiteStore) GetAllChatHistory() ([]ChatMessage, error) {
 
 	return messages, nil
 }
+
+func (s *SQLiteStore) GetChatHistoryBetweenUsers(senderID, receiverID uint32) ([]ChatMessage, error) {
+	query := `
+		SELECT messageId, sender_id, receiver_id, message, timestamp, delivered
+		FROM chat_history
+		WHERE (sender_id = ? AND receiver_id = ?)
+		   OR (sender_id = ? AND receiver_id = ?)
+		ORDER BY timestamp ASC;`
+
+	rows, err := s.DB.Query(query, senderID, receiverID, receiverID, senderID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get chat history between users: %v", err)
+	}
+	defer rows.Close()
+
+	var messages []ChatMessage
+	for rows.Next() {
+		var msg ChatMessage
+		err := rows.Scan(&msg.MessageID, &msg.SenderID, &msg.ReceiverID, &msg.Message, &msg.Timestamp, &msg.Delivered)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan row: %v", err)
+		}
+		messages = append(messages, msg)
+	}
+
+	return messages, nil
+}
