@@ -10,6 +10,7 @@ import (
 	"github.com/Johnkhk/libsignal-go/protocol/address"
 	"github.com/Johnkhk/libsignal-go/protocol/curve"
 	"github.com/Johnkhk/libsignal-go/protocol/identity"
+	"github.com/Johnkhk/libsignal-go/protocol/message"
 	"github.com/Johnkhk/libsignal-go/protocol/prekey"
 	"github.com/Johnkhk/libsignal-go/protocol/session"
 	"github.com/google/uuid"
@@ -130,10 +131,10 @@ func (cc *ChatClient) initializeSessionWithDevice(ctx context.Context, recipient
 }
 
 // SendMessage encrypts a message and sends it to the recipient through the chat service.
-func (cc *ChatClient) SendMessage(ctx context.Context, recipientID, deviceID uint32, plaintext []byte) error {
+func (cc *ChatClient) EncryptMessage(ctx context.Context, recipientID, deviceID uint32, plaintext []byte) (message.Ciphertext, error) {
 	// Ensure that the persistent stream is open
 	if cc.Stream == nil {
-		return fmt.Errorf("no active stream found. Ensure that openPersistentStream has been called.")
+		return nil, fmt.Errorf("no active stream found. Ensure that openPersistentStream has been called.")
 	}
 
 	// Load the session with the recipient and device
@@ -144,10 +145,14 @@ func (cc *ChatClient) SendMessage(ctx context.Context, recipientID, deviceID uin
 
 	_, exists, err := cc.Store.SessionStore().Load(ctx, remoteAddress)
 	if err != nil {
-		return fmt.Errorf("failed to load session: %v", err)
+		return nil, fmt.Errorf("failed to load session: %v", err)
 	}
 	if !exists {
-		return fmt.Errorf("no session found with recipient %d and device %d", recipientID, deviceID)
+		cc.Logger.Infof("No session found with recipient %d. Initializing session...", recipientID)
+		err = cc.InitializeSessionForRecipient(ctx, recipientID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to initialize session with recipient %d: %v", recipientID, err)
+		}
 	}
 
 	// Create a session object from the record
@@ -157,10 +162,38 @@ func (cc *ChatClient) SendMessage(ctx context.Context, recipientID, deviceID uin
 		IdentityKeyStore: cc.Store.IdentityStore(),
 	}
 
+	cc.Logger.Infof("Using session to encrypt message for recipient %d", recipientID)
+
 	// Encrypt the plaintext message using the session
 	ciphertext, err := session.EncryptMessage(ctx, plaintext)
 	if err != nil {
+		return nil, fmt.Errorf("failed to encrypt message: %v", err)
+	}
+
+	return ciphertext, nil
+}
+
+func (cc *ChatClient) SendMessage(ctx context.Context, recipientID, deviceID uint32, plaintext []byte) error {
+
+	ciphertext, err := cc.EncryptMessage(ctx, recipientID, deviceID, plaintext)
+	if err != nil {
 		return fmt.Errorf("failed to encrypt message: %v", err)
+	}
+
+	// Determine type of message (Signal or PreKey)
+	var encryptionType chat.EncryptionType
+	switch ciphertext.(type) {
+	case *message.PreKey:
+		encryptionType = chat.EncryptionType_PREKEY
+	case *message.Signal:
+		encryptionType = chat.EncryptionType_SIGNAL
+	default:
+		return fmt.Errorf("unknown encryption type: %T", ciphertext)
+	}
+
+	// Ensure that the persistent stream is open
+	if cc.Stream == nil {
+		return fmt.Errorf("no active stream found. Ensure that openPersistentStream has been called.")
 	}
 
 	// Create a new message request with the encrypted content
@@ -169,11 +202,17 @@ func (cc *ChatClient) SendMessage(ctx context.Context, recipientID, deviceID uin
 		EncryptedMessage: ciphertext.Bytes(),              // Set encrypted message
 		MessageId:        uuid.NewString(),                // Generate a unique message ID
 		Timestamp:        time.Now().Format(time.RFC3339), // Timestamp in ISO 8601 format
+		EncryptionType:   encryptionType,                  // Set the message type
 	}
 
 	// Send the message using the persistent stream
 	if err := cc.Stream.Send(msgRequest); err != nil {
 		return fmt.Errorf("failed to send message request: %v", err)
+	}
+
+	// Store the message in the sender's local chat history with delivered status set to 0 (false) after successfully sending
+	if err := cc.Store.SaveChatMessage(msgRequest.MessageId, cc.AuthClient.ParentClient.CurrentUserID, recipientID, string(plaintext), 0); err != nil {
+		cc.Logger.Errorf("Failed to store sent message in chat history: %v", err)
 	}
 
 	cc.Logger.Infof("Message sent to recipient %d successfully", recipientID)
@@ -182,6 +221,7 @@ func (cc *ChatClient) SendMessage(ctx context.Context, recipientID, deviceID uin
 
 // SendUnencryptedMessage sends a plaintext message to the recipient through the chat service without encryption.
 func (cc *ChatClient) SendUnencryptedMessage(ctx context.Context, recipientID uint32, plaintext string) error {
+
 	// Ensure that the persistent stream is open
 	if cc.Stream == nil {
 		return fmt.Errorf("no active stream found. Ensure that openPersistentStream has been called.")
@@ -194,6 +234,7 @@ func (cc *ChatClient) SendUnencryptedMessage(ctx context.Context, recipientID ui
 		EncryptedMessage: []byte(plaintext),               // Use plaintext directly as the message content
 		MessageId:        messageId,                       // Generate a unique message ID
 		Timestamp:        time.Now().Format(time.RFC3339), // Timestamp in ISO 8601 format
+		EncryptionType:   chat.EncryptionType_PLAIN,       // Set the message type to PLAIN
 	}
 
 	// Send the message using the persistent stream
@@ -257,10 +298,17 @@ func (cc *ChatClient) listenForMessages(ctx context.Context) {
 			switch resp.Status {
 			case "received":
 				cc.Logger.Infof("Message %s was received successfully at %s", resp.MessageId, resp.Timestamp)
+				// var err error
 				// for now
-				unecryptedMessage := string(resp.EncryptedMessage)
+				// unecryptedMessage := string(resp.EncryptedMessage)
+				// Decrypt the message
+				unecryptedMessage, err := cc.DecryptMessage(ctx, resp)
+				if err != nil {
+					cc.Logger.Errorf("Failed to decrypt message %s: %v", resp.MessageId, err)
+					continue
+				}
 
-				err := cc.Store.SaveChatMessage(resp.MessageId, resp.SenderId, resp.RecipientId, unecryptedMessage, 1)
+				err = cc.Store.SaveChatMessage(resp.MessageId, resp.SenderId, resp.RecipientId, unecryptedMessage, 1)
 				if err != nil {
 					cc.Logger.Errorf("Failed to save message %s in chat history: %v", resp.MessageId, err)
 				}
@@ -290,4 +338,46 @@ func (cc *ChatClient) listenForMessages(ctx context.Context) {
 			}
 		}
 	}
+}
+
+func (cc *ChatClient) DecryptMessage(ctx context.Context, resp *chat.MessageResponse) (string, error) {
+	remoteAddress := address.Address{
+		Name:     fmt.Sprintf("%d", resp.SenderId),
+		DeviceID: address.DeviceID(0), // Assuming deviceID 0
+	}
+
+	// Reconstruct the Ciphertext object based on messageType
+	var ciphertext message.Ciphertext
+	var err error
+
+	switch resp.EncryptionType {
+	case chat.EncryptionType_SIGNAL:
+		ciphertext, err = message.NewSignalFromBytes(resp.EncryptedMessage)
+	case chat.EncryptionType_PREKEY:
+		ciphertext, err = message.NewPreKeyFromBytes(resp.EncryptedMessage)
+	case chat.EncryptionType_PLAIN:
+		return string(resp.EncryptedMessage), nil
+	default:
+		return "", fmt.Errorf("Message has unknown encryption type: %v", resp.EncryptionType)
+	}
+
+	if err != nil {
+		return "", fmt.Errorf("failed to reconstruct ciphertext: %v", err)
+	}
+	// Create a session object
+	session := &session.Session{
+		RemoteAddress:     remoteAddress,
+		SessionStore:      cc.Store.SessionStore(),
+		PreKeyStore:       cc.Store.PreKeyStore(),
+		SignedPreKeyStore: cc.Store.SignedPreKeyStore(),
+		IdentityKeyStore:  cc.Store.IdentityStore(),
+	}
+
+	// Decrypt the message
+	plaintext, err := session.DecryptMessage(ctx, rand.Reader, ciphertext)
+	if err != nil {
+		return "", fmt.Errorf("failed to decrypt message: %v", err)
+	}
+
+	return string(plaintext), nil
 }

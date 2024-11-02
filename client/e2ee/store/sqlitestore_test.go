@@ -70,6 +70,7 @@ func TestSessionStore(t *testing.T) {
 
 	// Compare loaded session with stored session
 	// assert.Equal(t, aliceSession.previousSessions, loadedAliceSession.previousSessions, "loaded session should match stored session")
+	// assert.Equal(t, aliceSession., loadedAliceSession.previousSessions, "loaded session should match stored session")
 
 }
 
@@ -110,9 +111,7 @@ func TestPreKeyStore(t *testing.T) {
 	assert.NoError(t, err, "should store pre-key without error")
 
 	// Load pre-key
-	fmt.Println("SUCC 1")
 	loadedPreKey, found, err := store.PreKeyStore().Load(ctx, preKeyID)
-	fmt.Println("SUCC 2")
 	assert.NoError(t, err, "should load pre-key without error")
 	fmt.Printf("SUCC 3 %v\n", err)
 	assert.True(t, found, "pre-key should be found")

@@ -11,6 +11,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 
 	"github.com/johnkhk/cli_chat_app/client/app"
+	"github.com/johnkhk/cli_chat_app/genproto/chat"
 )
 
 // ChatMessage represents a message in the chat.
@@ -108,11 +109,30 @@ func (m ChatModel) listenToMessageChannel() tea.Cmd {
 					continue
 				}
 
-				// Log the received message and return it as a ReceivedMessage.
-				m.rpcClient.Logger.Infof("Received message from channel: Sender=%s, Message=%s, Status=%s", msg.SenderUsername, string(msg.EncryptedMessage), msg.Status)
-				return ReceivedMessage{
-					Sender:  msg.SenderUsername,
-					Message: string(msg.EncryptedMessage),
+				// Decrypt the message and handle any errors.
+
+				// Check if the message is encrypted.
+				if msg.EncryptionType == chat.EncryptionType_SIGNAL || msg.EncryptionType == chat.EncryptionType_PREKEY {
+					// Decrypt the message using the Signal protocol.
+					decrypted, err := m.rpcClient.ChatClient.DecryptMessage(m.ctx, msg)
+					if err != nil {
+						m.rpcClient.Logger.Errorf("Failed to decrypt message: %v", err)
+						return errMsg{err}
+					}
+					// Log the decrypted message and return it as a ReceivedMessage.
+					m.rpcClient.Logger.Infof("Received decrypted message from channel: Sender=%s, Message=%s, Status=%s", msg.SenderUsername, decrypted, msg.Status)
+					return ReceivedMessage{
+						Sender:  msg.SenderUsername,
+						Message: decrypted,
+					}
+				} else {
+
+					// Log the received message and return it as a ReceivedMessage.
+					m.rpcClient.Logger.Infof("Received message from channel: Sender=%s, Message=%s, Status=%s", msg.SenderUsername, string(msg.EncryptedMessage), msg.Status)
+					return ReceivedMessage{
+						Sender:  msg.SenderUsername,
+						Message: string(msg.EncryptedMessage),
+					}
 				}
 			}
 		}
@@ -156,7 +176,8 @@ func (m ChatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.viewport.GotoBottom()
 
 			// Send the message to the server.
-			err := m.rpcClient.ChatClient.SendUnencryptedMessage(m.ctx, uint32(m.activeUserID), userMessage) // Assuming recipient ID is 1.
+			// err := m.rpcClient.ChatClient.SendUnencryptedMessage(m.ctx, uint32(m.activeUserID), userMessage) // Assuming recipient ID is 1.
+			err := m.rpcClient.ChatClient.SendMessage(m.ctx, uint32(m.activeUserID), m.rpcClient.CurrentDeviceID, []byte(userMessage)) // Assuming recipient ID is 1.
 			if err != nil {
 				m.rpcClient.Logger.Errorf("Failed to send message: %v", err)
 				return m, tea.Quit

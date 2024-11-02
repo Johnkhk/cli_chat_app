@@ -31,7 +31,6 @@ func (s *PreKeyStore) Load(ctx context.Context, id prekey.ID) (*prekey.PreKey, b
 	var blob []byte
 
 	// Execute the query to get the pre-key record
-	fmt.Printf("Loading pre-key with ID: %v\n", id)
 	err := s.db.QueryRowContext(ctx, query, id).Scan(&blob)
 	if err != nil {
 		if err == sql.ErrNoRows {

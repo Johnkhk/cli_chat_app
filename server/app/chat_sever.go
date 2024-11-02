@@ -106,6 +106,7 @@ func (s *ChatServiceServer) StreamMessages(stream chat.ChatService_StreamMessage
 				EncryptedMessage: req.EncryptedMessage, // Include the actual message content for the recipient
 				Status:           "received",
 				Timestamp:        time.Now().Format(time.RFC3339), // Timestamp for when the recipient received it
+				EncryptionType:   req.EncryptionType,
 			}); err != nil {
 				s.Logger.Errorf("Failed to send/store message ID %s to recipient %d: %v", req.MessageId, req.RecipientId, err)
 
@@ -117,6 +118,7 @@ func (s *ChatServiceServer) StreamMessages(stream chat.ChatService_StreamMessage
 					MessageId:      req.MessageId,
 					Status:         "delivery_failed",
 					Timestamp:      time.Now().Format(time.RFC3339),
+					EncryptionType: req.EncryptionType,
 				}
 				if sendErr := stream.Send(failedDeliveryResponse); sendErr != nil {
 					s.Logger.Errorf("Failed to send delivery failure response to sender %d: %v", senderID, sendErr)
@@ -140,6 +142,7 @@ func (s *ChatServiceServer) StreamMessages(stream chat.ChatService_StreamMessage
 					EncryptedMessage: req.EncryptedMessage, // Include the actual message content for confirmation.
 					Status:           status,
 					Timestamp:        time.Now().Format(time.RFC3339),
+					EncryptionType:   req.EncryptionType,
 				}
 				if err := stream.Send(deliveryResponse); err != nil {
 					s.Logger.Errorf("Failed to send delivery confirmation to sender %d: %v", senderID, err)

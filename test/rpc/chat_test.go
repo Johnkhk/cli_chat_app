@@ -5,30 +5,18 @@ import (
 	"testing"
 	"time"
 
+	utils "github.com/johnkhk/cli_chat_app/test"
 	"github.com/johnkhk/cli_chat_app/test/setup"
 )
 
 // TestRegisterLoginAndStreamFlow tests the full flow of user registration, login, and persistent stream.
 func TestRegisterLoginAndStreamFlow(t *testing.T) {
-	// Initialize resources using default configuration
 	rpcClients, _, cleanup, server := setup.InitializeTestResources(t, nil, 1)
 	rpcClient := rpcClients[0]
 	defer cleanup()
 	log := rpcClient.Logger
 
-	// Register the user
-	log.Infof("Registering user")
-	err := rpcClient.AuthClient.RegisterUser("unregistered", "testpassword")
-	if err != nil {
-		t.Fatalf("Failed to register user: %v", err)
-	}
-
-	// Login of the registered user
-	log.Infof("Testing registered user login")
-	err, _ = rpcClient.AuthClient.LoginUser("unregistered", "testpassword")
-	if err != nil {
-		t.Fatalf("Failed to login: %v", err)
-	}
+	utils.RegisterAndLoginUser(t, rpcClient, "unregistered")
 
 	// After login, we should wait a moment to ensure that the persistent stream is established.
 	// Add a small delay to allow the stream to register the user.
@@ -53,38 +41,12 @@ func TestRegisterLoginAndStreamFlow(t *testing.T) {
 }
 
 func TestLoginWelcomeMessageReceived(t *testing.T) {
-	// Initialize resources using default configuration
 	rpcClients, _, cleanup, _ := setup.InitializeTestResources(t, nil, 1)
 	rpcClient := rpcClients[0]
 	defer cleanup()
-	log := rpcClient.Logger
 
-	// Register a new user
-	log.Infof("Registering new user")
-	err := rpcClient.AuthClient.RegisterUser("newuser", "testpassword")
-	if err != nil {
-		t.Fatalf("Failed to register new user: %v", err)
-	}
-
-	// Login the user
-	log.Infof("Logging in user")
-	err, _ = rpcClient.AuthClient.LoginUser("newuser", "testpassword")
-	if err != nil {
-		t.Fatalf("Failed to login user: %v", err)
-	}
-
-	// Wait for the welcome message to be received
-	select {
-	case msg := <-rpcClient.ChatClient.MessageChannel:
-		expectedMessage := "welcome"
-		if msg.MessageId != expectedMessage {
-			t.Errorf("Expected welcome message, but got: %s", msg.MessageId)
-		} else {
-			log.Infof("Received welcome MessageID: %s", msg.MessageId)
-		}
-	case <-time.After(3 * time.Second): // Adjust timeout as necessary
-		t.Fatalf("Did not receive welcome message within timeout period")
-	}
+	utils.RegisterAndLoginUser(t, rpcClient, "newuser")
+	utils.WaitForWelcomeMessage(t, rpcClient, "newuser")
 }
 
 func TestTwoUsersSendUnencrypteedMessages(t *testing.T) {
@@ -94,24 +56,11 @@ func TestTwoUsersSendUnencrypteedMessages(t *testing.T) {
 	client1 := rpcClients[0] // Represents User1
 	client2 := rpcClients[1] // Represents User2
 
-	// Register and login two users
-	if err := client1.AuthClient.RegisterUser("user1", "password"); err != nil {
-		t.Fatalf("Failed to register user1: %v", err)
-	}
-	if err, _ := client1.AuthClient.LoginUser("user1", "password"); err != nil {
-		t.Fatalf("Failed to login user1: %v", err)
-	}
-	if err := client2.AuthClient.RegisterUser("user2", "password"); err != nil {
-		t.Fatalf("Failed to register user2: %v", err)
-	}
-	if err, _ := client2.AuthClient.LoginUser("user2", "password"); err != nil {
-		t.Fatalf("Failed to login user2: %v", err)
-	}
+	utils.RegisterAndLoginUser(t, client1, "user1")
+	utils.RegisterAndLoginUser(t, client2, "user2")
 
-	// user1ID, err := client1.AuthClient.TokenManager.GetUserIdFromAccessToken()
-	// if err != nil {
-	// 	t.Fatalf("Failed to get user1 ID: %v", err)
-	// }
+	utils.WaitForWelcomeMessage(t, client1, "user1")
+	utils.WaitForWelcomeMessage(t, client2, "user2")
 
 	user2ID, err := client2.AuthClient.TokenManager.GetUserIdFromAccessToken()
 	if err != nil {
@@ -125,22 +74,12 @@ func TestTwoUsersSendUnencrypteedMessages(t *testing.T) {
 		t.Fatalf("Failed to send message from User 1 to User 2: %v", err)
 	}
 
-	// Consume the first message (e.g., the welcome message)
 	select {
 	case msg := <-client2.ChatClient.MessageChannel:
-		t.Logf("User 2 received first message (MessageID: %s): %s", msg.MessageId, msg.EncryptedMessage)
+		t.Logf("User 2 received message: %s", msg.EncryptedMessage)
 	case <-time.After(3 * time.Second):
-		t.Fatalf("User 2 did not receive the first message in time")
+		t.Fatalf("User 2 did not receive the message in time")
 	}
-
-	// Consume the second message (e.g., the actual chat message)
-	select {
-	case msg := <-client2.ChatClient.MessageChannel:
-		t.Logf("User 2 received second message (MessageID: %s): %s", msg.MessageId, msg.EncryptedMessage)
-	case <-time.After(3 * time.Second):
-		t.Fatalf("User 2 did not receive the second message in time")
-	}
-
 }
 
 func TestSenderAndReceiverSavesChatHistory(t *testing.T) {
@@ -150,19 +89,11 @@ func TestSenderAndReceiverSavesChatHistory(t *testing.T) {
 	client1 := rpcClients[0] // Represents User1
 	client2 := rpcClients[1] // Represents User2
 
-	// Register and login two users
-	if err := client1.AuthClient.RegisterUser("user1", "password"); err != nil {
-		t.Fatalf("Failed to register user1: %v", err)
-	}
-	if err, _ := client1.AuthClient.LoginUser("user1", "password"); err != nil {
-		t.Fatalf("Failed to login user1: %v", err)
-	}
-	if err := client2.AuthClient.RegisterUser("user2", "password"); err != nil {
-		t.Fatalf("Failed to register user2: %v", err)
-	}
-	if err, _ := client2.AuthClient.LoginUser("user2", "password"); err != nil {
-		t.Fatalf("Failed to login user2: %v", err)
-	}
+	utils.RegisterAndLoginUser(t, client1, "user1")
+	utils.RegisterAndLoginUser(t, client2, "user2")
+
+	utils.WaitForWelcomeMessage(t, client1, "user1")
+	utils.WaitForWelcomeMessage(t, client2, "user2")
 
 	user1ID, err := client1.AuthClient.TokenManager.GetUserIdFromAccessToken()
 	if err != nil {
@@ -191,7 +122,7 @@ func TestSenderAndReceiverSavesChatHistory(t *testing.T) {
 		t.Fatalf("Expected message %s, but got: %s", messageFromUser1, message.Message)
 	}
 
-	time.Sleep(2 * time.Second) // Sleep to allow the message to be processed (before context cancel from test cleanup)
+	time.Sleep(4 * time.Second) // Sleep to allow the message to be processed (before context cancel from test cleanup)
 	// Delievered status should be 1 since user 1 should have received the message
 	if message.Delivered != 1 {
 		t.Fatalf("Expected delivered status for sender to be 1, but got: %d", message.Delivered)

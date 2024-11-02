@@ -37,7 +37,6 @@ func UnaryInterceptor(tokenManager *TokenManager, logger *logrus.Logger) grpc.Un
 			if err != nil {
 				return fmt.Errorf("failed to get access token: %v", err)
 			}
-			// fmt.Println("SETTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT")
 			logger.Info("Adding authorization token to request")
 			// Create a new context with the authorization metadata
 			md := metadata.Pairs("authorization", "Bearer "+token)
