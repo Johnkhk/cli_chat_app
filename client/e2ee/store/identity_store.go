@@ -139,27 +139,22 @@ func (s *IdentityStore) Clear() error {
 // IsTrustedIdentity returns "true" if the given identity key for the given address is already trusted.
 // If there is no entry for the given address, the given identity key is trusted.
 func (s *IdentityStore) IsTrustedIdentity(ctx context.Context, addr address.Address, identityKey identity.Key, _ direction.Direction) (bool, error) {
-	// var keyData []byte
-	// query := "SELECT key_data FROM identities WHERE address = ?"
-	// err := s.db.QueryRowContext(ctx, query, addr.String()).Scan(&keyData)
+	var keyData []byte
+	query := "SELECT key_data FROM identities WHERE address = ?"
+	err := s.db.QueryRowContext(ctx, query, addr.String()).Scan(&keyData)
 
-	// if err != nil {
-	// 	if err == sql.ErrNoRows {
-	// 		return true, nil // No record found, trust the new identity key
-	// 	}
-	// 	return false, fmt.Errorf("failed to load identity key: %w", err)
-	// }
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return true, nil // No record found, trust the new identity key
+		}
+		return false, fmt.Errorf("failed to load identity key: %w", err)
+	}
 
-	// // Decode the stored identity key
-	// var storedKeyPair identity.KeyPair
-	// fmt.Println("WHATTTTTTTTTTTT", keyData)
-	// err = DecodeAndDeserializeKeyPair(keyData, &storedKeyPair)
-	// if err != nil {
-	// 	return false, fmt.Errorf("failed to decode identity key: %w", err)
-	// }
+	// Decode the stored identity key
+	key, err := identity.NewKey(keyData)
+	if err != nil {
+		return false, fmt.Errorf("failed to create identity key from stored data: %w", err)
+	}
 
-	// // Compare the provided identity key with the stored one
-	// return identityKey.Equal(storedKeyPair.IdentityKey()), nil
-
-	return true, nil
+	return identityKey.Equal(key), nil
 }
