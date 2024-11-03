@@ -75,7 +75,7 @@ func isValidRefreshToken(token string) bool {
 }
 
 // Helper function to generate a new access token with a specified expiration duration.
-func generateAccessToken(userID int64, username string, expirationDuration time.Duration) (string, error) {
+func generateAccessToken(userID uint32, username string, expirationDuration time.Duration) (string, error) {
 	secretKey := os.Getenv("CLI_CHAT_APP_JWT_SECRET_KEY")
 	if secretKey == "" {
 		return "", fmt.Errorf("JWT secret key is not set")
@@ -110,7 +110,7 @@ func generateAccessToken(userID int64, username string, expirationDuration time.
 }
 
 // Helper function to generate a new refresh token with a specified expiration duration.
-func generateRefreshToken(userID int64, username string, expirationDuration time.Duration) (string, error) {
+func generateRefreshToken(userID uint32, username string, expirationDuration time.Duration) (string, error) {
 	secretKey := os.Getenv("CLI_CHAT_APP_JWT_SECRET_KEY")
 	if secretKey == "" {
 		return "", fmt.Errorf("JWT secret key is not set")
@@ -144,7 +144,7 @@ func generateRefreshToken(userID int64, username string, expirationDuration time
 }
 
 // Helper function to validate and parse the refresh token.
-func parseAndValidateRefreshToken(tokenString string) (int64, string, error) {
+func parseAndValidateRefreshToken(tokenString string) (uint32, string, error) {
 	secretKey := os.Getenv("CLI_CHAT_APP_JWT_SECRET_KEY")
 	if secretKey == "" {
 		return 0, "", fmt.Errorf("JWT secret key is not set")
@@ -182,7 +182,7 @@ func parseAndValidateRefreshToken(tokenString string) (int64, string, error) {
 	}
 
 	// Parse the user ID string to int64.
-	parsedUserID, err := parseInt64(userID)
+	parsedUserID, err := parseUint32(userID)
 	if err != nil {
 		return 0, "", fmt.Errorf("failed to parse user ID: %v", err)
 	}
@@ -196,9 +196,9 @@ func parseAndValidateRefreshToken(tokenString string) (int64, string, error) {
 	return parsedUserID, username, nil
 }
 
-// Helper function to parse a string to int64.
-func parseInt64(s string) (int64, error) {
-	var id int64
+// Helper function to parse a string to uint32.
+func parseUint32(s string) (uint32, error) {
+	var id uint32
 	_, err := fmt.Sscanf(s, "%d", &id)
 	if err != nil {
 		return 0, err

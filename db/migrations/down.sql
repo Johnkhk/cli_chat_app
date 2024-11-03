@@ -1,5 +1,8 @@
--- Drop the user keys table
-DROP TABLE IF EXISTS user_keys;
+-- Drop the onetime_prekeys table
+DROP TABLE IF EXISTS onetime_prekeys;
+
+-- Drop the prekey_bundle table
+DROP TABLE IF EXISTS prekey_bundle;
 
 -- Drop the friend_requests table
 DROP TABLE IF EXISTS friend_requests;

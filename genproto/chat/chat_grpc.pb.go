@@ -8,7 +8,6 @@ package chat
 
 import (
 	context "context"
-
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
@@ -28,6 +27,9 @@ const (
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 //
 // Define the gRPC service for the chat application
+// Note only message content and files are encrypted
+// Metadata such as recipient_id and timestamp are not encrypted
+// Store everything in the client's local sqlite database
 type ChatServiceClient interface {
 	// Bidirectional streaming RPC for sending and receiving messages
 	StreamMessages(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[MessageRequest, MessageResponse], error)
@@ -59,6 +61,9 @@ type ChatService_StreamMessagesClient = grpc.BidiStreamingClient[MessageRequest,
 // for forward compatibility.
 //
 // Define the gRPC service for the chat application
+// Note only message content and files are encrypted
+// Metadata such as recipient_id and timestamp are not encrypted
+// Store everything in the client's local sqlite database
 type ChatServiceServer interface {
 	// Bidirectional streaming RPC for sending and receiving messages
 	StreamMessages(grpc.BidiStreamingServer[MessageRequest, MessageResponse]) error

@@ -81,3 +81,85 @@ func isUnauthenticatedMethod(method string) bool {
 	}
 	return false
 }
+
+// StreamServerInterceptor returns a new stream server interceptor for validating tokens.
+func StreamServerInterceptor(tokenValidator TokenValidator, logger *logrus.Logger) grpc.StreamServerInterceptor {
+	return func(
+		srv interface{},
+		ss grpc.ServerStream,
+		info *grpc.StreamServerInfo,
+		handler grpc.StreamHandler,
+	) error {
+		// Log the incoming request details for debugging
+		logger.Infof("Intercepting stream request: FullMethod=%s", info.FullMethod)
+
+		// Skip authentication for certain methods like Login or Register.
+		if isUnauthenticatedMethod(info.FullMethod) {
+			logger.Infof("Skipping authentication for method: %s", info.FullMethod)
+			return handler(srv, ss)
+		}
+
+		// Extract the token from the metadata.
+		md, ok := metadata.FromIncomingContext(ss.Context())
+		if !ok {
+			logger.Error("Missing metadata in stream request")
+			return fmt.Errorf("missing metadata")
+		}
+
+		authorization := md["authorization"]
+		if len(authorization) == 0 {
+			logger.Error("Missing authorization token in metadata")
+			return fmt.Errorf("missing authorization token")
+		}
+
+		// Split and validate the token.
+		tokenParts := strings.SplitN(authorization[0], " ", 2)
+		if len(tokenParts) != 2 || tokenParts[0] != "Bearer" {
+			logger.Errorf("Invalid authorization token format: %v", authorization)
+			return fmt.Errorf("invalid authorization token format")
+		}
+		token := tokenParts[1]
+
+		// Validate the token using the TokenValidator.
+		userID, username, err := tokenValidator.ValidateToken(token)
+		if err != nil {
+			logger.Errorf("Invalid token: %v", err)
+			return fmt.Errorf("invalid token: %w", err)
+		}
+
+		// Log the successful validation
+		logger.Infof("Successfully validated token for user ID: %s, Username: %s", userID, username)
+
+		// Create a new context with the user information
+		newCtx := context.WithValue(ss.Context(), "userID", userID)
+		newCtx = context.WithValue(newCtx, "username", username)
+
+		// Wrap the existing server stream to modify the context
+		wrapped := &wrappedServerStream{ServerStream: ss, ctx: newCtx}
+
+		// Continue with the handler
+		return handler(srv, wrapped)
+	}
+}
+
+// wrappedServerStream is a wrapper around grpc.ServerStream to allow modifying the context.
+type wrappedServerStream struct {
+	grpc.ServerStream
+	ctx context.Context
+}
+
+// Context returns the wrapped context.
+func (w *wrappedServerStream) Context() context.Context {
+	return w.ctx
+}
+
+// Adding the interceptors to your gRPC server configuration
+func SetupGRPCServer(tokenValidator TokenValidator, logger *logrus.Logger) *grpc.Server {
+	// Create a gRPC server with both unary and stream interceptors
+	server := grpc.NewServer(
+		grpc.UnaryInterceptor(UnaryServerInterceptor(tokenValidator, logger)),
+		grpc.StreamInterceptor(StreamServerInterceptor(tokenValidator, logger)),
+	)
+
+	return server
+}

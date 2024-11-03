@@ -16,6 +16,7 @@ import (
 
 	client "github.com/johnkhk/cli_chat_app/client/app"
 	"github.com/johnkhk/cli_chat_app/genproto/auth"
+	"github.com/johnkhk/cli_chat_app/genproto/chat"
 	"github.com/johnkhk/cli_chat_app/genproto/friends"
 	"github.com/johnkhk/cli_chat_app/server/app"
 )
@@ -32,8 +33,14 @@ type TestServerConfig struct {
 	TimeProvider         client.TimeProvider
 }
 
+type ServerStruct struct {
+	AuthServer    *app.AuthServer
+	FriendsServer *app.FriendsServer
+	ChatServer    *app.ChatServiceServer
+}
+
 // InitTestServer initializes the in-memory gRPC server and the test database.
-func InitTestServer(t *testing.T, serverConfig TestServerConfig) *sql.DB {
+func InitTestServer(t *testing.T, serverConfig TestServerConfig) (*sql.DB, *ServerStruct) {
 
 	lis = bufconn.Listen(BufSize)
 	secretKey := os.Getenv("CLI_CHAT_APP_JWT_SECRET_KEY")
@@ -43,9 +50,10 @@ func InitTestServer(t *testing.T, serverConfig TestServerConfig) *sql.DB {
 	tokenValidator := app.NewJWTTokenValidator(secretKey)
 
 	// Create a new gRPC server with the authentication interceptor
-	s := grpc.NewServer(
-		grpc.UnaryInterceptor(app.UnaryServerInterceptor(tokenValidator, serverConfig.Log)),
-	)
+	// s := grpc.NewServer(
+	// 	grpc.UnaryInterceptor(app.UnaryServerInterceptor(tokenValidator, serverConfig.Log)),
+	// )
+	s := app.SetupGRPCServer(tokenValidator, serverConfig.Log)
 
 	// Set up the database for testing
 	db, err := SetupTestDatabase(serverConfig.DbName)
@@ -64,6 +72,16 @@ func InitTestServer(t *testing.T, serverConfig TestServerConfig) *sql.DB {
 	friendsServer := app.NewFriendsServer(db, serverConfig.Log)
 	friends.RegisterFriendManagementServer(s, friendsServer)
 
+	chatServer := app.NewChatServiceServer(serverConfig.Log)
+	chat.RegisterChatServiceServer(s, chatServer)
+
+	// serverStruct
+	serverStruct := &ServerStruct{
+		AuthServer:    authServer,
+		FriendsServer: friendsServer,
+		ChatServer:    chatServer,
+	}
+
 	// Start serving the in-memory server
 	go func() {
 		if err := s.Serve(lis); err != nil {
@@ -71,13 +89,20 @@ func InitTestServer(t *testing.T, serverConfig TestServerConfig) *sql.DB {
 		}
 	}()
 
-	return db
+	return db, serverStruct
 }
 
 // CreateTestClientConn creates a new client connection using bufconn.
-func CreateTestClientConn(t *testing.T, interceptor grpc.UnaryClientInterceptor) *grpc.ClientConn {
+func CreateTestClientConn(t *testing.T, unaryInterceptor grpc.UnaryClientInterceptor, streamInterceptor grpc.StreamClientInterceptor) *grpc.ClientConn {
 	// Create a client connection using bufconn
-	conn, err := grpc.DialContext(context.Background(), "bufnet", grpc.WithContextDialer(bufDialer), grpc.WithInsecure(), grpc.WithUnaryInterceptor(interceptor))
+	conn, err := grpc.DialContext(
+		context.Background(),
+		"bufnet",
+		grpc.WithContextDialer(bufDialer),
+		grpc.WithInsecure(),
+		grpc.WithUnaryInterceptor(unaryInterceptor),   // Add the unary interceptor
+		grpc.WithStreamInterceptor(streamInterceptor), // Add the stream interceptor
+	)
 	if err != nil {
 		if t != nil {
 			t.Fatalf("Failed to dial bufnet: %v", err)

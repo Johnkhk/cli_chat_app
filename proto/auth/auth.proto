@@ -10,8 +10,8 @@ service AuthService {
   rpc RegisterUser (RegisterRequest) returns (RegisterResponse) {}
   rpc LoginUser (LoginRequest) returns (LoginResponse) {}
   rpc RefreshToken (RefreshTokenRequest) returns (RefreshTokenResponse) {}  
-  rpc UploadPublicKey (UploadPublicKeyRequest) returns (UploadPublicKeyResponse) {}  
-  rpc GetPublicKey (GetPublicKeyRequest) returns (GetPublicKeyResponse) {}  // New method to get public key
+  rpc UploadPublicKeys (PublicKeyUploadRequest) returns (PublicKeyUploadResponse) {}
+  rpc GetPublicKeyBundle (PublicKeyBundleRequest) returns (PublicKeyBundleResponse) {}
 }
 
 // Define the request and response messages for registration.
@@ -33,9 +33,10 @@ message LoginRequest {
 
 message LoginResponse {
   bool success = 1;
-  string message = 2;
-  string access_token = 3;
-  string refresh_token = 4;
+  uint32 user_id = 2;  // The unique ID of the user
+  string message = 3;
+  string access_token = 4;
+  string refresh_token = 5;
 }
 
 // Define the request and response messages for refreshing the token.
@@ -47,24 +48,46 @@ message RefreshTokenResponse {
   string access_token = 1;
 }
 
-// Define the request and response messages for uploading the public key.
-message UploadPublicKeyRequest {
-  string username = 1;
-  bytes public_key = 2;
+message PublicKeyUploadRequest {
+  bytes identity_key = 1;              // The public identity key for the device
+  uint32 pre_key_id = 2;               // The ID of the regular or one-time pre-key
+  bytes pre_key = 3;                   // The public pre-key (could be one-time or regular)
+  uint32 signed_pre_key_id = 4;        // The ID of the signed pre-key
+  bytes signed_pre_key = 5;            // The public signed pre-key
+  bytes signed_pre_key_signature = 6;  // Signature of the signed pre-key
+  uint32 registration_id = 7;          // User's registration ID
+  uint32 device_id = 8;                // Device ID to distinguish between user's devices
+  repeated OneTimePreKey one_time_pre_keys = 9;  // Batch of One-Time PreKeys
 }
 
-message UploadPublicKeyResponse {
-  bool success = 1;
-  string message = 2;
+message OneTimePreKey {
+  uint32 pre_key_id = 1;   // Unique ID for each One-Time PreKey
+  bytes pre_key = 2;       // The public part of the One-Time PreKey
 }
 
-// Define the request and response messages for getting the public key.
-message GetPublicKeyRequest {
-  int32 user_id = 1;  // The unique ID of the user whose public key is being requested
+// Response message after uploading public keys
+message PublicKeyUploadResponse {
+  bool success = 1;        // True if the upload was successful
+  string message = 2;      // Optional message in case of failure or additional info
 }
 
-message GetPublicKeyResponse {
-  bytes public_key = 1;  // The user's public key in bytes
-  bool success = 2;      // Indicates if the retrieval was successful
-  string message = 3;    // A message indicating the result of the retrieval
+// Request message for fetching the public key bundle
+message PublicKeyBundleRequest {
+  uint32 user_id = 1;  // The ID of the user whose public keys you want to retrieve
+  uint32 device_id = 2; // The device ID of the target user (optional)
+}
+
+// Response message for fetching the public key bundle
+message PublicKeyBundleResponse {
+  uint32 id = 1;                    // Unique ID of the key bundle (used for internal purposes)
+  uint32 user_id = 2;               // The unique user ID
+  uint32 registration_id = 3;       // The registration ID associated with the user
+  uint32 device_id = 4;             // The device ID associated with the user
+  bytes identity_key = 5;           // The public identity key for the device
+  uint32 pre_key_id = 6;            // The ID of the regular pre-key
+  bytes pre_key = 7;                // The public pre-key (regular)
+  uint32 signed_pre_key_id = 8;     // The ID of the signed pre-key
+  bytes signed_pre_key = 9;         // The public signed pre-key
+  bytes signed_pre_key_signature = 10; // Signature of the signed pre-key
+  repeated OneTimePreKey one_time_pre_keys = 11;  // Optional batch of one-time prekeys
 }

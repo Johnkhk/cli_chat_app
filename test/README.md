@@ -7,3 +7,5 @@ this will run all tests in the package
 
 # Run parallel:
 `gotestsum --format=short-verbose ./test/...`
+`gotestsum --format=short-verbose ./test/rpc/...`
+`gotestsum --format=short-verbose ./client/e2ee/store/...`

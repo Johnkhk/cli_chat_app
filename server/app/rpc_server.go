@@ -8,9 +8,9 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
-	"google.golang.org/grpc"
 
 	"github.com/johnkhk/cli_chat_app/genproto/auth"
+	"github.com/johnkhk/cli_chat_app/genproto/chat"
 	"github.com/johnkhk/cli_chat_app/genproto/friends"
 )
 
@@ -24,9 +24,7 @@ func RunGRPCServer(ctx context.Context, port string, db *sql.DB, log *logrus.Log
 	tokenValidator := NewJWTTokenValidator(secretKey)
 
 	// Create a new gRPC server with the authentication interceptor
-	grpcServer := grpc.NewServer(
-		grpc.UnaryInterceptor(UnaryServerInterceptor(tokenValidator, log)),
-	)
+	grpcServer := SetupGRPCServer(tokenValidator, log)
 
 	// Register the AuthServer
 	authServer := NewAuthServer(db, log, time.Hour, time.Hour*24*7)
@@ -35,6 +33,10 @@ func RunGRPCServer(ctx context.Context, port string, db *sql.DB, log *logrus.Log
 	// Register the FriendsServer
 	friendsServer := NewFriendsServer(db, log)
 	friends.RegisterFriendManagementServer(grpcServer, friendsServer)
+
+	// Register the ChatServer
+	chatServer := NewChatServiceServer(log)
+	chat.RegisterChatServiceServer(grpcServer, chatServer)
 
 	// Listen on the specified port
 	listener, err := net.Listen("tcp", "localhost:"+port)

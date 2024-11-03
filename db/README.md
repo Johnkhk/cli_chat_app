@@ -52,3 +52,29 @@ mysql -u cli_chat_dev -p
 `mysql -u cli_chat_dev -p cli_chat_app < db/migrations/up.sql;`
 
 `mysql -u cli_chat_dev -p cli_chat_app < db/migrations/down.sql`
+
+
+```
+CREATE TABLE messages (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    sender_id INT NOT NULL, -- User ID of the sender
+    recipient_id INT NOT NULL, -- User ID of the recipient
+    content TEXT, -- The content of the message, optional for text messages
+    sent_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, -- When the message was sent
+    is_read BOOLEAN DEFAULT FALSE, -- Whether the message has been read by the recipient
+    attachment_id INT, -- Optional: Reference to the attachment if this message has one
+    FOREIGN KEY (sender_id) REFERENCES users(id),
+    FOREIGN KEY (recipient_id) REFERENCES users(id),
+    FOREIGN KEY (attachment_id) REFERENCES attachments(id)
+);
+
+CREATE TABLE attachments (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    message_id INT NOT NULL, -- The ID of the associated message
+    file_type VARCHAR(50) NOT NULL, -- Type of file (e.g., 'image', 'video')
+    file_url VARCHAR(255) NOT NULL, -- URL to the file storage location
+    file_size INT, -- Size of the file in bytes
+    uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, -- When the file was uploaded
+    FOREIGN KEY (message_id) REFERENCES messages(id)
+);
+```

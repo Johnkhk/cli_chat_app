@@ -74,6 +74,20 @@ func (m FriendManagementModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			)
 			m.rpcClient.Logger.Info("Refreshing friend list and friend requests")
 
+		case "c":
+			// Switch to the chat panel
+			chatPanelModel := NewChatPanelModel(m.rpcClient)
+
+			// Initialize the chat panel (e.g., fetch friends) and get the command for it
+			chatCmd := chatPanelModel.Init() // Init returns the command for loading friends
+
+			// Update the chat panel to handle the incoming message
+			// updatedChatPanelModel, updateCmd := chatPanelModel.Update(msg)
+			updatedChatPanelModel, updateCmd := chatPanelModel.Update(tea.WindowSizeMsg{Width: m.terminalWidth, Height: m.terminalHeight})
+
+			// Return only the updated chat model and its commands, ignoring the previous model's cmds
+			return updatedChatPanelModel, tea.Batch(chatCmd, updateCmd)
+
 		default:
 			m.rpcClient.Logger.Infoln("Key pressed:", keypress)
 		}
@@ -244,7 +258,8 @@ func (m FriendManagementModel) View() string {
 	}
 
 	// Render the help message
-	help := helpStyle.Render("\nesc/ctrl+c: quit | tab: switch tab | r: refresh")
+	// help := helpStyle.Render("\nesc/ctrl+c: quit | tab: switch tab | r: refresh")
+	help := helpStyle.Render("\nesc/ctrl+c: quit | tab: switch tab | r: refresh | c: chat")
 	doc.WriteString(help)
 
 	return docStyle.Align(lipgloss.Center).

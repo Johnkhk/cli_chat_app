@@ -10,8 +10,8 @@ import (
 	"github.com/johnkhk/cli_chat_app/genproto/friends"
 )
 
-// friendListModel represents the model for the friend list page
-type friendListModel struct {
+// FriendListModel represents the model for the friend list page
+type FriendListModel struct {
 	friendList         []*friends.Friend // List of friends
 	rpcClient          *app.RpcClient    // Reference to the RPC client
 	cursor             int               // Cursor position in the list
@@ -19,12 +19,12 @@ type friendListModel struct {
 }
 
 // Init initializes the model (no initialization needed here)
-func (m friendListModel) Init() tea.Cmd {
+func (m FriendListModel) Init() tea.Cmd {
 	return nil
 }
 
 // Update handles incoming messages and updates the model's state
-func (m friendListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m FriendListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 
 	// Handle friend list message
@@ -96,7 +96,7 @@ func (m friendListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 // View renders the UI
-func (m friendListModel) View() string {
+func (m FriendListModel) View() string {
 	if len(m.friendList) == 0 {
 		return "You have no friends yet."
 	}
@@ -117,15 +117,15 @@ func (m friendListModel) View() string {
 			}
 			b.WriteString(fmt.Sprintf("%s %s\n", cursor, friend.Username))
 		}
-		b.WriteString("\nUse ↑/↓ to navigate. Press 'd' to remove the selected friend.")
+		// b.WriteString("\nUse ↑/↓ to navigate. Press 'd' to remove the selected friend.")
 	}
 
 	return b.String()
 }
 
 // NewFriendListModel creates and returns a new friend list model
-func NewFriendListModel(rpcClient *app.RpcClient) friendListModel {
-	return friendListModel{
+func NewFriendListModel(rpcClient *app.RpcClient) FriendListModel {
+	return FriendListModel{
 		friendList: []*friends.Friend{}, // Initialize with an empty friend list
 		rpcClient:  rpcClient,           // Set the RPC client reference
 		cursor:     0,                   // Start cursor at the top

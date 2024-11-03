@@ -30,10 +30,10 @@ func (RealTimeProvider) Now() time.Time {
 type TokenManager struct {
 	TimeProvider TimeProvider
 	filePath     string
-	client       auth.AuthServiceClient // Use the gRPC client passed during initialization
+	AuthClient   *AuthClient // Reference to the parent AuthClient
 }
 
-func NewTokenManager(filePath string, client auth.AuthServiceClient) *TokenManager {
+func NewTokenManager(filePath string, client *AuthClient) *TokenManager {
 	// Ensure the directory exists
 	dir := filepath.Dir(filePath)
 	if err := os.MkdirAll(dir, 0755); err != nil {
@@ -41,7 +41,7 @@ func NewTokenManager(filePath string, client auth.AuthServiceClient) *TokenManag
 	}
 	return &TokenManager{
 		filePath:     filePath,
-		client:       client,
+		AuthClient:   client,
 		TimeProvider: RealTimeProvider{}, // Default TimeProvider
 	}
 }
@@ -82,6 +82,10 @@ func (tm *TokenManager) GetAccessToken() (string, error) {
 // Otherwise, does nothing.
 func (tm *TokenManager) TryAutoLogin() error {
 	_, err := tm.GetAccessToken() // Attempt to get a valid access token
+	if err != nil {
+		return fmt.Errorf("failed to auto-login: %w", err)
+	}
+	err = tm.AuthClient.PostLoginTasks()
 	return err
 }
 
@@ -173,7 +177,7 @@ func (tm *TokenManager) RefreshAccessToken(refreshToken string) (string, error) 
 	defer cancel()
 
 	// Make the gRPC call to refresh the token
-	resp, err := tm.client.RefreshToken(ctx, &auth.RefreshTokenRequest{RefreshToken: refreshToken})
+	resp, err := tm.AuthClient.Client.RefreshToken(ctx, &auth.RefreshTokenRequest{RefreshToken: refreshToken})
 	if err != nil {
 		return "", fmt.Errorf("failed to refresh access token: %w", err)
 	}
@@ -183,6 +187,56 @@ func (tm *TokenManager) RefreshAccessToken(refreshToken string) (string, error) 
 }
 
 // SetClient allows updating the gRPC client.
-func (tm *TokenManager) SetClient(client auth.AuthServiceClient) {
-	tm.client = client
+func (tm *TokenManager) SetClient(client *AuthClient) {
+	tm.AuthClient = client
+}
+
+// GetClaimsFromAccessToken reads the stored access token and parses its JWT claims.
+func (tm *TokenManager) GetClaimsFromAccessToken() (map[string]interface{}, error) {
+	// Retrieve the stored access token using ReadTokens()
+	accessToken, _, err := tm.ReadTokens()
+	if err != nil {
+		return nil, fmt.Errorf("failed to read tokens: %w", err)
+	}
+
+	// Split the JWT into its parts: header, payload, signature
+	parts := strings.Split(accessToken, ".")
+	if len(parts) != 3 {
+		return nil, fmt.Errorf("invalid token format: expected 3 parts but got %d", len(parts))
+	}
+
+	// Decode the payload part (Base64URL encoded)
+	payload, err := decodeSegment(parts[1])
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode token payload: %w", err)
+	}
+
+	// Parse the JSON payload to extract the claims
+	var claims map[string]interface{}
+	if err := json.Unmarshal(payload, &claims); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal token claims: %w", err)
+	}
+
+	return claims, nil
+}
+
+func (tm *TokenManager) GetUserIdFromAccessToken() (uint32, error) {
+	claims, err := tm.GetClaimsFromAccessToken()
+	if err != nil {
+		return 0, fmt.Errorf("failed to get claims from access token: %w", err)
+	}
+
+	// The "sub" claim is most likely a string, so you need to handle it as such
+	sub, ok := claims["sub"].(string)
+	if !ok {
+		return 0, fmt.Errorf("UserId (sub) claim not found or not a string")
+	}
+
+	// Convert the string to uint32
+	userID, err := strconv.ParseUint(sub, 10, 32)
+	if err != nil {
+		return 0, fmt.Errorf("failed to parse UserId (sub) claim: %w", err)
+	}
+
+	return uint32(userID), nil
 }

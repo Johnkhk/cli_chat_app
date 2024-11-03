@@ -2,12 +2,17 @@ package rpc
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"testing"
 	"time"
 
+	"github.com/Johnkhk/libsignal-go/protocol/prekey"
+
+	"github.com/johnkhk/cli_chat_app/client/e2ee/store"
 	"github.com/johnkhk/cli_chat_app/test"
 	"github.com/johnkhk/cli_chat_app/test/setup"
 )
@@ -17,7 +22,7 @@ func TestRegisterLoginFlow(t *testing.T) {
 	// t.Parallel() // Allow this test to run in parallel
 
 	// Initialize resources using default configuration
-	rpcClients, _, cleanup := setup.InitializeTestResources(t, nil, 1)
+	rpcClients, _, cleanup, _ := setup.InitializeTestResources(t, nil, 1)
 	rpcClient := rpcClients[0]
 	defer cleanup()
 	log := rpcClient.Logger
@@ -28,7 +33,7 @@ func TestRegisterLoginFlow(t *testing.T) {
 
 	// Test the login of an unregistered/wrong credentials user
 	log.Infof("Testing unregistered user login")
-	err := rpcClient.AuthClient.LoginUser("unregistered", "testpassword")
+	err, _ := rpcClient.AuthClient.LoginUser("unregistered", "testpassword")
 	if err == nil {
 		t.Fatalf("Login should fail for unregistered user")
 	}
@@ -54,7 +59,7 @@ func TestRegisterLoginFlow(t *testing.T) {
 
 	// Test the login of the registered user
 	log.Infof("Testing registered user login")
-	err = rpcClient.AuthClient.LoginUser("unregistered", "testpassword")
+	err, _ = rpcClient.AuthClient.LoginUser("unregistered", "testpassword")
 	if err != nil {
 		t.Fatalf("Failed to login: %v", err)
 	}
@@ -87,7 +92,7 @@ func TestTokenExpirationAndRefresh(t *testing.T) {
 	customConfig.TimeProvider = mockTime                   // Inject the mock time provider
 
 	// Initialize resources with the custom server configuration
-	rpcClients, _, cleanup := setup.InitializeTestResources(t, customConfig, 1)
+	rpcClients, _, cleanup, _ := setup.InitializeTestResources(t, customConfig, 1)
 	defer cleanup()
 	rpcClient := rpcClients[0]
 	log := rpcClient.Logger
@@ -100,7 +105,7 @@ func TestTokenExpirationAndRefresh(t *testing.T) {
 	}
 
 	log.Infof("Logging in user for expiration test")
-	err = rpcClient.AuthClient.LoginUser("expiringuser", "testpassword")
+	err, _ = rpcClient.AuthClient.LoginUser("expiringuser", "testpassword")
 	if err != nil {
 		t.Fatalf("Failed to login user: %v", err)
 	}
@@ -127,7 +132,7 @@ func TestTokenExpirationAndRefresh(t *testing.T) {
 
 	// Attempt to get a new access token
 	log.Infof("Attempting to get a new access token")
-	err = rpcClient.AuthClient.LoginUser("expiringuser", "testpassword")
+	err, _ = rpcClient.AuthClient.LoginUser("expiringuser", "testpassword")
 	if err != nil {
 		t.Fatalf("Failed to login with expired access token but valid refresh token: %v", err)
 	}
@@ -168,7 +173,7 @@ func TestTokenExpirationAndRefresh(t *testing.T) {
 
 	// Attempt to login with an expired refresh token. Should get new tokens if successful
 	log.Infof("Attempting to login with expired refresh token")
-	err = rpcClient.AuthClient.LoginUser("expiringuser", "testpassword")
+	err, _ = rpcClient.AuthClient.LoginUser("expiringuser", "testpassword")
 	if err != nil {
 		t.Fatalf("Failed to login with expired refresh token: %v", err)
 	}
@@ -204,7 +209,7 @@ func TestRegisterUserWithExistingUsername(t *testing.T) {
 	// t.Parallel() // Allow this test to run in parallel
 
 	// Initialize resources using default configuration
-	rpcClients, _, cleanup := setup.InitializeTestResources(t, nil, 1)
+	rpcClients, _, cleanup, _ := setup.InitializeTestResources(t, nil, 1)
 	rpcClient := rpcClients[0]
 	defer cleanup()
 	log := rpcClient.Logger
@@ -230,115 +235,256 @@ func TestRegisterUserWithExistingUsername(t *testing.T) {
 	}
 }
 
-// TestUploadPublicKeyAfterRegistration tests that a user's public key is correctly uploaded and stored in the database during registration.
-func TestUploadPublicKeyAfterRegistration(t *testing.T) {
+func TestOnLoginUploadKeysAndLocalIdentity(t *testing.T) {
 	// t.Parallel() // Allow this test to run in parallel
 
 	// Initialize resources using default configuration
-	rpcClients, db, cleanup := setup.InitializeTestResources(t, nil, 1)
+	rpcClients, db, cleanup, _ := setup.InitializeTestResources(t, nil, 1)
 	rpcClient := rpcClients[0]
 	defer cleanup()
 	log := rpcClient.Logger
 
 	// Register a new user
-	username := "newuser"
-	password := "testpassword"
-	log.Infof("Registering new user: %s", username)
-	err := rpcClient.AuthClient.RegisterUser(username, password)
+	log.Infof("Registering new user")
+	err := rpcClient.AuthClient.RegisterUser("newuser", "testpassword")
 	if err != nil {
 		t.Fatalf("Failed to register new user: %v", err)
 	}
 
-	// Login user (which should also upload the public key)
-	log.Infof("Logging in user: %s", username)
-	err = rpcClient.AuthClient.LoginUser(username, password)
+	// Login the user
+	log.Infof("Logging in user")
+	err, _ = rpcClient.AuthClient.LoginUser("newuser", "testpassword")
 	if err != nil {
 		t.Fatalf("Failed to login user: %v", err)
 	}
 
-	// Verify that the public key was stored correctly in the database
-	var storedPublicKey []byte
-	err = db.QueryRow("SELECT identity_public_key FROM user_keys WHERE user_id = (SELECT id FROM users WHERE username = ?)", username).Scan(&storedPublicKey)
+	claims, err := rpcClient.AuthClient.TokenManager.GetClaimsFromAccessToken()
 	if err != nil {
-		t.Fatalf("Failed to retrieve public key from database: %v", err)
+		t.Fatalf("Failed to get claims from access token: %v", err)
+	}
+	// Assuming sub is a string and represents the user ID
+	userIDStr, ok := claims["sub"].(string)
+	if !ok {
+		t.Fatalf("Failed to extract user ID from claims")
 	}
 
-	// Check that the stored public key is not nil or empty
-	if len(storedPublicKey) == 0 {
-		t.Fatalf("Public key should not be empty after registration")
-	}
-
-	// Check that the private key file exists
-	privateKeyPath, err := rpcClient.AuthClient.GetPrivateKeyPath(username)
+	// Convert userIDStr to int32 if necessary
+	userIDFromJWT, err := strconv.Atoi(userIDStr) // Atoi converts string to int
 	if err != nil {
-		t.Fatalf("Failed to get private key path: %v", err)
-	}
-	if _, err := os.Stat(privateKeyPath); os.IsNotExist(err) {
-		t.Fatalf("Private key file does not exist for user: %s", username)
+		t.Fatalf("Failed to convert user ID to integer: %v", err)
 	}
 
-	log.Infof("Public key uploaded and stored successfully for user: %s", username)
+	fmt.Printf("Extracted User ID: %d\n", userIDFromJWT)
+
+	// Query the database for the registration ID associated with the user
+	var registrationID uint32
+	err = rpcClient.Store.DB.QueryRow("SELECT registration_id FROM local_identity WHERE user_id = ?", userIDFromJWT).Scan(&registrationID)
+	if err != nil {
+		t.Fatalf("Failed to query registration ID for user %d: %v", userIDFromJWT, err)
+	}
+	extractedUserID, deviceID := store.ExtractUserIDAndDeviceID(registrationID)
+	log.Infof("Extracted User ID: %d, Device ID: %d from Registration ID", extractedUserID, deviceID)
+
+	// Verify that the extracted userID matches the userID from the JWT
+	if extractedUserID != uint32(userIDFromJWT) {
+		t.Fatalf("Extracted userID (%d) does not match userID from JWT (%d)", extractedUserID, userIDFromJWT)
+	}
+
+	// // Check that the public key was uploaded and stored in the database
+	_ = db
+	// Verify that the prekey bundle was uploaded and stored in the database
+	var dbUserID, dbRegistrationID, dbDeviceID uint32
+	var dbIdentityKey, dbPreKey, dbSignedPreKey, dbSignedPreKeySignature []byte
+	var dbPreKeyID, dbSignedPreKeyID uint32
+
+	// Query the database for the prekey bundle
+	err = db.QueryRow(`
+        SELECT user_id, registration_id, device_id, identity_key, pre_key_id, pre_key, signed_pre_key_id, signed_pre_key, signed_pre_key_signature
+        FROM prekey_bundle WHERE user_id = ?`, userIDFromJWT).Scan(
+		&dbUserID, &dbRegistrationID, &dbDeviceID, &dbIdentityKey, &dbPreKeyID, &dbPreKey, &dbSignedPreKeyID, &dbSignedPreKey, &dbSignedPreKeySignature)
+	if err != nil {
+		t.Fatalf("Failed to query prekey bundle for user %d: %v", userIDFromJWT, err)
+	}
+
+	// Verify that the values stored match what was uploaded
+	if dbUserID != uint32(userIDFromJWT) {
+		t.Fatalf("Expected userID %d, but got %d", userIDFromJWT, dbUserID)
+	}
+	if dbRegistrationID != registrationID {
+		t.Fatalf("Expected registrationID %d, but got %d", registrationID, dbRegistrationID)
+	}
+	if dbDeviceID != deviceID {
+		t.Fatalf("Expected deviceID %d, but got %d", deviceID, dbDeviceID)
+	}
+
+	// Retrieve the PreKey using PreKeyStore
+	preKey, ok, err := rpcClient.Store.PreKeyStore().Load(context.Background(), prekey.ID(dbPreKeyID))
+	if err != nil {
+		t.Fatalf("Failed to load PreKey from store: %v", err)
+	}
+	if !ok {
+		t.Fatalf("PreKey with ID %d not found in store", dbPreKeyID)
+	}
+	preKeyPair, err := preKey.KeyPair()
+	if err != nil {
+		t.Fatalf("Failed to get key pair from PreKey: %v", err)
+	}
+	preKeyPublicBytes := preKeyPair.PublicKey().Bytes()
+
+	// Compare PreKey
+	if !bytes.Equal(dbPreKey, preKeyPublicBytes) {
+		t.Fatalf("Expected PreKey %x, but got %x", preKeyPublicBytes, dbPreKey)
+	}
+
+	// Retrieve the Signed PreKey using SignedPreKeyStore
+	signedPreKey, ok, err := rpcClient.Store.SignedPreKeyStore().Load(context.Background(), prekey.ID(dbSignedPreKeyID))
+	if err != nil {
+		t.Fatalf("Failed to load Signed PreKey from store: %v", err)
+	}
+	if !ok {
+		t.Fatalf("Signed PreKey with ID %d not found in store", dbSignedPreKeyID)
+	}
+	signedPreKeyPair, err := signedPreKey.KeyPair()
+	if err != nil {
+		t.Fatalf("Failed to get key pair from Signed PreKey: %v", err)
+	}
+	signedPreKeyPublicBytes := signedPreKeyPair.PublicKey().Bytes()
+
+	// Compare Signed PreKey
+	if !bytes.Equal(dbSignedPreKey, signedPreKeyPublicBytes) {
+		t.Fatalf("Expected Signed PreKey %x, but got %x", signedPreKeyPublicBytes, dbSignedPreKey)
+	}
+
+	// Compare Signed PreKey Signature
+	// if !bytes.Equal(dbSignedPreKeySignature, signedPreKey.Signature()) {
+	if !bytes.Equal(dbSignedPreKeySignature, signedPreKey.GetSigned().Signature) {
+		t.Fatalf("Expected Signed PreKey Signature %x, but got %x", signedPreKey.GetSigned().Signature, dbSignedPreKeySignature)
+	}
+
+	// Log for debugging
+	log.Infof("Verified prekey bundle for user %d", dbUserID)
+	log.Infof("IdentityKey: %x, PreKeyID: %d, PreKey: %x, SignedPreKeyID: %d, SignedPreKey: %x", dbIdentityKey, dbPreKeyID, dbPreKey, dbSignedPreKeyID, dbSignedPreKey)
+
+	// Optionally add more checks or validations here if necessary
+
 }
 
-// TestGetPublicKey tests that a user's public key can be retrieved correctly from the database.
-func TestGetPublicKey(t *testing.T) {
-	// Allow this test to run in parallel
-	t.Parallel()
-
+func TestFetchPublicKeyBundle(t *testing.T) {
 	// Initialize resources using default configuration
-	rpcClients, db, cleanup := setup.InitializeTestResources(t, nil, 1)
+	rpcClients, db, cleanup, _ := setup.InitializeTestResources(t, nil, 1)
 	rpcClient := rpcClients[0]
 	defer cleanup()
 	log := rpcClient.Logger
 
 	// Register a new user
-	username := "testuser"
-	password := "securepassword"
-	log.Infof("Registering new user: %s", username)
-	err := rpcClient.AuthClient.RegisterUser(username, password)
+	log.Infof("Registering new user")
+	err := rpcClient.AuthClient.RegisterUser("newuser", "testpassword")
 	if err != nil {
 		t.Fatalf("Failed to register new user: %v", err)
 	}
 
-	// Login the user (which should also upload the public key)
-	log.Infof("Logging in user: %s", username)
-	err = rpcClient.AuthClient.LoginUser(username, password)
+	// Login the user
+	log.Infof("Logging in user")
+	err, _ = rpcClient.AuthClient.LoginUser("newuser", "testpassword")
 	if err != nil {
 		t.Fatalf("Failed to login user: %v", err)
 	}
 
-	// Fetch the user ID for the registered user
-	var userID int32
-	err = db.QueryRow("SELECT id FROM users WHERE username = ?", username).Scan(&userID)
+	// Extract user ID from JWT claims
+	claims, err := rpcClient.AuthClient.TokenManager.GetClaimsFromAccessToken()
 	if err != nil {
-		t.Fatalf("Failed to retrieve user ID from database: %v", err)
+		t.Fatalf("Failed to get claims from access token: %v", err)
+	}
+	userIDStr, ok := claims["sub"].(string)
+	if !ok {
+		t.Fatalf("Failed to extract user ID from claims")
 	}
 
-	// Retrieve the public key using the GetPublicKey method
-	log.Infof("Retrieving public key for user: %s (ID: %d)", username, userID)
-	getPublicKeyResponse, err := rpcClient.AuthClient.GetPublicKey(userID)
+	// Convert userIDStr to int32 if necessary
+	userIDFromJWT, err := strconv.Atoi(userIDStr) // Atoi converts string to int
 	if err != nil {
-		t.Fatalf("Failed to retrieve public key: %v", err)
+		t.Fatalf("Failed to convert user ID to integer: %v", err)
 	}
 
-	// Verify that the response indicates success and the public key is not empty
-	if !getPublicKeyResponse.Success {
-		t.Fatalf("Expected success but got failure: %s", getPublicKeyResponse.Message)
-	}
-	if len(getPublicKeyResponse.PublicKey) == 0 {
-		t.Fatalf("Public key should not be empty")
-	}
-
-	// Verify that the retrieved public key matches what is stored in the database
-	var storedPublicKey []byte
-	err = db.QueryRow("SELECT identity_public_key FROM user_keys WHERE user_id = ?", userID).Scan(&storedPublicKey)
+	// Query the database for the registration ID associated with the user
+	var registrationID uint32
+	err = rpcClient.Store.DB.QueryRow("SELECT registration_id FROM local_identity WHERE user_id = ?", userIDFromJWT).Scan(&registrationID)
 	if err != nil {
-		t.Fatalf("Failed to retrieve public key from database: %v", err)
+		t.Fatalf("Failed to query registration ID for user %d: %v", userIDFromJWT, err)
+	}
+	extractedUserID, deviceID := store.ExtractUserIDAndDeviceID(registrationID)
+	log.Infof("Extracted User ID: %d, Device ID: %d from Registration ID", extractedUserID, deviceID)
+
+	// Verify that the extracted userID matches the userID from the JWT
+	if extractedUserID != uint32(userIDFromJWT) {
+		t.Fatalf("Extracted userID (%d) does not match userID from JWT (%d)", extractedUserID, userIDFromJWT)
 	}
 
-	if !bytes.Equal(getPublicKeyResponse.PublicKey, storedPublicKey) {
-		t.Fatalf("Retrieved public key does not match stored public key")
+	// Fetch the prekey bundle from the server using GetPublicKeyBundle RPC
+	log.Infof("Fetching prekey bundle for user %d", extractedUserID)
+	preKeyBundle, err := rpcClient.AuthClient.GetPublicKeyBundle(extractedUserID, deviceID)
+	if err != nil {
+		t.Fatalf("Failed to fetch prekey bundle: %v", err)
 	}
 
-	log.Infof("Public key retrieved successfully and matches the stored value for user: %s (ID: %d)", username, userID)
+	// Verify the fetched prekey bundle matches the values in the database
+	var dbUserID, dbRegistrationID, dbDeviceID uint32
+	var dbIdentityKey, dbPreKey, dbSignedPreKey, dbSignedPreKeySignature []byte
+	var dbPreKeyID, dbSignedPreKeyID uint32
+
+	// Query the database for the prekey bundle
+	err = db.QueryRow(`
+        SELECT user_id, registration_id, device_id, identity_key, pre_key_id, pre_key, signed_pre_key_id, signed_pre_key, signed_pre_key_signature
+        FROM prekey_bundle WHERE user_id = ? AND device_id = ?`, extractedUserID, deviceID).Scan(
+		&dbUserID, &dbRegistrationID, &dbDeviceID, &dbIdentityKey, &dbPreKeyID, &dbPreKey, &dbSignedPreKeyID, &dbSignedPreKey, &dbSignedPreKeySignature)
+	if err != nil {
+		t.Fatalf("Failed to query prekey bundle for user %d: %v", extractedUserID, err)
+	}
+
+	// Compare user_id
+	if dbUserID != preKeyBundle.UserId {
+		t.Fatalf("Expected userID %d, but got %d", dbUserID, preKeyBundle.UserId)
+	}
+
+	// Compare registration_id
+	if dbRegistrationID != preKeyBundle.RegistrationId {
+		t.Fatalf("Expected registrationID %d, but got %d", dbRegistrationID, preKeyBundle.RegistrationId)
+	}
+
+	// Compare device_id
+	if dbDeviceID != preKeyBundle.DeviceId {
+		t.Fatalf("Expected deviceID %d, but got %d", dbDeviceID, preKeyBundle.DeviceId)
+	}
+
+	// Compare identity key
+	if !bytes.Equal(dbIdentityKey, preKeyBundle.IdentityKey) {
+		t.Fatalf("Expected IdentityKey %x, but got %x", dbIdentityKey, preKeyBundle.IdentityKey)
+	}
+
+	// Compare PreKey
+	if dbPreKeyID != preKeyBundle.PreKeyId {
+		t.Fatalf("Expected PreKeyID %d, but got %d", dbPreKeyID, preKeyBundle.PreKeyId)
+	}
+	if !bytes.Equal(dbPreKey, preKeyBundle.PreKey) {
+		t.Fatalf("Expected PreKey %x, but got %x", dbPreKey, preKeyBundle.PreKey)
+	}
+
+	// Compare Signed PreKey
+	if dbSignedPreKeyID != preKeyBundle.SignedPreKeyId {
+		t.Fatalf("Expected SignedPreKeyID %d, but got %d", dbSignedPreKeyID, preKeyBundle.SignedPreKeyId)
+	}
+	if !bytes.Equal(dbSignedPreKey, preKeyBundle.SignedPreKey) {
+		t.Fatalf("Expected Signed PreKey %x, but got %x", dbSignedPreKey, preKeyBundle.SignedPreKey)
+	}
+
+	// Compare Signed PreKey Signature
+	if !bytes.Equal(dbSignedPreKeySignature, preKeyBundle.SignedPreKeySignature) {
+		t.Fatalf("Expected Signed PreKey Signature %x, but got %x", dbSignedPreKeySignature, preKeyBundle.SignedPreKeySignature)
+	}
+
+	// Log for debugging
+	log.Infof("Verified prekey bundle for user %d", extractedUserID)
+	log.Infof("IdentityKey: %x, PreKeyID: %d, PreKey: %x, SignedPreKeyID: %d, SignedPreKey: %x", preKeyBundle.IdentityKey, preKeyBundle.PreKeyId, preKeyBundle.PreKey, preKeyBundle.SignedPreKeyId, preKeyBundle.SignedPreKey)
+
+	// Optionally add more checks or validations here if necessary
 }

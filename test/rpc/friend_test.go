@@ -11,7 +11,7 @@ import (
 // TestSendFriendRequestAndVerifyStatus tests the flow of sending a friend request and verifying its status, including usernames.
 func TestSendFriendRequestAndVerifyStatus(t *testing.T) {
 	// Initialize resources with two clients for two different users
-	rpcClients, _, cleanup := setup.InitializeTestResources(t, nil, 2)
+	rpcClients, _, cleanup, _ := setup.InitializeTestResources(t, nil, 2)
 	defer cleanup()
 
 	client1 := rpcClients[0] // Represents User1
@@ -26,13 +26,13 @@ func TestSendFriendRequestAndVerifyStatus(t *testing.T) {
 	if err := client1.AuthClient.RegisterUser(user1Username, password); err != nil {
 		t.Fatalf("Failed to register %s: %v", user1Username, err)
 	}
-	if err := client1.AuthClient.LoginUser(user1Username, password); err != nil {
+	if err, _ := client1.AuthClient.LoginUser(user1Username, password); err != nil {
 		t.Fatalf("Failed to login %s: %v", user1Username, err)
 	}
 	if err := client2.AuthClient.RegisterUser(user2Username, password); err != nil {
 		t.Fatalf("Failed to register %s: %v", user2Username, err)
 	}
-	if err := client2.AuthClient.LoginUser(user2Username, password); err != nil {
+	if err, _ := client2.AuthClient.LoginUser(user2Username, password); err != nil {
 		t.Fatalf("Failed to login %s: %v", user2Username, err)
 	}
 
@@ -91,7 +91,7 @@ func TestSendFriendRequestAndVerifyStatus(t *testing.T) {
 // TestAcceptFriendRequestAndVerify tests the flow of accepting a friend request, including verifying usernames.
 func TestAcceptFriendRequestAndVerify(t *testing.T) {
 	// Initialize resources with two clients for two different users
-	rpcClients, _, cleanup := setup.InitializeTestResources(t, nil, 2)
+	rpcClients, _, cleanup, _ := setup.InitializeTestResources(t, nil, 2)
 	defer cleanup()
 
 	client1 := rpcClients[0] // Represents User1
@@ -106,13 +106,13 @@ func TestAcceptFriendRequestAndVerify(t *testing.T) {
 	if err := client1.AuthClient.RegisterUser(user1Username, password); err != nil {
 		t.Fatalf("Failed to register %s: %v", user1Username, err)
 	}
-	if err := client1.AuthClient.LoginUser(user1Username, password); err != nil {
+	if err, _ := client1.AuthClient.LoginUser(user1Username, password); err != nil {
 		t.Fatalf("Failed to login %s: %v", user1Username, err)
 	}
 	if err := client2.AuthClient.RegisterUser(user2Username, password); err != nil {
 		t.Fatalf("Failed to register %s: %v", user2Username, err)
 	}
-	if err := client2.AuthClient.LoginUser(user2Username, password); err != nil {
+	if err, _ := client2.AuthClient.LoginUser(user2Username, password); err != nil {
 		t.Fatalf("Failed to login %s: %v", user2Username, err)
 	}
 
@@ -167,7 +167,7 @@ func TestGetFriendListAfterAcceptingRequest(t *testing.T) {
 	// t.Parallel()
 
 	// Initialize resources with two clients for two different users
-	rpcClients, _, cleanup := setup.InitializeTestResources(t, nil, 2)
+	rpcClients, _, cleanup, _ := setup.InitializeTestResources(t, nil, 2)
 	defer cleanup()
 
 	client1 := rpcClients[0] // Represents User1
@@ -177,13 +177,13 @@ func TestGetFriendListAfterAcceptingRequest(t *testing.T) {
 	if err := client1.AuthClient.RegisterUser("user1", "password"); err != nil {
 		t.Fatalf("Failed to register user1: %v", err)
 	}
-	if err := client1.AuthClient.LoginUser("user1", "password"); err != nil {
+	if err, _ := client1.AuthClient.LoginUser("user1", "password"); err != nil {
 		t.Fatalf("Failed to login user1: %v", err)
 	}
 	if err := client2.AuthClient.RegisterUser("user2", "password"); err != nil {
 		t.Fatalf("Failed to register user2: %v", err)
 	}
-	if err := client2.AuthClient.LoginUser("user2", "password"); err != nil {
+	if err, _ := client2.AuthClient.LoginUser("user2", "password"); err != nil {
 		t.Fatalf("Failed to login user2: %v", err)
 	}
 
@@ -227,7 +227,7 @@ func TestDeclineFriendRequestAndVerify(t *testing.T) {
 	// t.Parallel()
 
 	// Initialize resources with two clients for two different users
-	rpcClients, _, cleanup := setup.InitializeTestResources(t, nil, 2)
+	rpcClients, _, cleanup, _ := setup.InitializeTestResources(t, nil, 2)
 	defer cleanup()
 
 	client1 := rpcClients[0] // Represents User1
@@ -237,13 +237,13 @@ func TestDeclineFriendRequestAndVerify(t *testing.T) {
 	if err := client1.AuthClient.RegisterUser("user1", "password"); err != nil {
 		t.Fatalf("Failed to register user1: %v", err)
 	}
-	if err := client1.AuthClient.LoginUser("user1", "password"); err != nil {
+	if err, _ := client1.AuthClient.LoginUser("user1", "password"); err != nil {
 		t.Fatalf("Failed to login user1: %v", err)
 	}
 	if err := client2.AuthClient.RegisterUser("user2", "password"); err != nil {
 		t.Fatalf("Failed to register user2: %v", err)
 	}
-	if err := client2.AuthClient.LoginUser("user2", "password"); err != nil {
+	if err, _ := client2.AuthClient.LoginUser("user2", "password"); err != nil {
 		t.Fatalf("Failed to login user2: %v", err)
 	}
 
@@ -288,7 +288,7 @@ func TestRemoveFriendAndVerify(t *testing.T) {
 	// t.Parallel()
 
 	// Initialize resources with two clients for two different users
-	rpcClients, db, cleanup := setup.InitializeTestResources(t, nil, 2)
+	rpcClients, db, cleanup, _ := setup.InitializeTestResources(t, nil, 2)
 	defer cleanup()
 
 	client1 := rpcClients[0] // Represents User1
@@ -298,13 +298,13 @@ func TestRemoveFriendAndVerify(t *testing.T) {
 	if err := client1.AuthClient.RegisterUser("user1", "password"); err != nil {
 		t.Fatalf("Failed to register user1: %v", err)
 	}
-	if err := client1.AuthClient.LoginUser("user1", "password"); err != nil {
+	if err, _ := client1.AuthClient.LoginUser("user1", "password"); err != nil {
 		t.Fatalf("Failed to login user1: %v", err)
 	}
 	if err := client2.AuthClient.RegisterUser("user2", "password"); err != nil {
 		t.Fatalf("Failed to register user2: %v", err)
 	}
-	if err := client2.AuthClient.LoginUser("user2", "password"); err != nil {
+	if err, _ := client2.AuthClient.LoginUser("user2", "password"); err != nil {
 		t.Fatalf("Failed to login user2: %v", err)
 	}
 

@@ -175,7 +175,7 @@ func (m loginModel) View() string {
 
 func logInUserCmd(rpcClient *app.RpcClient, username, password string) tea.Cmd {
 	return func() tea.Msg {
-		err := rpcClient.AuthClient.LoginUser(username, password)
+		err, _ := rpcClient.AuthClient.LoginUser(username, password)
 		if err != nil {
 			return errMsg{err}
 		}

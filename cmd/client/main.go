@@ -1,8 +1,11 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/joho/godotenv"
 
@@ -12,7 +15,6 @@ import (
 )
 
 func main() {
-
 	// Load environment variables from .env file
 	if err := godotenv.Load(); err != nil {
 		fmt.Printf("Error loading .env file: %v\n", err)
@@ -22,14 +24,13 @@ func main() {
 	// Initialize the client logger
 	log := logger.InitLogger()
 	log.Info("Client application started")
-	// // Establish a single gRPC connection to the server
 
+	// Initialize the gRPC client using RpcClient
 	rpcClientConfig := app.RpcClientConfig{
 		ServerAddress: "localhost:50051", // Replace with your server address
 		Logger:        log,
 		AppDirPath:    os.Getenv("APP_DIR_PATH"),
 	}
-	// Initialize the gRPC client using RpcClient
 	rpcClient, err := app.NewRpcClient(rpcClientConfig)
 	if err != nil {
 		log.Fatalf("Failed to initialize RPC clients: %v", err)
@@ -46,7 +47,36 @@ func main() {
 	}
 	isLoggedIn := err == nil
 
-	// Use the UI manager to run the appropriate UI based on auth status
-	ui.RunUIBasedOnAuthStatus(isLoggedIn, log, rpcClient)
+	// Create a context that is canceled on interrupt signals
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
+	// Set up a channel to listen for OS signals
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+
+	// Start a goroutine to listen for signals
+	go func() {
+		sig := <-sigs
+		log.Infof("Received signal: %v, initiating shutdown...", sig)
+		cancel()
+	}()
+
+	// Run the UI in a separate goroutine
+	uiDone := make(chan struct{})
+	go func() {
+		ui.RunUIBasedOnAuthStatus(isLoggedIn, log, rpcClient)
+		close(uiDone)
+	}()
+
+	// Wait for either the UI to finish or a signal to be received
+	select {
+	case <-ctx.Done():
+		log.Info("Context canceled, shutting down...")
+	case <-uiDone:
+		log.Info("UI exited, shutting down...")
+	}
+
+	// Deferred CloseConnections will be called here
+	log.Info("Application shutdown complete.")
 }
