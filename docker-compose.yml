@@ -1,0 +1,33 @@
+version: '3.8'
+
+services:
+  server:
+    build: .
+    ports:
+      - "50051:50051"
+    environment:
+      - ENV_PATH=.env
+    depends_on:
+      - db
+    networks:
+      - chat-network
+
+  db:
+    image: mysql:8.0
+    environment:
+      MYSQL_DATABASE: cli_chat_app
+      MYSQL_USER: cli_chat_dev
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./db/migrations:/docker-entrypoint-initdb.d
+    networks:
+      - chat-network
+
+networks:
+  chat-network:
+    driver: bridge
+
+volumes:
+  mysql-data:
