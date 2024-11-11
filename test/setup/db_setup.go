@@ -51,7 +51,7 @@ func SetupTestDatabase(testDBName string) (*sql.DB, error) {
 	}
 
 	// Execute the SQL file to set up tables and other structures
-	upSQLPath := getAbsolutePath("db/migrations/up.sql")
+	upSQLPath := getAbsolutePath("db/migrations/02_up.sql")
 	if err := runSQLFile(db, upSQLPath); err != nil {
 		db.Close()
 		return nil, fmt.Errorf("Failed to execute setup SQL file: %v", err)
@@ -63,7 +63,7 @@ func SetupTestDatabase(testDBName string) (*sql.DB, error) {
 // TeardownTestDatabase cleans up the test database.
 func TeardownTestDatabase(db *sql.DB, testDBName string) error {
 	// Optionally run the teardown SQL script if needed
-	downSQLPath := getAbsolutePath("db/migrations/down.sql")
+	downSQLPath := getAbsolutePath("db/migrations/01_down.sql")
 	if err := runSQLFile(db, downSQLPath); err != nil {
 		return fmt.Errorf("Failed to run teardown SQL file: %v", err)
 	}

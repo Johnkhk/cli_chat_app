@@ -49,9 +49,9 @@ mysql -u cli_chat_dev -p
 `export $(cat .env | xargs)`
 
 2. Apply the migration
-`mysql -u cli_chat_dev -p cli_chat_app < db/migrations/up.sql;`
+`mysql -u cli_chat_dev -p cli_chat_app < db/migrations/02_up.sql;`
 
-`mysql -u cli_chat_dev -p cli_chat_app < db/migrations/down.sql`
+`mysql -u cli_chat_dev -p cli_chat_app < db/migrations/01_down.sql`
 
 
 ```

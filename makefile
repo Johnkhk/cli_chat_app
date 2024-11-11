@@ -2,8 +2,8 @@
 
 DB_USER=cli_chat_dev
 DB_NAME=cli_chat_app
-UP_MIGRATION=db/migrations/up.sql
-DOWN_MIGRATION=db/migrations/down.sql
+UP_MIGRATION=db/migrations/02_up.sql
+DOWN_MIGRATION=db/migrations/01_down.sql
 UI_TEST=db/migrations/test.sql
 
 .PHONY: up down
