@@ -27,7 +27,7 @@ func main() {
 
 	// Initialize the gRPC client using RpcClient
 	rpcClientConfig := app.RpcClientConfig{
-		ServerAddress: "localhost:50051", // Replace with your server address
+		ServerAddress: os.Getenv("SERVER_ADDRESS"),
 		Logger:        log,
 		AppDirPath:    os.Getenv("APP_DIR_PATH"),
 	}
