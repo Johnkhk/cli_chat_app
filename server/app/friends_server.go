@@ -49,6 +49,15 @@ func (s *FriendsServer) SendFriendRequest(ctx context.Context, req *friends.Send
 		return nil, fmt.Errorf("requester username not found in context")
 	}
 
+	// Check if the requester is trying to send a request to themselves
+	if requesterUsername == req.RecipientUsername {
+		return &friends.SendFriendRequestResponse{
+			Status:    friends.FriendRequestStatus_FAILED,
+			Message:   "Cannot send a friend request to yourself",
+			Timestamp: timestamppb.Now(),
+		}, nil
+	}
+
 	s.Logger.Infof("Received friend request from user ID: %s (username: %s) to username: %s", requesterID, requesterUsername, req.RecipientUsername)
 
 	// Step 1: Retrieve the recipient's ID from the username
