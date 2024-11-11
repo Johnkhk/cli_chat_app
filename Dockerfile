@@ -4,6 +4,7 @@ WORKDIR /app
 COPY . .
 RUN go mod download
 RUN CGO_ENABLED=0 GOOS=linux go build -o server ./cmd/server/main.go
+RUN ls -l /app # List all files in /app to verify that server exists
 
 # Run stage
 FROM alpine:latest
@@ -12,4 +13,4 @@ COPY --from=builder /app/server .
 COPY .env .
 
 EXPOSE 50051
-CMD ["./server"]
+CMD ["./main"]  # Run the 'main' binary

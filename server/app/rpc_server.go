@@ -39,7 +39,7 @@ func RunGRPCServer(ctx context.Context, port string, db *sql.DB, log *logrus.Log
 	chat.RegisterChatServiceServer(grpcServer, chatServer)
 
 	// Listen on the specified port
-	listener, err := net.Listen("tcp", "localhost:"+port)
+	listener, err := net.Listen("tcp", "0.0.0.0:"+port)
 	if err != nil {
 		return err
 	}
