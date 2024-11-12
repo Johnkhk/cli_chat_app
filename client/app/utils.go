@@ -3,6 +3,10 @@ package app
 import (
 	"fmt"
 	"net"
+	"os"
+	"os/user"
+	"path/filepath"
+	"runtime"
 )
 
 func getMACAddress() (string, error) {
@@ -37,3 +41,29 @@ func getMACAddress() (string, error) {
 //     }
 //     return oneTimePreKeys, nil
 // }
+
+func GetAppDirPath() (string, error) {
+	usr, err := user.Current()
+	if err != nil {
+		return "", err
+	}
+
+	// Check if APP_DIR_PATH is set in the environment
+	if os.Getenv("APP_DIR_PATH") != "" {
+		return os.Getenv("APP_DIR_PATH"), nil
+	}
+
+	var appDir string
+	switch runtime.GOOS {
+	case "windows":
+		appDir = filepath.Join(usr.HomeDir, "AppData", "Local", "cli_chat_app")
+	case "darwin":
+		appDir = filepath.Join(usr.HomeDir, "Library", "Application Support", "cli_chat_app")
+	case "linux":
+		appDir = filepath.Join(usr.HomeDir, ".cli_chat_app")
+	default:
+		return "", fmt.Errorf("unsupported platform")
+	}
+
+	return appDir, nil
+}

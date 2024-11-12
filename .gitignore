@@ -1,5 +1,7 @@
 .env
 .env.test
+.env.server
+.env.client
 *.log
 .DS_Store
 *.db

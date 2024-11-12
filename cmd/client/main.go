@@ -24,12 +24,16 @@ func main() {
 	// Initialize the client logger
 	log := logger.InitLogger()
 	log.Info("Client application started")
+	appDirPath, err := app.GetAppDirPath()
+	if err != nil {
+		log.Fatalf("Failed to get app directory path: %v", err)
+	}
 
 	// Initialize the gRPC client using RpcClient
 	rpcClientConfig := app.RpcClientConfig{
 		ServerAddress: os.Getenv("SERVER_ADDRESS"),
 		Logger:        log,
-		AppDirPath:    os.Getenv("APP_DIR_PATH"),
+		AppDirPath:    appDirPath,
 	}
 	rpcClient, err := app.NewRpcClient(rpcClientConfig)
 	if err != nil {
