@@ -10,7 +10,6 @@ RUN ls -l /app # List all files in /app to verify that server exists
 FROM alpine:latest
 WORKDIR /app
 COPY --from=builder /app/server .
-COPY .env .
 
 EXPOSE 50051
 CMD ["./main"]  # Run the 'main' binary
