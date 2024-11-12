@@ -8,6 +8,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    environment: prod env  # Specify the environment (in github settings)
 
     steps:
     - name: Checkout code
