@@ -1,4 +1,4 @@
-# Database
+# Database Setup
 
 
 ## Starting the database:
