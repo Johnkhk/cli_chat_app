@@ -1,0 +1,40 @@
+name: Deploy to EC2
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - name: Copy docker-compose.yml to EC2
+      uses: appleboy/scp-action@v0.1.3
+      with:
+        host: ${{ secrets.EC2_HOST }}
+        username: ${{ secrets.EC2_USER }}
+        key: ${{ secrets.EC2_SSH_KEY }}
+        source: './docker-compose.yml'
+        target: '/home/ec2-user/cli_chat_app/docker-compose.yml'
+
+    - name: Deploy to EC2
+      uses: appleboy/ssh-action@v0.1.3
+      with:
+        host: ${{ secrets.EC2_HOST }}
+        username: ${{ secrets.EC2_USER }}
+        key: ${{ secrets.EC2_SSH_KEY }}
+        port: 22
+        script: |
+          cd /home/ec2-user/cli_chat_app
+          export DATABASE_URL=${{ secrets.DATABASE_URL }}
+          export MYSQL_PASSWORD=${{ secrets.MYSQL_PASSWORD }}
+          export MYSQL_ROOT_PASSWORD=${{ secrets.MYSQL_ROOT_PASSWORD }}
+          export PORT=${{ secrets.PORT }}
+          export CLI_CHAT_APP_JWT_SECRET_KEY=${{ secrets.CLI_CHAT_APP_JWT_SECRET_KEY }}
+          docker-compose down
+          docker-compose up -d
