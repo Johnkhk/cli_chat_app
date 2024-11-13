@@ -45,11 +45,11 @@ jobs:
         port: 22
         script: |
           cd /home/ec2-user/cli_chat_app
-          export DATABASE_URL=${{ secrets.DATABASE_URL }}
-          export MYSQL_PASSWORD=${{ secrets.MYSQL_PASSWORD }}
-          export MYSQL_ROOT_PASSWORD=${{ secrets.MYSQL_ROOT_PASSWORD }}
-          export PORT=${{ secrets.PORT }}
-          export CLI_CHAT_APP_JWT_SECRET_KEY=${{ secrets.CLI_CHAT_APP_JWT_SECRET_KEY }}
+          export DATABASE_URL="${{ secrets.DATABASE_URL }}"
+          export MYSQL_PASSWORD="${{ secrets.MYSQL_PASSWORD }}"
+          export MYSQL_ROOT_PASSWORD="${{ secrets.MYSQL_ROOT_PASSWORD }}"
+          export PORT="${{ secrets.PORT }}"
+          export CLI_CHAT_APP_JWT_SECRET_KEY="${{ secrets.CLI_CHAT_APP_JWT_SECRET_KEY }}"
           docker-compose down
           docker-compose up -d
         debug: true
