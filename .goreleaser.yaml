@@ -1,0 +1,24 @@
+project_name: cli_chat_app
+builds:
+  - main: ./cmd/client/main.go # Path to your main Go file
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - "-X 'main.defaultServerAddress={{.Env.SERVER_ADDRESS}}'"
+archives:
+  - format: tar.gz
+    files:
+      - README.md
+      - LICENSE
+      - dist/**
+release:
+  github:
+    owner: Johnkhk
+    name: cli_chat_app
+changelog:
+  sort: asc

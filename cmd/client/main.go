@@ -14,6 +14,9 @@ import (
 	"github.com/johnkhk/cli_chat_app/client/ui"
 )
 
+// Default server address (can be overridden with a build flag)
+var defaultServerAddress = "localhost:50051"
+
 func main() {
 	// Load environment variables from .env file
 	if err := godotenv.Load(); err != nil {
@@ -30,8 +33,12 @@ func main() {
 	}
 
 	// Initialize the gRPC client using RpcClient
+	serverAddress := os.Getenv("SERVER_ADDRESS")
+	if serverAddress == "" {
+		serverAddress = defaultServerAddress
+	}
 	rpcClientConfig := app.RpcClientConfig{
-		ServerAddress: os.Getenv("SERVER_ADDRESS"),
+		ServerAddress: serverAddress,
 		Logger:        log,
 		AppDirPath:    appDirPath,
 	}

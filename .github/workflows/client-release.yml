@@ -1,0 +1,35 @@
+name: Client Release
+
+on:
+  push:
+    tags:
+      - 'v*' # Triggers on version tags like v1.0.0
+
+jobs:
+  release:
+    name: Release binaries
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v3
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: 1.23
+
+      - name: Install GoReleaser
+        uses: goreleaser/goreleaser-action@v4
+        with:
+          version: latest
+
+      - name: Set SERVER_ADDRESS with Port
+        # Append ":50051" to the EC2_HOST secret without exposing it
+        run: echo "SERVER_ADDRESS=${{ secrets.EC2_HOST }}:50051" >> $GITHUB_ENV
+
+      - name: Run GoReleaser
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # Provided automatically
+          SERVER_ADDRESS: ${{ env.SERVER_ADDRESS }} # Loaded from $GITHUB_ENV
+        run: goreleaser release --clean
+

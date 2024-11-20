@@ -1,28 +1,11 @@
-# generate proto files
+## Building the CLI with a Custom Server Address
 
-## generate proto/auth.proto
+To build with a default server address:
+```bash
+go build -ldflags="-X 'main.defaultServerAddress=<your-server-ip>'" -o cli_chat_app
+```
 
-protoc --go_out=./genproto --go_opt=module=github.com/johnkhk/cli_chat_app/proto \
-  --go-grpc_out=./genproto --go-grpc_opt=module=github.com/johnkhk/cli_chat_app/proto \
-  proto/auth/auth.proto
-
-## generate proto/message.proto
-
-protoc --go_out=./genproto --go_opt=module=github.com/johnkhk/cli_chat_app/proto \
-  --go-grpc_out=./genproto --go-grpc_opt=module=github.com/johnkhk/cli_chat_app/proto \
-  proto/message/message.proto
-
-## generate proto/friends.proto
-
-protoc --go_out=./genproto --go_opt=module=github.com/johnkhk/cli_chat_app/proto \
-  --go-grpc_out=./genproto --go-grpc_opt=module=github.com/johnkhk/cli_chat_app/proto \
-  proto/friends/friends.proto
-
-## generate proto/chat.proto
-protoc --go_out=./genproto --go_opt=module=github.com/johnkhk/cli_chat_app/proto \
-  --go-grpc_out=./genproto --go-grpc_opt=module=github.com/johnkhk/cli_chat_app/proto \
-  proto/chat/chat.proto
-
-
-# Go libsignal lib
-<!-- https://github.com/Johnkhk/libsignal-go -->
+To override the server address at runtime:
+```bash
+SERVER_ADDRESS=<your-server-ip> ./cli_chat_app
+```
