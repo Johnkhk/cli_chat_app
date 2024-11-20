@@ -31,5 +31,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # Provided automatically
           SERVER_ADDRESS: ${{ env.SERVER_ADDRESS }} # Loaded from $GITHUB_ENV
-        run: goreleaser release --clean
+        uses: goreleaser/goreleaser-action@v4
+        with:
+          args: release --clean
 
