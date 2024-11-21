@@ -1,3 +1,5 @@
+version: '2'  # Specify the configuration version
+
 project_name: cli_chat_app
 builds:
   - main: ./cmd/client/main.go # Path to your main Go file
@@ -15,7 +17,8 @@ archives:
     files:
       - README.md
       - LICENSE
-      - dist/**
+      # Exclude the dist directory to prevent recursive inclusion
+      # Not necessary since we're no longer including dist/**
 release:
   github:
     owner: Johnkhk
