@@ -1,8 +1,10 @@
-version: '2'  # Specify the configuration version
+version: 2  # Specify the configuration version
 
 project_name: cli_chat_app
+
 builds:
-  - main: ./cmd/client/main.go # Path to your main Go file
+  - id: cli_chat_app_build  # Assign an ID to the build
+    main: ./cmd/client/main.go  # Path to your main Go file
     goos:
       - linux
       - darwin
@@ -12,16 +14,22 @@ builds:
       - arm64
     ldflags:
       - "-X 'main.defaultServerAddress={{.Env.SERVER_ADDRESS}}'"
+
 archives:
-  - format: tar.gz
+  - id: cli_chat_app_archive  # Assign an ID to the archive
+    builds:
+      - cli_chat_app_build  # Reference the build ID
+    format: tar.gz
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
     files:
       - README.md
       - LICENSE
-      # Exclude the dist directory to prevent recursive inclusion
-      # Not necessary since we're no longer including dist/**
+    # No need to exclude dist/** since it's not being included
+
 release:
   github:
     owner: Johnkhk
     name: cli_chat_app
+
 changelog:
   sort: asc
