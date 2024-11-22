@@ -14,6 +14,8 @@ builds:
       - arm64
     ldflags:
       - "-X 'main.defaultServerAddress={{.Env.SERVER_ADDRESS}}'"
+    env:
+      - CGO_ENABLED=1  # Enable CGO
 
 archives:
   - id: cli_chat_app_archive  # Assign an ID to the archive
