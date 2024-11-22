@@ -9,8 +9,8 @@ permissions:
   contents: write  # Grant write permissions to contents
 
 jobs:
-  release_linux_windows:
-    name: Release Linux and Windows Binaries
+  build_linux_windows:
+    name: Build Linux and Windows Binaries
     runs-on: ubuntu-latest
     steps:
       - name: Check out code
@@ -31,19 +31,28 @@ jobs:
       - name: Set SERVER_ADDRESS with Port
         run: echo "SERVER_ADDRESS=${{ secrets.EC2_HOST }}:50051" >> $GITHUB_ENV
 
-      - name: Run GoReleaser for Linux and Windows
+      - name: Build Linux Binaries
         uses: goreleaser/goreleaser-action@v6
         with:
           distribution: goreleaser
           version: '~> v2'
-          args: release --clean --config=.goreleaser-linux.yaml
+          args: build --clean --id=linux_build --config=.goreleaser.yaml
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  release_macos:
-    name: Release macOS Binaries
+      - name: Build Windows Binaries
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser
+          version: '~> v2'
+          args: build --clean --id=windows_build --config=.goreleaser.yaml
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build_macos:
+    name: Build macOS Binaries
     runs-on: macos-latest
-    needs: release_linux_windows
+    needs: build_linux_windows
     steps:
       - name: Check out code
         uses: actions/checkout@v3
@@ -56,11 +65,28 @@ jobs:
       - name: Set SERVER_ADDRESS with Port
         run: echo "SERVER_ADDRESS=${{ secrets.EC2_HOST }}:50051" >> $GITHUB_ENV
 
-      - name: Run GoReleaser for macOS
+      - name: Build macOS Binaries
         uses: goreleaser/goreleaser-action@v6
         with:
           distribution: goreleaser
           version: '~> v2'
-          args: release --clean --config=.goreleaser-macos.yaml
+          args: build --clean --id=darwin_build --config=.goreleaser.yaml
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  release:
+    name: Release Binaries
+    runs-on: ubuntu-latest
+    needs: [build_linux_windows, build_macos]
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v3
+
+      - name: Run GoReleaser Release
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser
+          version: '~> v2'
+          args: release --clean --config=.goreleaser.yaml
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
