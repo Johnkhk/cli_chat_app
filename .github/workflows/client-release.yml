@@ -25,10 +25,17 @@ jobs:
           go-version: '1.21'  # Update to your Go version
 
       - name: Install Cross-Compilers (Ubuntu)
-        if: runner.os == 'Linux'
+        if: ${{ runner.os == 'Linux' }}
         run: |
           sudo apt-get update
-          sudo apt-get install -y gcc-aarch64-linux-gnu gcc-mingw-w64-x86-64
+          sudo apt-get install -y gcc-aarch64-linux-gnu gcc-mingw-w64-x86-64 clang
+
+      - name: Verify Cross-Compilers Installation
+        if: ${{ runner.os == 'Linux' }}
+        run: |
+          which aarch64-linux-gnu-gcc
+          which x86_64-w64-mingw32-gcc
+          which clang
 
       - name: Set SERVER_ADDRESS with Port
         run: echo "SERVER_ADDRESS=${{ secrets.EC2_HOST }}:50051" >> $GITHUB_ENV
