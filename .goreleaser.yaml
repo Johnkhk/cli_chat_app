@@ -15,7 +15,7 @@ builds:
     ldflags:
       - "-X 'main.defaultServerAddress={{.Env.SERVER_ADDRESS}}'"
     env:
-      - CGO_ENABLED=1  # Enable CGO
+      - CGO_ENABLED=1  # Ensure CGO is enabled
 
 archives:
   - id: cli_chat_app_archive  # Assign an ID to the archive
