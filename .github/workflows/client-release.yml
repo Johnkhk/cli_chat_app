@@ -18,8 +18,6 @@ jobs:
 
       - name: Set up Go
         uses: actions/setup-go@v5
-        with:
-          go-version: '1.21'
 
       - name: Install Cross-Compilers
         run: |
@@ -33,17 +31,14 @@ jobs:
       - name: Set SERVER_ADDRESS with Port
         run: echo "SERVER_ADDRESS=${{ secrets.EC2_HOST }}:50051" >> $GITHUB_ENV
 
-      - name: Install GoReleaser
+      - name: Run GoReleaser for Linux and Windows
         uses: goreleaser/goreleaser-action@v6
         with:
-          version: latest
-          install-only: true
-
-      - name: Run GoReleaser for Linux and Windows
+          distribution: goreleaser
+          version: '~> v2'
+          args: release --clean --id='linux_windows_build' --parallelism=1 --config=.goreleaser.yml
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SERVER_ADDRESS: ${{ env.SERVER_ADDRESS }}
-        run: goreleaser release --clean --id='linux_windows_build' --parallelism=1 --config=.goreleaser.yml
 
   release_macos:
     name: Release macOS Binaries
@@ -61,14 +56,11 @@ jobs:
       - name: Set SERVER_ADDRESS with Port
         run: echo "SERVER_ADDRESS=${{ secrets.EC2_HOST }}:50051" >> $GITHUB_ENV
 
-      - name: Install GoReleaser
+      - name: Run GoReleaser for macOS
         uses: goreleaser/goreleaser-action@v6
         with:
-          version: latest
-          install-only: true
-
-      - name: Run GoReleaser for macOS
+          distribution: goreleaser
+          version: '~> v2'
+          args: release --clean --id='darwin_build' --parallelism=1 --config=.goreleaser.yml
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SERVER_ADDRESS: ${{ env.SERVER_ADDRESS }}
-        run: goreleaser release --clean --id='darwin_build' --parallelism=1 --config=.goreleaser.yml
