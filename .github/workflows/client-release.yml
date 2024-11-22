@@ -43,7 +43,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SERVER_ADDRESS: ${{ env.SERVER_ADDRESS }}
-        run: goreleaser release --clean --id=linux_windows_build
+        run: goreleaser release --clean
 
   release_macos:
     name: Release macOS Binaries
@@ -71,4 +71,4 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SERVER_ADDRESS: ${{ env.SERVER_ADDRESS }}
-        run: goreleaser release --clean --id=darwin_build
+        run: goreleaser release --clean
