@@ -27,7 +27,7 @@ jobs:
       - name: Build Linux Binary
         run: |
           mkdir -p dist
-          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o dist/cli_chat_app-linux-amd64 ./cmd/client/main.go
+          CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -o dist/cli_chat_app-linux-amd64 ./cmd/client/main.go
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v3
@@ -53,7 +53,7 @@ jobs:
       - name: Build Windows Binary
         run: |
           mkdir -p dist
-          CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -o dist/cli_chat_app-windows-amd64.exe ./cmd/client/main.go
+          CGO_ENABLED=1 GOOS=windows GOARCH=amd64 go build -o dist/cli_chat_app-windows-amd64.exe ./cmd/client/main.go
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v3
@@ -79,7 +79,7 @@ jobs:
       - name: Build macOS Binary (AMD64)
         run: |
           mkdir -p dist
-          CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -o dist/cli_chat_app-darwin-amd64 ./cmd/client/main.go
+          CGO_ENABLED=1 GOOS=darwin GOARCH=amd64 go build -o dist/cli_chat_app-darwin-amd64 ./cmd/client/main.go
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v3
@@ -105,7 +105,7 @@ jobs:
       - name: Build macOS Binary (ARM64)
         run: |
           mkdir -p dist
-          CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -o dist/cli_chat_app-darwin-arm64 ./cmd/client/main.go
+          CGO_ENABLED=1 GOOS=darwin GOARCH=arm64 go build -o dist/cli_chat_app-darwin-arm64 ./cmd/client/main.go
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v3
