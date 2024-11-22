@@ -36,7 +36,7 @@ jobs:
         with:
           distribution: goreleaser
           version: '~> v2'
-          args: build --clean --id=linux_build --config=.goreleaser.yaml --skip=publish,validate  
+          args: build --clean --id=linux_build --config=.goreleaser.yaml
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -45,7 +45,7 @@ jobs:
         with:
           distribution: goreleaser
           version: '~> v2'
-          args: build --clean --id=windows_build --config=.goreleaser.yaml --skip=publish,validate
+          args: build --clean --id=windows_build --config=.goreleaser.yaml
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -70,7 +70,7 @@ jobs:
         with:
           distribution: goreleaser
           version: '~> v2'
-          args: build --clean --id=darwin_build --config=.goreleaser.yaml --skip=publish,validate
+          args: build --clean --id=darwin_build --config=.goreleaser.yaml
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
