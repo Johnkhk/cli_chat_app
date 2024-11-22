@@ -36,7 +36,7 @@ jobs:
         with:
           distribution: goreleaser
           version: '~> v2'
-          args: release --clean --id='linux_windows_build' --parallelism=1 --config=.goreleaser.yml
+          args: release --clean --parallelism=1 --config=.goreleaser.yml
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -61,6 +61,6 @@ jobs:
         with:
           distribution: goreleaser
           version: '~> v2'
-          args: release --clean --id='darwin_build' --parallelism=1 --config=.goreleaser.yml
+          args: release --clean --parallelism=1 --config=.goreleaser.yml
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
