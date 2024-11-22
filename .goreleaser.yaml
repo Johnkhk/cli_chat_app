@@ -21,15 +21,15 @@ builds:
     env:
       - CGO_ENABLED=1
       - |
-        CC={{- if and (eq .GOOS "linux") (eq .GOARCH "arm64") -}}
+        CC={{- if and (eq .Os "linux") (eq .Arch "arm64") -}}
           aarch64-linux-gnu-gcc
-        {{- else if and (eq .GOOS "windows") (eq .GOARCH "amd64") -}}
+        {{- else if and (eq .Os "windows") (eq .Arch "amd64") -}}
           {{- if eq .Env.RUNNER_OS "Linux" -}}
             x86_64-w64-mingw32-gcc
           {{- else -}}
             gcc
           {{- end -}}
-        {{- else if eq .GOOS "darwin" -}}
+        {{- else if eq .Os "darwin" -}}
           clang
         {{- else -}}
           gcc
