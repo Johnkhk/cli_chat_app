@@ -9,25 +9,9 @@ permissions:
   contents: write  # Grant write permissions to contents
 
 jobs:
-  build:
-    name: Build Binaries
+  build_linux:
+    name: Build Linux Binary
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-        include:
-          - os: ubuntu-latest
-            goos: linux
-            goarch: amd64
-          - os: windows-latest
-            goos: windows
-            goarch: amd64
-          - os: macos-latest
-            goos: darwin
-            goarch: amd64
-          - os: macos-latest
-            goos: darwin
-            goarch: arm64
     steps:
       - name: Check out code
         uses: actions/checkout@v3
@@ -40,21 +24,99 @@ jobs:
       - name: Set SERVER_ADDRESS with Port
         run: echo "SERVER_ADDRESS=${{ secrets.EC2_HOST }}:50051" >> $GITHUB_ENV
 
-      - name: Build Binary
+      - name: Build Linux Binary
         run: |
           mkdir -p dist
-          GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} CGO_ENABLED=1 go build -o dist/cli_chat_app-${{ matrix.goos }}-${{ matrix.goarch }} ./cmd/client/main.go
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o dist/cli_chat_app-linux-amd64 ./cmd/client/main.go
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v3
         with:
-          name: cli_chat_app-${{ matrix.goos }}-${{ matrix.goarch }}
-          path: dist/cli_chat_app-${{ matrix.goos }}-${{ matrix.goarch }}
+          name: cli_chat_app-linux-amd64
+          path: dist/cli_chat_app-linux-amd64
+
+  build_windows:
+    name: Build Windows Binary
+    runs-on: windows-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v3
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+
+      - name: Set SERVER_ADDRESS with Port
+        run: echo "SERVER_ADDRESS=${{ secrets.EC2_HOST }}:50051" >> $GITHUB_ENV
+
+      - name: Build Windows Binary
+        run: |
+          mkdir -p dist
+          CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -o dist/cli_chat_app-windows-amd64.exe ./cmd/client/main.go
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: cli_chat_app-windows-amd64
+          path: dist/cli_chat_app-windows-amd64.exe
+
+  build_macos_amd64:
+    name: Build macOS Binary (AMD64)
+    runs-on: macos-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v3
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+
+      - name: Set SERVER_ADDRESS with Port
+        run: echo "SERVER_ADDRESS=${{ secrets.EC2_HOST }}:50051" >> $GITHUB_ENV
+
+      - name: Build macOS Binary (AMD64)
+        run: |
+          mkdir -p dist
+          CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -o dist/cli_chat_app-darwin-amd64 ./cmd/client/main.go
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: cli_chat_app-darwin-amd64
+          path: dist/cli_chat_app-darwin-amd64
+
+  build_macos_arm64:
+    name: Build macOS Binary (ARM64)
+    runs-on: macos-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v3
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+
+      - name: Set SERVER_ADDRESS with Port
+        run: echo "SERVER_ADDRESS=${{ secrets.EC2_HOST }}:50051" >> $GITHUB_ENV
+
+      - name: Build macOS Binary (ARM64)
+        run: |
+          mkdir -p dist
+          CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -o dist/cli_chat_app-darwin-arm64 ./cmd/client/main.go
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: cli_chat_app-darwin-arm64
+          path: dist/cli_chat_app-darwin-arm64
 
   release:
     name: Create GitHub Release
     runs-on: ubuntu-latest
-    needs: build
+    needs: [build_linux, build_windows, build_macos_amd64, build_macos_arm64]
     steps:
       - name: Download Artifacts
         uses: actions/download-artifact@v3
