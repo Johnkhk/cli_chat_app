@@ -26,6 +26,10 @@ builds:
         {{- else -}}
           gcc
         {{- end -}}
+      - |
+        CGO_CFLAGS={{- if eq .Os "darwin" -}}
+          -arch {{.Arch}}
+        {{- end -}}
 
 archives:
   - id: cli_chat_app_archive
