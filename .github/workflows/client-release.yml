@@ -21,10 +21,10 @@ jobs:
         with:
           go-version: 1.23
 
-      - name: Install Cross-Compilers
+      - name: Install Cross-Compiler for ARM64
         run: |
           sudo apt-get update
-          sudo apt-get install -y gcc-aarch64-linux-gnu gcc-multilib
+          sudo apt-get install -y gcc-aarch64-linux-gnu
 
       - name: Install GoReleaser
         uses: goreleaser/goreleaser-action@v4
