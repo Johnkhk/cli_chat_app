@@ -1,40 +1,45 @@
-version: 2  # Specify the configuration version
+version: 2
 
 project_name: cli_chat_app
 
 builds:
-  - id: cli_chat_app_build
+  - id: darwin_build
     main: ./cmd/client/main.go
-    targets:
-      - linux_amd64
-      - darwin_amd64
-      - darwin_arm64
-      - windows_amd64
+    goos:
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - "-X 'main.defaultServerAddress={{.Env.SERVER_ADDRESS}}'"
+    env:
+      - CGO_ENABLED=1
+      - CC=clang  # Use clang on macOS
+    # No need for CC variable on macOS runner as clang is default
+
+  - id: linux_windows_build
+    main: ./cmd/client/main.go
+    goos:
+      - linux
+      - windows
+    goarch:
+      - amd64
     ldflags:
       - "-X 'main.defaultServerAddress={{.Env.SERVER_ADDRESS}}'"
     env:
       - CGO_ENABLED=1
       - |
-        CC={{- if and (eq .Os "windows") (eq .Arch "amd64") -}}
-          {{- if eq .Env.RUNNER_OS "Linux" -}}
-            x86_64-w64-mingw32-gcc
-          {{- else -}}
-            gcc
-          {{- end -}}
-        {{- else if eq .Os "darwin" -}}
-          clang
+        CC={{- if eq .Os "windows" -}}
+          x86_64-w64-mingw32-gcc
         {{- else -}}
           gcc
-        {{- end -}}
-      - |
-        CGO_CFLAGS={{- if eq .Os "darwin" -}}
-          -arch {{.Arch}}
         {{- end -}}
 
 archives:
   - id: cli_chat_app_archive
     builds:
-      - cli_chat_app_build
+      - darwin_build
+      - linux_windows_build
     format: tar.gz
     name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
     files:
