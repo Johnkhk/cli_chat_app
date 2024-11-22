@@ -51,9 +51,13 @@ jobs:
         run: echo "SERVER_ADDRESS=${{ secrets.EC2_HOST }}:50051" >> $GITHUB_ENV
 
       - name: Build Windows Binary
+        shell: pwsh
         run: |
           mkdir -p dist
-          CGO_ENABLED=1 GOOS=windows GOARCH=amd64 go build -o dist/cli_chat_app-windows-amd64.exe ./cmd/client/main.go
+          $env:CGO_ENABLED=1
+          $env:GOOS="windows"
+          $env:GOARCH="amd64"
+          go build -o dist/cli_chat_app-windows-amd64.exe ./cmd/client/main.go
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v3
