@@ -9,8 +9,30 @@ permissions:
   contents: write  # Grant write permissions to contents
 
 jobs:
-  release_linux_windows:
-    name: Release Linux and Windows Binaries
+  release_linux:
+    name: Release Linux Binaries
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v3
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+
+      - name: Set SERVER_ADDRESS with Port
+        run: echo "SERVER_ADDRESS=${{ secrets.EC2_HOST }}:50051" >> $GITHUB_ENV
+
+      - name: Run GoReleaser for Linux
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser
+          version: '~> v2'
+          args: release --clean --single-target --id=linux_build
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  release_windows:
+    name: Release Windows Binaries
     runs-on: ubuntu-latest
     steps:
       - name: Check out code
@@ -31,19 +53,18 @@ jobs:
       - name: Set SERVER_ADDRESS with Port
         run: echo "SERVER_ADDRESS=${{ secrets.EC2_HOST }}:50051" >> $GITHUB_ENV
 
-      - name: Run GoReleaser for Linux and Windows
+      - name: Run GoReleaser for Windows
         uses: goreleaser/goreleaser-action@v6
         with:
           distribution: goreleaser
           version: '~> v2'
-          args: release --clean
+          args: release --clean --single-target --id=windows_build
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   release_macos:
     name: Release macOS Binaries
     runs-on: macos-latest
-    needs: release_linux_windows
     steps:
       - name: Check out code
         uses: actions/checkout@v3
@@ -61,6 +82,6 @@ jobs:
         with:
           distribution: goreleaser
           version: '~> v2'
-          args: release --clean
+          args: release --clean --single-target --id=darwin_build
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
