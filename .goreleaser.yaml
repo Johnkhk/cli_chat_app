@@ -5,27 +5,17 @@ project_name: cli_chat_app
 builds:
   - id: cli_chat_app_build
     main: ./cmd/client/main.go
-    goos:
-      - linux
-      - darwin
-      - windows
-    goarch:
-      - amd64
-      - arm64
-    # Exclude windows/arm64 due to complexity
-    ignore:
-      - goos: windows
-        goarch: arm64
-      - goos: linux
-        goarch: arm64
+    targets:
+      - linux_amd64
+      - darwin_amd64
+      - darwin_arm64
+      - windows_amd64
     ldflags:
       - "-X 'main.defaultServerAddress={{.Env.SERVER_ADDRESS}}'"
     env:
       - CGO_ENABLED=1
       - |
-        CC={{- if and (eq .Os "linux") (eq .Arch "arm64") -}}
-          aarch64-linux-gnu-gcc
-        {{- else if and (eq .Os "windows") (eq .Arch "amd64") -}}
+        CC={{- if and (eq .Os "windows") (eq .Arch "amd64") -}}
           {{- if eq .Env.RUNNER_OS "Linux" -}}
             x86_64-w64-mingw32-gcc
           {{- else -}}
