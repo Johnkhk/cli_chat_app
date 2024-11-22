@@ -11,10 +11,7 @@ permissions:
 jobs:
   release:
     name: Release binaries
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ubuntu-latest
     steps:
       - name: Check out code
         uses: actions/checkout@v3
@@ -24,16 +21,13 @@ jobs:
         with:
           go-version: '1.21'  # Update to your Go version
 
-      - name: Install Cross-Compilers (Ubuntu)
-        if: ${{ runner.os == 'Linux' }}
+      - name: Install Cross-Compilers
         run: |
           sudo apt-get update
-          sudo apt-get install -y gcc-aarch64-linux-gnu gcc-mingw-w64-x86-64 clang
+          sudo apt-get install -y gcc-mingw-w64-x86-64 clang
 
       - name: Verify Cross-Compilers Installation
-        if: ${{ runner.os == 'Linux' }}
         run: |
-          which aarch64-linux-gnu-gcc
           which x86_64-w64-mingw32-gcc
           which clang
 
