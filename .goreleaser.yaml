@@ -14,9 +14,8 @@ builds:
       - "-X 'main.defaultServerAddress={{.Env.SERVER_ADDRESS}}'"
     env:
       - CGO_ENABLED=1
-      - CC=clang  # Use clang on macOS
-    # No need for CC variable on macOS runner as clang is default
-
+      - CC=clang
+      - CGO_CFLAGS="-Wno-error=unused-command-line-argument"
   - id: linux_windows_build
     main: ./cmd/client/main.go
     goos:
