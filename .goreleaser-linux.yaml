@@ -26,18 +26,6 @@ builds:
       - CGO_ENABLED=1
       - CC=x86_64-w64-mingw32-gcc
 
-  - id: darwin_build
-    main: ./cmd/client/main.go
-    goos:
-      - darwin
-    goarch:
-      - amd64
-      - arm64
-    ldflags:
-      - "-X 'main.defaultServerAddress={{.Env.SERVER_ADDRESS}}'"
-    env:
-      - CGO_ENABLED=1
-
 release:
   github:
     owner: Johnkhk
