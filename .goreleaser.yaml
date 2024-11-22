@@ -16,6 +16,8 @@ builds:
     ignore:
       - goos: windows
         goarch: arm64
+      - goos: linux
+        goarch: arm64
     ldflags:
       - "-X 'main.defaultServerAddress={{.Env.SERVER_ADDRESS}}'"
     env:
