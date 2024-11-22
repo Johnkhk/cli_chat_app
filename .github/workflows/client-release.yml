@@ -39,11 +39,14 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SERVER_ADDRESS: ${{ env.SERVER_ADDRESS }}
+          CC: aarch64-linux-gnu-gcc  # Ensure the correct compiler is set
         run: |
           if [[ $GOARCH == "arm64" ]]; then
             export CC=aarch64-linux-gnu-gcc
           elif [[ $GOARCH == "amd64" ]]; then
             export CC=gcc
           fi
+          echo "Using compiler: $CC"
+          $CC --version  # Check the compiler version
           goreleaser release --clean
 
