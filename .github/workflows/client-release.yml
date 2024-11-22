@@ -21,6 +21,9 @@ jobs:
         with:
           go-version: 1.23
 
+      - name: Install Cross-Compiler
+        run: sudo apt-get update && sudo apt-get install -y gcc-aarch64-linux-gnu
+
       - name: Install GoReleaser
         uses: goreleaser/goreleaser-action@v4
         with:
@@ -28,13 +31,13 @@ jobs:
           install-only: true
 
       - name: Set SERVER_ADDRESS with Port
-        # Append ":50051" to the EC2_HOST secret without exposing it
         run: echo "SERVER_ADDRESS=${{ secrets.EC2_HOST }}:50051" >> $GITHUB_ENV
 
       - name: Run GoReleaser
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # Provided automatically
-          SERVER_ADDRESS: ${{ env.SERVER_ADDRESS }} # Loaded from $GITHUB_ENV
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SERVER_ADDRESS: ${{ env.SERVER_ADDRESS }}
+          CC: aarch64-linux-gnu-gcc  # Set the cross-compiler for arm64
         uses: goreleaser/goreleaser-action@v4
         with:
           args: release --clean
