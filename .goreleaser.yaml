@@ -14,8 +14,7 @@ builds:
       - "-X 'main.defaultServerAddress={{.Env.SERVER_ADDRESS}}'"
     env:
       - CGO_ENABLED=1
-      - CC=clang
-      - CGO_CFLAGS="-Wno-error=unused-command-line-argument"
+
   - id: linux_windows_build
     main: ./cmd/client/main.go
     goos:
@@ -35,10 +34,18 @@ builds:
         {{- end -}}
 
 archives:
-  - id: cli_chat_app_archive
+  - id: linux_windows_archive
+    builds:
+      - linux_windows_build
+    format: tar.gz
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    files:
+      - README.md
+      - LICENSE
+
+  - id: darwin_archive
     builds:
       - darwin_build
-      - linux_windows_build
     format: tar.gz
     name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
     files:
