@@ -127,23 +127,19 @@ jobs:
         with:
           path: dist
 
-      - name: Create Release
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Install GitHub CLI
+        uses: actions/setup-node@v3
         with:
-          tag_name: ${{ github.ref }}
-          release_name: Release ${{ github.ref }}
-          draft: false
-          prerelease: false
+          node-version: '16'
 
-      - name: Upload Release Assets
-        uses: actions/upload-release-asset@v1
+      - name: Create Release and Upload Assets
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: dist/
-          asset_name: cli_chat_app-${{ matrix.goos }}-${{ matrix.goarch }}
-          asset_content_type: application/octet-stream
+        run: |
+          gh release create ${{ github.ref }} \
+            dist/cli_chat_app-linux-amd64 \
+            dist/cli_chat_app-windows-amd64.exe \
+            dist/cli_chat_app-darwin-amd64 \
+            dist/cli_chat_app-darwin-arm64 \
+            --title "Release ${{ github.ref }}" \
+            --notes "Automated release by GitHub Actions"
