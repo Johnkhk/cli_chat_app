@@ -13,6 +13,7 @@ builds:
       - "-X 'main.defaultServerAddress={{.Env.SERVER_ADDRESS}}'"
     env:
       - CGO_ENABLED=1
+      - CC=x86_64-linux-gnu-gcc
 
   - id: windows_build
     main: ./cmd/client/main.go
@@ -37,6 +38,7 @@ builds:
       - "-X 'main.defaultServerAddress={{.Env.SERVER_ADDRESS}}'"
     env:
       - CGO_ENABLED=1
+      - CC=o64-clang
 
 release:
   github:
