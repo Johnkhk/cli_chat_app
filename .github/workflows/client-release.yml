@@ -40,4 +40,5 @@ jobs:
             -w /workspace \
             -e GITHUB_TOKEN="${{ secrets.GITHUB_TOKEN }}" \
             -e CGO_ENABLED=1 \
+            -e SERVER_ADDRESS="${{ secrets.EC2_HOST }}:50051" \
             goreleaser/goreleaser-cross release --clean
