@@ -33,12 +33,11 @@ jobs:
         uses: docker/setup-buildx-action@v2
 
       - name: Build and Release with GoReleaser
-        uses: goreleaser/goreleaser-action@v4
-        with:
-          version: latest
-          args: release --clean
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          CGO_ENABLED: 1
-        container:
-          image: goreleaser/goreleaser-cross
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}":/workspace \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            -w /workspace \
+            -e GITHUB_TOKEN="${{ secrets.GITHUB_TOKEN }}" \
+            -e CGO_ENABLED=1 \
+            goreleaser/goreleaser-cross release --clean
