@@ -40,4 +40,5 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CGO_ENABLED: 1
-          CC: x86_64-linux-gnu-gcc  # Example for Linux
+        container:
+          image: goreleaser/goreleaser-cross
