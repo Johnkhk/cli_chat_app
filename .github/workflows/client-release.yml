@@ -6,133 +6,33 @@ on:
       - 'v*' # Triggers on version tags like v1.0.0
 
 permissions:
-  contents: write  # Grant write permissions to contents
+  contents: write  # Required for creating GitHub releases
 
 jobs:
-  build_linux:
-    name: Build Linux Binary
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check out code
-        uses: actions/checkout@v3
-
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: '1.21'
-
-      - name: Set SERVER_ADDRESS with Port
-        run: echo "SERVER_ADDRESS=${{ secrets.EC2_HOST }}:50051" >> $GITHUB_ENV
-
-      - name: Build Linux Binary
-        run: |
-          mkdir -p dist
-          CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -o dist/cli_chat_app-linux-amd64 ./cmd/client/main.go
-
-      - name: Upload Artifact
-        uses: actions/upload-artifact@v3
-        with:
-          name: cli_chat_app-linux-amd64
-          path: dist/cli_chat_app-linux-amd64
-
-  build_windows:
-    name: Build Windows Binary
-    runs-on: windows-latest
-    steps:
-      - name: Check out code
-        uses: actions/checkout@v3
-
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: '1.21'
-
-      - name: Set SERVER_ADDRESS with Port
-        run: echo "SERVER_ADDRESS=${{ secrets.EC2_HOST }}:50051" >> $GITHUB_ENV
-
-      - name: Build Windows Binary
-        shell: pwsh
-        run: |
-          mkdir -p dist
-          $env:CGO_ENABLED=1
-          $env:GOOS="windows"
-          $env:GOARCH="amd64"
-          go build -o dist/cli_chat_app-windows-amd64.exe ./cmd/client/main.go
-
-      - name: Upload Artifact
-        uses: actions/upload-artifact@v3
-        with:
-          name: cli_chat_app-windows-amd64
-          path: dist/cli_chat_app-windows-amd64.exe
-
-  build_macos_amd64:
-    name: Build macOS Binary (AMD64)
-    runs-on: macos-latest
-    steps:
-      - name: Check out code
-        uses: actions/checkout@v3
-
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: '1.21'
-
-      - name: Set SERVER_ADDRESS with Port
-        run: echo "SERVER_ADDRESS=${{ secrets.EC2_HOST }}:50051" >> $GITHUB_ENV
-
-      - name: Build macOS Binary (AMD64)
-        run: |
-          mkdir -p dist
-          CGO_ENABLED=1 GOOS=darwin GOARCH=amd64 go build -o dist/cli_chat_app-darwin-amd64 ./cmd/client/main.go
-
-      - name: Upload Artifact
-        uses: actions/upload-artifact@v3
-        with:
-          name: cli_chat_app-darwin-amd64
-          path: dist/cli_chat_app-darwin-amd64
-
-  build_macos_arm64:
-    name: Build macOS Binary (ARM64)
-    runs-on: macos-latest
-    steps:
-      - name: Check out code
-        uses: actions/checkout@v3
-
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: '1.21'
-
-      - name: Set SERVER_ADDRESS with Port
-        run: echo "SERVER_ADDRESS=${{ secrets.EC2_HOST }}:50051" >> $GITHUB_ENV
-
-      - name: Build macOS Binary (ARM64)
-        run: |
-          mkdir -p dist
-          CGO_ENABLED=1 GOOS=darwin GOARCH=arm64 go build -o dist/cli_chat_app-darwin-arm64 ./cmd/client/main.go
-
-      - name: Upload Artifact
-        uses: actions/upload-artifact@v3
-        with:
-          name: cli_chat_app-darwin-arm64
-          path: dist/cli_chat_app-darwin-arm64
-
   release:
-    name: Create GitHub Release
+    name: Build and Release
     runs-on: ubuntu-latest
-    needs: [build_linux, build_windows, build_macos_amd64, build_macos_arm64]
     steps:
-      - name: Download Artifacts
-        uses: actions/download-artifact@v3
-        with:
-          path: dist
+      - name: Check out code
+        uses: actions/checkout@v3
 
-      - name: Create Release and Upload Assets
-        uses: softprops/action-gh-release@v1
+      - name: Set up Go
+        uses: actions/setup-go@v5
         with:
-          files: dist/**
-          tag_name: ${{ github.ref_name }}
-          name: Release ${{ github.ref_name }}
-          body: Automated release by GitHub Actions
+          go-version: '1.21'
+
+      - name: Set SERVER_ADDRESS Environment Variable
+        run: echo "SERVER_ADDRESS=${{ secrets.EC2_HOST }}:50051" >> $GITHUB_ENV
+
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential
+
+      - name: Set up GoReleaser
+        uses: goreleaser/goreleaser-action@v4
+        with:
+          version: latest
+          args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
