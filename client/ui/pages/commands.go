@@ -6,12 +6,15 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/johnkhk/cli_chat_app/client/app"
+	f "github.com/johnkhk/cli_chat_app/genproto/friends"
 )
 
 // fetchFriendListCmd fetches the friend list for the current user.
 func fetchFriendListCmd(rpcClient *app.RpcClient) tea.Cmd {
 	return func() tea.Msg {
 		friends, err := rpcClient.FriendsClient.GetFriendList()
+		// Add server as a default friend to front of list
+		friends = append([]*f.Friend{{UserId: 0, Username: "server"}}, friends...)
 		return FriendListMsg{Friends: friends, Err: err}
 	}
 }

@@ -55,12 +55,14 @@ func (s *ChatServiceServer) StreamMessages(stream chat.ChatService_StreamMessage
 
 	// Send a welcome message after the stream is established.
 	welcomeResponse := &chat.MessageResponse{
-		SenderId:       0, // Use 0 or a special ID to indicate server-originated message.
-		SenderUsername: "server",
-		RecipientId:    senderID,
-		MessageId:      "welcome",
-		Status:         "connected",
-		Timestamp:      time.Now().Format(time.RFC3339),
+		SenderId:         0, // Use 0 or a special ID to indicate server-originated message.
+		SenderUsername:   "server",
+		RecipientId:      senderID,
+		MessageId:        "welcome",
+		Status:           "connected",
+		Timestamp:        time.Now().Format(time.RFC3339),
+		EncryptionType:   chat.EncryptionType_PLAIN,
+		EncryptedMessage: []byte("Welcome to the CLI chat app!"),
 	}
 
 	// Send the welcome message to the client.

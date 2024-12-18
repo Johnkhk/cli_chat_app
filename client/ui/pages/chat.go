@@ -22,8 +22,9 @@ type ChatMessage struct {
 
 // Define a custom message type for received messages.
 type ReceivedMessage struct {
-	Sender  string
-	Message string
+	SenderID uint32
+	Sender   string
+	Message  string
 }
 type ChatModel struct {
 	viewport       viewport.Model
@@ -37,7 +38,10 @@ type ChatModel struct {
 	cancel         context.CancelFunc
 	activeUserID   int32 // Add this field to track the active user ID
 	activeUsername string
+	serverMessages []ChatMessage
 }
+
+const gap = "\n\n"
 
 // NewChatModel initializes a new ChatModel.
 func NewChatModel(rpcClient *app.RpcClient) ChatModel {
@@ -122,16 +126,18 @@ func (m ChatModel) listenToMessageChannel() tea.Cmd {
 					// Log the decrypted message and return it as a ReceivedMessage.
 					m.rpcClient.Logger.Infof("Received decrypted message from channel: Sender=%s, Message=%s, Status=%s", msg.SenderUsername, decrypted, msg.Status)
 					return ReceivedMessage{
-						Sender:  msg.SenderUsername,
-						Message: decrypted,
+						SenderID: msg.SenderId,
+						Sender:   msg.SenderUsername,
+						Message:  decrypted,
 					}
 				} else {
 
 					// Log the received message and return it as a ReceivedMessage.
 					m.rpcClient.Logger.Infof("Received message from channel: Sender=%s, Message=%s, Status=%s", msg.SenderUsername, string(msg.EncryptedMessage), msg.Status)
 					return ReceivedMessage{
-						Sender:  msg.SenderUsername,
-						Message: string(msg.EncryptedMessage),
+						SenderID: msg.SenderId,
+						Sender:   msg.SenderUsername,
+						Message:  string(msg.EncryptedMessage),
 					}
 				}
 			}
@@ -164,6 +170,18 @@ func (m ChatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.rpcClient.Logger.Warn("Attempted to send an empty message.")
 				return m, nil
 			}
+
+			// Prevent sending messages to the server
+			if m.activeUserID == 0 {
+				m.serverMessages = append(m.serverMessages, ChatMessage{
+					Sender:  "server",
+					Message: "Please select a user (that is not me) to chat with. Add friends to your friends list to chat with them.",
+				})
+				m.messages = m.serverMessages
+				m.viewport.SetContent(m.renderMessages())
+				return m, nil
+			}
+
 			m.rpcClient.Logger.Infof("Sending message: %s", userMessage)
 
 			// Add the user's message with "self" style and send it to the server.
@@ -176,8 +194,7 @@ func (m ChatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.viewport.GotoBottom()
 
 			// Send the message to the server.
-			// err := m.rpcClient.ChatClient.SendUnencryptedMessage(m.ctx, uint32(m.activeUserID), userMessage) // Assuming recipient ID is 1.
-			err := m.rpcClient.ChatClient.SendMessage(m.ctx, uint32(m.activeUserID), m.rpcClient.CurrentDeviceID, []byte(userMessage)) // Assuming recipient ID is 1.
+			err := m.rpcClient.ChatClient.SendMessage(m.ctx, uint32(m.activeUserID), m.rpcClient.CurrentDeviceID, []byte(userMessage))
 			if err != nil {
 				m.rpcClient.Logger.Errorf("Failed to send message: %v", err)
 				return m, tea.Quit
@@ -195,16 +212,29 @@ func (m ChatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 	case ReceivedMessage:
-		// Handle incoming messages from the channel.
-		m.rpcClient.Logger.Infof("Received message from sender %s: %s", msg.Sender, msg.Message)
-		m.messages = append(m.messages, ChatMessage{
-			Sender:  msg.Sender,
-			Message: msg.Message,
-		})
-		m.viewport.SetContent(m.renderMessages())
-		m.textarea.Reset()
-		m.viewport.GotoBottom()
-		return m, m.listenToMessageChannel() // Continue listening to the message channel.
+		// Ensure active user is set correctly
+		if m.activeUserID == 0 {
+			m.serverMessages = append(m.serverMessages, ChatMessage{
+				Sender:  msg.Sender,
+				Message: msg.Message,
+			})
+			m.messages = m.serverMessages
+			m.viewport.SetContent(m.renderMessages())
+			return m, m.listenToMessageChannel()
+		}
+
+		// Check if the message is from the active user
+		if msg.SenderID == uint32(m.activeUserID) {
+			m.rpcClient.Logger.Infof("Processing message from sender %s: %s", msg.Sender, msg.Message)
+			m.messages = append(m.messages, ChatMessage{
+				Sender:  msg.Sender,
+				Message: msg.Message,
+			})
+			m.viewport.SetContent(m.renderMessages())
+			m.textarea.Reset()
+			m.viewport.GotoBottom()
+		}
+		return m, m.listenToMessageChannel()
 
 	case errMsg:
 		// Handle errors from the channel.
@@ -218,48 +248,42 @@ func (m ChatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 // View renders the chat view.
 func (m ChatModel) View() string {
 	return fmt.Sprintf(
-		"%s\n\n%s",
+		// "%s\n\n%s",
+		"%s%s%s",
 		m.viewport.View(),
+		gap,
 		m.textarea.View(),
-	) + "\n\n"
+	)
 }
 
 // renderMessages iterates over the chat messages and applies styles based on sender.
 func (m ChatModel) renderMessages() string {
 	var renderedMessages []string
-	viewportWidth := m.viewport.Width // Use viewport width to determine right alignment.
 
 	for _, msg := range m.messages {
 		var styledMessage string
 		switch msg.Sender {
 		case "self":
 			// Render self messages with the left-aligned style.
-			styledMessage = m.selfStyle.Render(fmt.Sprintf("You: %s", msg.Message))
-
-		case "other":
-			// Render other messages right-aligned with padding to push to the right side.
-			msgContent := fmt.Sprintf("Other: %s", msg.Message)
-			styledMessage = m.otherStyle.Render(msgContent)
-			spacesNeeded := viewportWidth - lipgloss.Width(msgContent) - 2 // Adjust right padding.
-			if spacesNeeded > 0 {
-				styledMessage = lipgloss.NewStyle().MarginLeft(spacesNeeded).Render(styledMessage)
-			}
-		case "server":
-			continue // Skip rendering server welcome messages.
+			styledMessage = m.selfStyle.Render("You: ") + msg.Message
+			// styledMessage = msg.Message
 		default:
 			// Render messages from any other sender with a default style
 			defaultStyle := lipgloss.NewStyle().
 				Foreground(lipgloss.Color("6")). // Use a unique color for other usernames.
 				Align(lipgloss.Left).
 				PaddingLeft(1) // Left padding to differentiate from "self"
-			styledMessage = defaultStyle.Render(fmt.Sprintf("%s: %s", msg.Sender, msg.Message))
+			// styledMessage = defaultStyle.Render(fmt.Sprintf("%s: %s", msg.Sender, msg.Message))
+			styledMessage = defaultStyle.Render(fmt.Sprintf("%s: ", msg.Sender)) + msg.Message
+			// styledMessage = msg.Message
 		}
 
 		// Append the rendered message to the list
 		renderedMessages = append(renderedMessages, styledMessage)
 	}
 
-	return strings.Join(renderedMessages, "\n")
+	// Wrap content before setting it to ensure it fits within the viewport width.
+	return lipgloss.NewStyle().Width(m.viewport.Width).Render(strings.Join(renderedMessages, "\n"))
 }
 
 func (m *ChatModel) SetActiveUser(userID int32, username string) {
@@ -268,10 +292,16 @@ func (m *ChatModel) SetActiveUser(userID int32, username string) {
 	m.activeUsername = username
 	m.messages = []ChatMessage{} // Clear existing messages when switching users.
 
+	// Special case for server
+	if userID == 0 {
+		m.messages = m.serverMessages
+		m.viewport.SetContent(m.renderMessages())
+		return
+	}
+
 	// Fetch chat history between the current user and the active user.
 	m.rpcClient.Logger.Infof("Fetching chat history between users: CurrentUserID=%d, ActiveUserID=%d", m.rpcClient.CurrentUserID, userID)
 	chatHistory, err := m.rpcClient.ChatClient.Store.GetChatHistoryBetweenUsers(m.rpcClient.CurrentUserID, uint32(userID))
-	// chatHistory, err := m.rpcClient.ChatClient.Store.GetAllChatHistory()
 	if err != nil {
 		m.rpcClient.Logger.Errorf("Failed to get chat history: %v", err)
 		m.viewport.SetContent(fmt.Sprintf("Failed to load chat history with %s", username))
