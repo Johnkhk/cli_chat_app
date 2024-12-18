@@ -24,7 +24,7 @@ It is designed to be lightweight, fast, and easy to use, making it perfect for d
 - **User Authentication**: Register and log in with a username and password. JWTs are used to keep you signed in between sessions.
 - **Friend Management**: Send and receive friend requests, and manage your friend list.
 - **Real-time Communication**: Chat with your friends in real-time using a simple and intuitive interface.
-- **Cross-Platform**: Available on Linux, macOS, and Windows.
+- **Cross-Platform**: Available on Linux, macOS (Intel and ARM), and Windows.
 
 ## Getting Started
 
