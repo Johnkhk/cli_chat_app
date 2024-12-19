@@ -3,6 +3,8 @@
 - [CLI Chat App](#cli-chat-app)
   - [Introduction](#introduction)
   - [Features](#features)
+  - [Examples](#examples)
+    - [App usage between two users](#app-usage-between-two-users)
   - [Getting Started](#getting-started)
     - [Installation](#installation)
       - [Client Installation](#client-installation)
@@ -25,6 +27,13 @@ It is designed to be lightweight, fast, and easy to use, making it perfect for d
 - **Friend Management**: Send and receive friend requests, and manage your friend list.
 - **Real-time Communication**: Chat with your friends in real-time using a simple and intuitive interface.
 - **Cross-Platform**: Available on Linux, macOS (Intel and ARM), and Windows.
+
+## Examples
+
+### App usage between two users
+
+[![Example](https://img.youtube.com/vi/auK8GqmSAlw/3.jpg)](https://youtu.be/auK8GqmSAlw)
+
 
 ## Getting Started
 
