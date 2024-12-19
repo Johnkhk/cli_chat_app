@@ -5,7 +5,7 @@
   - [Features](#features)
   - [Examples](#examples)
     - [Run the app using an alias (gif)](#run-the-app-using-an-alias-gif)
-    - [App usage between three users (youtube)](#app-usage-between-three-users-youtube)
+    - [App usage between two users (youtube)](#app-usage-between-two-users-youtube)
   - [Getting Started](#getting-started)
     - [Installation](#installation)
       - [Client Installation](#client-installation)
@@ -35,9 +35,8 @@ It is designed to be lightweight, fast, and easy to use, making it perfect for d
 
 <img src="./assets/usage1.gif" width="600" alt="Example of running the app with an alias">
 
-### App usage between three users (youtube)
-
-<img src="https://img.youtube.com/vi/auK8GqmSAlw/0.jpg" width="600" alt="Example of app usage between three users" onclick="window.open('https://youtu.be/auK8GqmSAlw')">
+### App usage between two users (youtube)
+[![Watch the video](https://img.youtube.com/vi/auK8GqmSAlw/0.jpg){width="600"}](https://www.youtube.com/watch?v=auK8GqmSAlw)
 
 
 ## Getting Started
