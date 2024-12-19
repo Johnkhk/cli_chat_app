@@ -212,8 +212,8 @@ func (m ChatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 	case ReceivedMessage:
-		// Ensure active user is set correctly
-		if m.activeUserID == 0 {
+		// If the message is from the server, add it to the server messages.
+		if m.activeUserID == 0 && msg.SenderID == 0 {
 			m.serverMessages = append(m.serverMessages, ChatMessage{
 				Sender:  msg.Sender,
 				Message: msg.Message,

@@ -54,6 +54,40 @@ func (m FriendManagementModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.terminalHeight = msg.Height
 
 	case tea.KeyMsg:
+		// Check if the current tab is the outgoing requests tab
+		if outgoingModel, ok := m.tabContent[2].(outgoingRequestsModel); ok {
+			if outgoingModel.showInput {
+				// If the input is active, update the text input
+				var tiCmd tea.Cmd
+				outgoingModel.textInput, tiCmd = outgoingModel.textInput.Update(msg)
+				cmds = append(cmds, tiCmd)
+
+				switch msg.String() {
+				case "enter":
+					newFriendName := outgoingModel.textInput.Value()
+					outgoingModel.textInput.Blur()
+					outgoingModel.sentRequestsTable.Focus()
+					outgoingModel.showInput = false
+					if newFriendName != "" {
+						cmd := func() tea.Msg {
+							err := m.rpcClient.FriendsClient.SendFriendRequest(newFriendName)
+							return SendFriendRequestResultMsg{RecipientUsername: newFriendName, Err: err}
+						}
+						cmds = append(cmds, cmd)
+						outgoingModel.textInput.SetValue("")
+					}
+
+				case "esc":
+					outgoingModel.textInput.Blur()
+					outgoingModel.sentRequestsTable.Focus()
+					outgoingModel.showInput = false
+				}
+
+				m.tabContent[2] = outgoingModel // Update the tab content with the modified model
+				return m, tea.Batch(cmds...)
+			}
+		}
+
 		switch keypress := msg.String(); keypress {
 		case "ctrl+c", "q":
 			m.rpcClient.Logger.Info("Exiting the application from main menu")
@@ -82,7 +116,6 @@ func (m FriendManagementModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			chatCmd := chatPanelModel.Init() // Init returns the command for loading friends
 
 			// Update the chat panel to handle the incoming message
-			// updatedChatPanelModel, updateCmd := chatPanelModel.Update(msg)
 			updatedChatPanelModel, updateCmd := chatPanelModel.Update(tea.WindowSizeMsg{Width: m.terminalWidth, Height: m.terminalHeight})
 
 			// Return only the updated chat model and its commands, ignoring the previous model's cmds
