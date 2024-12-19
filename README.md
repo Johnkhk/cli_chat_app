@@ -4,8 +4,9 @@
   - [Introduction](#introduction)
   - [Features](#features)
   - [Examples](#examples)
-    - [Run the app using an alias (gif)](#run-the-app-using-an-alias-gif)
-    - [App usage between two users (youtube)](#app-usage-between-two-users-youtube)
+    - [Run the app using an alias](#run-the-app-using-an-alias)
+    - [Friend requests between two users](#friend-requests-between-two-users)
+    - [Sending messages between two users](#sending-messages-between-two-users)
   - [Getting Started](#getting-started)
     - [Installation](#installation)
       - [Client Installation](#client-installation)
@@ -31,13 +32,17 @@ It is designed to be lightweight, fast, and easy to use, making it perfect for d
 
 ## Examples
 
-### Run the app using an alias (gif)
+### Run the app using an alias
 
 <img src="./assets/usage1.gif" width="600" alt="Example of running the app with an alias">
 
-### App usage between two users (youtube)
-[![Watch the video](https://img.youtube.com/vi/auK8GqmSAlw/0.jpg){width="600"}](https://www.youtube.com/watch?v=auK8GqmSAlw)
+### Friend requests between two users
 
+<img src="./assets/usage3.gif" width="600" alt="Example of sending friend requests between two users">
+
+### Sending messages between two users
+
+<img src="./assets/usage2.gif" width="600" alt="Example of running the app with an alias">
 
 ## Getting Started
 
