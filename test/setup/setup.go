@@ -9,7 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/joho/godotenv"
 	"github.com/sirupsen/logrus"
 
 	"github.com/johnkhk/cli_chat_app/client/app"
@@ -18,17 +17,22 @@ import (
 // NewDefaultTestServerConfig creates a TestServerConfig with default values
 func NewDefaultTestServerConfig(t *testing.T) (*TestServerConfig, error) {
 	// Load environment variables from .env file
-	if err := godotenv.Load("../../.env"); err != nil {
-		if t != nil {
-			t.Fatalf("Error loading .env file: %v", err)
-		} else {
-			t.Fatalf("Error loading .env file: %v", err)
-		}
-	}
+	// if err := godotenv.Load("../../.env"); err != nil {
+	// 	if t != nil {
+	// 		t.Fatalf("Error loading .env file: %v", err)
+	// 	} else {
+	// 		t.Fatalf("Error loading .env file: %v", err)
+	// 	}
+	// }
 	// Get the log directory from the environment variable
 	logDir := os.Getenv("TEST_LOG_DIR")
 	if logDir == "" {
-		return nil, fmt.Errorf("environment variable TEST_LOG_DIR is not set")
+		// return nil, fmt.Errorf("environment variable TEST_LOG_DIR is not set")
+		appDirPath, err := app.GetAppDirPath()
+		if err != nil {
+			t.Fatalf("Failed to get app directory path: %v", err)
+		}
+		logDir = filepath.Join(appDirPath, "test_logs")
 	}
 
 	// Ensure the directory exists

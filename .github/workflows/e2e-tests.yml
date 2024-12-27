@@ -1,0 +1,26 @@
+name: Run Tests
+
+on:
+  workflow_run:
+    workflows: ["Deploy to EC2"]  # Name of the deploy-ec2 workflow
+    types:
+      - completed
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.21'  # Ensure this matches your project's Go version
+
+    - name: Install gotestsum
+      run: go install gotest.tools/gotestsum@latest
+
+    - name: Run tests
+      run: gotestsum --format=short-verbose ./test/rpc/...
