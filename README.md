@@ -11,6 +11,7 @@
     - [Friend requests between two users](#friend-requests-between-two-users)
     - [Sending messages between two users](#sending-messages-between-two-users)
   - [Usage](#usage)
+  - [Testing](#testing)
   - [Contributing](#contributing)
   - [License](#license)
   - [Acknowledgments](#acknowledgments)
@@ -68,6 +69,34 @@ It is designed to be lightweight, fast, and easy to use, making it perfect for d
 - **Login**: Log in with your credentials to access the chat features.
 - **Send Friend Requests**: Add friends by sending them a request.
 - **Chat**: Start a conversation with your friends.
+
+## Testing
+
+Testing is done using [gotestsum](https://github.com/gotestyourself/gotestsum). Tests set up and teardown a single server, a specified number of clients, and the necessary (local client and server) databases.
+
+To run the tests, set the following environment variables:
+
+```
+CLI_CHAT_APP_JWT_SECRET_KEY=your-generated-key
+TEST_DATABASE_URL="root@tcp(127.0.0.1:3306)/
+```
+
+Optionally, you can set the `TEST_LOG_DIR` environment variable to specify the directory for the test logs. If not set, the logs will be stored in the app directory. (See `GetAppDirPath()` in `client/app/utils.go`)
+
+The jwt key is a random 32-byte key encoded in Base64. You can generate one using the following command:
+
+```
+openssl rand -base64 32
+```
+
+Then run the following command:
+
+```
+gotestsum --format=short-verbose ./test/...
+```
+
+Tests are also ran in github actions.
+
 
 ## Contributing
 
