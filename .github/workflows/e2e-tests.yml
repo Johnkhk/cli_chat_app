@@ -12,6 +12,8 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-latest
+    env:
+      CLI_CHAT_APP_JWT_SECRET_KEY: ${{ secrets.CLI_CHAT_APP_JWT_SECRET_KEY }}
 
     steps:
     - name: Checkout code
@@ -29,6 +31,4 @@ jobs:
       run: env | grep CLI_CHAT_APP_JWT_SECRET_KEY
 
     - name: Run tests
-      env:
-        CLI_CHAT_APP_JWT_SECRET_KEY: ${{ secrets.CLI_CHAT_APP_JWT_SECRET_KEY }}
       run: gotestsum --format=short-verbose ./test/rpc/...
