@@ -22,6 +22,9 @@ jobs:
     - name: Install gotestsum
       run: go install gotest.tools/gotestsum@latest
 
+    - name: Debug environment
+      run: env | grep CLI_CHAT_APP_JWT_SECRET_KEY
+
     - name: Run tests
       env:
         CLI_CHAT_APP_JWT_SECRET_KEY: ${{ secrets.CLI_CHAT_APP_JWT_SECRET_KEY }}
