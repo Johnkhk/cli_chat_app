@@ -12,22 +12,57 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-latest
-    environment: prod env  # Specify the environment (in github settings)
+    environment: prod env
+
+    # Spin up MySQL as a service
+    services:
+      mysql:
+        image: mysql:5.7
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: testdb  # We can name it whatever you want
+        ports:
+          - 3306:3306
+        # Ensure service is "healthy" before proceeding
+        options: >-
+          --health-cmd="mysqladmin ping --silent"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=3
+
+    # Make sure your secrets are passed in here
     env:
       CLI_CHAT_APP_JWT_SECRET_KEY: ${{ secrets.CLI_CHAT_APP_JWT_SECRET_KEY }}
-      TEST_DATABASE_URL: ${{ secrets.TEST_DATABASE_URL }}
+      TEST_LOG_DIR: "/home/runner/test_logs"
+
+      # If you want to use the local MySQL container, override TEST_DATABASE_URL:
+      # e.g. "root:root@tcp(localhost:3306)/testdb?parseTime=True"
+      TEST_DATABASE_URL: "root:root@tcp(127.0.0.1:3306)/testdb?parseTime=True"
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v3
 
-    - name: Set up Go
-      uses: actions/setup-go@v5
-      with:
-        go-version: '1.21'  # Ensure this matches your project's Go version
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
 
-    - name: Install gotestsum
-      run: go install gotest.tools/gotestsum@latest
+      - name: Install gotestsum
+        run: go install gotest.tools/gotestsum@latest
 
-    - name: Run tests
-      run: gotestsum --format=short-verbose ./test/rpc/...
+      - name: Wait for MySQL (optional)
+        run: |
+          # Usually the service's health check is enough,
+          # but you can do an extra ping if your tests run too quickly.
+          for i in {1..30}; do
+            if mysqladmin ping -h127.0.0.1 --silent; then
+              echo "MySQL is up!"
+              break
+            fi
+            echo "Waiting for MySQL..."
+            sleep 2
+          done
+
+      - name: Run tests
+        run: gotestsum --format=short-verbose ./test/rpc/...
