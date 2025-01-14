@@ -23,4 +23,6 @@ jobs:
       run: go install gotest.tools/gotestsum@latest
 
     - name: Run tests
+      env:
+        CLI_CHAT_APP_JWT_SECRET_KEY: ${{ secrets.CLI_CHAT_APP_JWT_SECRET_KEY }}
       run: gotestsum --format=short-verbose ./test/rpc/...
