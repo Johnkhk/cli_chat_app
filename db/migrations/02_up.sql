@@ -12,7 +12,7 @@ CREATE TABLE friend_requests (
     recipient_id INT NOT NULL, -- User ID of the recipient
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, -- When the request was made
     status VARCHAR(20) DEFAULT 'PENDING', -- Status of the request (pending, accepted, declined)
-    response_at TIMESTAMP, -- When the request was accepted or declined
+    response_at TIMESTAMP NULL DEFAULT NULL
     FOREIGN KEY (requester_id) REFERENCES users(id),
     FOREIGN KEY (recipient_id) REFERENCES users(id)
 );
