@@ -34,10 +34,7 @@ jobs:
     env:
       CLI_CHAT_APP_JWT_SECRET_KEY: ${{ secrets.CLI_CHAT_APP_JWT_SECRET_KEY }}
       TEST_LOG_DIR: "/home/runner/test_logs"
-
-      # If you want to use the local MySQL container, override TEST_DATABASE_URL:
-      # e.g. "root:root@tcp(localhost:3306)/testdb?parseTime=True"
-      TEST_DATABASE_URL: "root:root@tcp(127.0.0.1:3306)/testdb?parseTime=True"
+      TEST_DATABASE_URL: "root:root@tcp(127.0.0.1:3306)/"
 
     steps:
       - name: Checkout code
