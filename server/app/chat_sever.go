@@ -64,6 +64,7 @@ func (s *ChatServiceServer) StreamMessages(stream chat.ChatService_StreamMessage
 		EncryptionType:   chat.EncryptionType_PLAIN,
 		EncryptedMessage: []byte("Welcome to the CLI chat app!"),
 	}
+	s.Logger.Infof("Sending server message!!!: %s", welcomeResponse.EncryptedMessage)
 
 	// Send the welcome message to the client.
 	if err := stream.Send(welcomeResponse); err != nil {
