@@ -3,7 +3,7 @@ version: '3.8'
 services:
   server:
     image: "johnkhh/cli-chat-app-server:latest"
-    # pull_policy: always
+    pull_policy: always
 
     ports:
       - "50051:50051"
