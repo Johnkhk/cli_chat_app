@@ -3,14 +3,16 @@ FROM golang:1.22-alpine AS builder
 WORKDIR /app
 COPY . .
 RUN go mod download
-RUN CGO_ENABLED=0 GOOS=linux go build -o server ./cmd/server/main.go
-RUN ls -l /app  # Verify that the binary 'server' exists
+# Build the binary with a unique name to avoid conflict with the 'server' directory
+RUN CGO_ENABLED=0 GOOS=linux go build -o server-bin ./cmd/server/main.go
+# List files to verify that server-bin exists (and note that 'server' is still a directory)
+RUN ls -l /app
 
 # Run stage
 FROM alpine:latest
 WORKDIR /app
-# Copy the built binary into the current working directory (i.e. /app)
-COPY --from=builder /app/server .
-RUN chmod +x ./server
+# Copy the built binary (server-bin) from the builder stage into the current working directory
+COPY --from=builder /app/server-bin .
+RUN chmod +x ./server-bin
 EXPOSE 50051
-CMD ["./server"]
+CMD ["./server-bin"]
