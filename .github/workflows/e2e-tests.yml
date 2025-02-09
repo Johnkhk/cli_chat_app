@@ -1,10 +1,9 @@
 name: Run Tests
 
 on:
-  workflow_run:
-    workflows: ["Deploy to EC2"]  # Name of the deploy-ec2 workflow
-    types:
-      - completed
+  push:
+    branches:
+      - main
 
 permissions:
   contents: read
