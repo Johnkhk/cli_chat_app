@@ -9,10 +9,8 @@ RUN ls -l /app  # Verify that the binary 'server' exists
 # Run stage
 FROM alpine:latest
 WORKDIR /app
-# Copy the binary from the builder stage explicitly to /app/server
-COPY --from=builder /app/server /app/server
-# Ensure the binary is executable
-RUN chmod +x /app/server
+# Copy the built binary into the current working directory (i.e. /app)
+COPY --from=builder /app/server .
+RUN chmod +x ./server
 EXPOSE 50051
-# Use the full path to run the server binary
-CMD ["/app/server"]
+CMD ["./server"]
