@@ -23,9 +23,18 @@ func main() {
 		envPath = ".env"
 	}
 
-	// Load environment variables from the specified .env file path
-	if err := godotenv.Load(envPath); err != nil {
-		log.Fatalf("Error loading environment file %s: %v", envPath, err)
+	// Only load the environment variables if the file exists.
+	if _, err := os.Stat(envPath); err == nil {
+		// File exists, so load the environment.
+		if err := godotenv.Load(envPath); err != nil {
+			log.Fatalf("Error loading environment file %s: %v", envPath, err)
+		}
+	} else if os.IsNotExist(err) {
+		// .env file does not exist, so we skip loading it.
+		log.Printf("No env file found at %s, skipping environment variable loading", envPath)
+	} else {
+		// An error occurred when checking for the file.
+		log.Fatalf("Error checking env file %s: %v", envPath, err)
 	}
 
 	// Check the port value
