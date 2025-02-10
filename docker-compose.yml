@@ -9,6 +9,12 @@ services:
       - "50051:50051"
     environment:
       - ENV_PATH=.env
+      - PORT=${PORT}
+      - CLI_CHAT_APP_JWT_SECRET_KEY=${CLI_CHAT_APP_JWT_SECRET_KEY}
+      - DATABASE_URL=${DATABASE_URL}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+
     depends_on:
       db:
         condition: service_healthy  # Wait for db to be healthy
