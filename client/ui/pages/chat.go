@@ -118,7 +118,8 @@ func (m ChatModel) listenToMessageChannel() tea.Cmd {
 				// Check if the message is encrypted.
 				if msg.EncryptionType == chat.EncryptionType_SIGNAL || msg.EncryptionType == chat.EncryptionType_PREKEY {
 					// Decrypt the message using the Signal protocol.
-					decrypted, err := m.rpcClient.ChatClient.DecryptMessage(m.ctx, msg)
+					decryptedBytes, err := m.rpcClient.ChatClient.DecryptMessage(m.ctx, msg)
+					decrypted := string(decryptedBytes)
 					if err != nil {
 						m.rpcClient.Logger.Errorf("Failed to decrypt message: %v", err)
 						return errMsg{err}
@@ -195,8 +196,8 @@ func (m ChatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.textarea.Reset()
 			m.viewport.GotoBottom()
 
-			// Send the message to the server.
-			err := m.rpcClient.ChatClient.SendMessage(m.ctx, uint32(m.activeUserID), m.rpcClient.CurrentDeviceID, []byte(userMessage))
+			// Send the message to the server. NIL for now as it's a text message.
+			err := m.rpcClient.ChatClient.SendMessage(m.ctx, uint32(m.activeUserID), m.rpcClient.CurrentDeviceID, []byte(userMessage), nil)
 			if err != nil {
 				m.rpcClient.Logger.Errorf("Failed to send message: %v", err)
 				return m, tea.Quit
@@ -303,7 +304,7 @@ func (m *ChatModel) SetActiveUser(userID int32, username string) {
 
 	// Fetch chat history between the current user and the active user.
 	m.rpcClient.Logger.Infof("Fetching chat history between users: CurrentUserID=%d, ActiveUserID=%d", m.rpcClient.CurrentUserID, userID)
-	chatHistory, err := m.rpcClient.ChatClient.Store.GetChatHistoryBetweenUsers(m.rpcClient.CurrentUserID, uint32(userID))
+	chatHistory, err := m.rpcClient.ChatClient.Store.GetChatHistory(m.rpcClient.CurrentUserID, uint32(userID))
 	if err != nil {
 		m.rpcClient.Logger.Errorf("Failed to get chat history: %v", err)
 		m.viewport.SetContent(fmt.Sprintf("Failed to load chat history with %s", username))

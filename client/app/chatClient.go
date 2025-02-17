@@ -17,6 +17,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/johnkhk/cli_chat_app/client/e2ee/store"
+	"github.com/johnkhk/cli_chat_app/client/lib"
 	"github.com/johnkhk/cli_chat_app/genproto/auth"
 	"github.com/johnkhk/cli_chat_app/genproto/chat"
 )
@@ -131,7 +132,7 @@ func (cc *ChatClient) initializeSessionWithDevice(ctx context.Context, recipient
 }
 
 // SendMessage encrypts a message and sends it to the recipient through the chat service.
-func (cc *ChatClient) EncryptMessage(ctx context.Context, recipientID, deviceID uint32, plaintext []byte) (message.Ciphertext, error) {
+func (cc *ChatClient) EncryptMessage(ctx context.Context, recipientID, deviceID uint32, messageBytes []byte) (message.Ciphertext, error) {
 	// Ensure that the persistent stream is open
 	if cc.Stream == nil {
 		return nil, fmt.Errorf("no active stream found. Ensure that openPersistentStream has been called.")
@@ -164,8 +165,8 @@ func (cc *ChatClient) EncryptMessage(ctx context.Context, recipientID, deviceID 
 
 	cc.Logger.Infof("Using session to encrypt message for recipient %d", recipientID)
 
-	// Encrypt the plaintext message using the session
-	ciphertext, err := session.EncryptMessage(ctx, plaintext)
+	// Encrypt the messageBytes message using the session
+	ciphertext, err := session.EncryptMessage(ctx, messageBytes)
 	if err != nil {
 		return nil, fmt.Errorf("failed to encrypt message: %v", err)
 	}
@@ -173,9 +174,17 @@ func (cc *ChatClient) EncryptMessage(ctx context.Context, recipientID, deviceID 
 	return ciphertext, nil
 }
 
-func (cc *ChatClient) SendMessage(ctx context.Context, recipientID, deviceID uint32, plaintext []byte) error {
+func (cc *ChatClient) SendMessage(ctx context.Context, recipientID, deviceID uint32, messageBytes []byte, opts *lib.SendMessageOptions) error {
+	// If opts is nil, assume it's a text message
+	if opts == nil {
+		opts = &lib.SendMessageOptions{
+			FileType: "text",
+			FileSize: 0,
+			FileName: "",
+		}
+	}
 
-	ciphertext, err := cc.EncryptMessage(ctx, recipientID, deviceID, plaintext)
+	ciphertext, err := cc.EncryptMessage(ctx, recipientID, deviceID, messageBytes)
 	if err != nil {
 		return fmt.Errorf("failed to encrypt message: %v", err)
 	}
@@ -203,6 +212,9 @@ func (cc *ChatClient) SendMessage(ctx context.Context, recipientID, deviceID uin
 		MessageId:        uuid.NewString(),                // Generate a unique message ID
 		Timestamp:        time.Now().Format(time.RFC3339), // Timestamp in ISO 8601 format
 		EncryptionType:   encryptionType,                  // Set the message type
+		FileType:         opts.FileType,
+		FileSize:         opts.FileSize,
+		FileName:         opts.FileName,
 	}
 
 	// Send the message using the persistent stream
@@ -211,7 +223,7 @@ func (cc *ChatClient) SendMessage(ctx context.Context, recipientID, deviceID uin
 	}
 
 	// Store the message in the sender's local chat history with delivered status set to 0 (false) after successfully sending
-	if err := cc.Store.SaveChatMessage(msgRequest.MessageId, cc.AuthClient.ParentClient.CurrentUserID, recipientID, string(plaintext), 0); err != nil {
+	if err := cc.Store.SaveChatMessage(msgRequest.MessageId, cc.AuthClient.ParentClient.CurrentUserID, recipientID, []byte(messageBytes), 0, opts); err != nil {
 		cc.Logger.Errorf("Failed to store sent message in chat history: %v", err)
 	}
 
@@ -219,19 +231,18 @@ func (cc *ChatClient) SendMessage(ctx context.Context, recipientID, deviceID uin
 	return nil
 }
 
-// SendUnencryptedMessage sends a plaintext message to the recipient through the chat service without encryption.
-func (cc *ChatClient) SendUnencryptedMessage(ctx context.Context, recipientID uint32, plaintext string) error {
-
+// SendUnencryptedMessage sends a messageBytes message to the recipient through the chat service without encryption.
+func (cc *ChatClient) SendUnencryptedMessage(ctx context.Context, recipientID uint32, messageBytes string) error {
 	// Ensure that the persistent stream is open
 	if cc.Stream == nil {
 		return fmt.Errorf("no active stream found. Ensure that openPersistentStream has been called.")
 	}
 
 	messageId := uuid.NewString()
-	// Create a new message request with the plaintext content
+	// Create a new message request with the messageBytes content
 	msgRequest := &chat.MessageRequest{
 		RecipientId:      recipientID,                     // Set recipient ID
-		EncryptedMessage: []byte(plaintext),               // Use plaintext directly as the message content
+		EncryptedMessage: []byte(messageBytes),            // Use messageBytes directly as the message content
 		MessageId:        messageId,                       // Generate a unique message ID
 		Timestamp:        time.Now().Format(time.RFC3339), // Timestamp in ISO 8601 format
 		EncryptionType:   chat.EncryptionType_PLAIN,       // Set the message type to PLAIN
@@ -252,9 +263,10 @@ func (cc *ChatClient) SendUnencryptedMessage(ctx context.Context, recipientID ui
 	err = cc.Store.SaveChatMessage(
 		messageId,
 		userId,
-		recipientID, // Receiver ID
-		plaintext,   // The plaintext message
-		0,           // delivered status is set to 0 (false) initially
+		recipientID,          // Receiver ID
+		[]byte(messageBytes), // The messageBytes message
+		0,                    // delivered status is set to 0 (false) initially
+		nil,
 	)
 	if err != nil {
 		cc.Logger.Errorf("Failed to store sent message in chat history: %v", err)
@@ -302,13 +314,17 @@ func (cc *ChatClient) listenForMessages(ctx context.Context) {
 				// for now
 				// unecryptedMessage := string(resp.EncryptedMessage)
 				// Decrypt the message
-				unecryptedMessage, err := cc.DecryptMessage(ctx, resp)
+				unecryptedMessageBytes, err := cc.DecryptMessage(ctx, resp)
 				if err != nil {
 					cc.Logger.Errorf("Failed to decrypt message %s: %v", resp.MessageId, err)
 					continue
 				}
 
-				err = cc.Store.SaveChatMessage(resp.MessageId, resp.SenderId, resp.RecipientId, unecryptedMessage, 1)
+				err = cc.Store.SaveChatMessage(resp.MessageId, resp.SenderId, resp.RecipientId, unecryptedMessageBytes, 1, &lib.SendMessageOptions{
+					FileType: resp.FileType,
+					FileSize: resp.FileSize,
+					FileName: resp.FileName,
+				})
 				if err != nil {
 					cc.Logger.Errorf("Failed to save message %s in chat history: %v", resp.MessageId, err)
 				}
@@ -340,7 +356,7 @@ func (cc *ChatClient) listenForMessages(ctx context.Context) {
 	}
 }
 
-func (cc *ChatClient) DecryptMessage(ctx context.Context, resp *chat.MessageResponse) (string, error) {
+func (cc *ChatClient) DecryptMessage(ctx context.Context, resp *chat.MessageResponse) ([]byte, error) {
 	remoteAddress := address.Address{
 		Name:     fmt.Sprintf("%d", resp.SenderId),
 		DeviceID: address.DeviceID(0), // Assuming deviceID 0
@@ -356,13 +372,13 @@ func (cc *ChatClient) DecryptMessage(ctx context.Context, resp *chat.MessageResp
 	case chat.EncryptionType_PREKEY:
 		ciphertext, err = message.NewPreKeyFromBytes(resp.EncryptedMessage)
 	case chat.EncryptionType_PLAIN:
-		return string(resp.EncryptedMessage), nil
+		return resp.EncryptedMessage, nil
 	default:
-		return "", fmt.Errorf("Message has unknown encryption type: %v", resp.EncryptionType)
+		return nil, fmt.Errorf("Message has unknown encryption type: %v", resp.EncryptionType)
 	}
 
 	if err != nil {
-		return "", fmt.Errorf("failed to reconstruct ciphertext: %v", err)
+		return nil, fmt.Errorf("failed to reconstruct ciphertext: %v", err)
 	}
 	// Create a session object
 	session := &session.Session{
@@ -374,10 +390,10 @@ func (cc *ChatClient) DecryptMessage(ctx context.Context, resp *chat.MessageResp
 	}
 
 	// Decrypt the message
-	plaintext, err := session.DecryptMessage(ctx, rand.Reader, ciphertext)
+	messageBytes, err := session.DecryptMessage(ctx, rand.Reader, ciphertext)
 	if err != nil {
-		return "", fmt.Errorf("failed to decrypt message: %v", err)
+		return nil, fmt.Errorf("failed to decrypt message: %v", err)
 	}
 
-	return string(plaintext), nil
+	return messageBytes, nil
 }

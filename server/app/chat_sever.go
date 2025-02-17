@@ -110,6 +110,9 @@ func (s *ChatServiceServer) StreamMessages(stream chat.ChatService_StreamMessage
 				Status:           "received",
 				Timestamp:        time.Now().Format(time.RFC3339), // Timestamp for when the recipient received it
 				EncryptionType:   req.EncryptionType,
+				FileName:         req.FileName,
+				FileType:         req.FileType,
+				FileSize:         req.FileSize,
 			}); err != nil {
 				s.Logger.Errorf("Failed to send/store message ID %s to recipient %d: %v", req.MessageId, req.RecipientId, err)
 
@@ -122,6 +125,9 @@ func (s *ChatServiceServer) StreamMessages(stream chat.ChatService_StreamMessage
 					Status:         "delivery_failed",
 					Timestamp:      time.Now().Format(time.RFC3339),
 					EncryptionType: req.EncryptionType,
+					FileName:       req.FileName,
+					FileType:       req.FileType,
+					FileSize:       req.FileSize,
 				}
 				if sendErr := stream.Send(failedDeliveryResponse); sendErr != nil {
 					s.Logger.Errorf("Failed to send delivery failure response to sender %d: %v", senderID, sendErr)
@@ -146,6 +152,9 @@ func (s *ChatServiceServer) StreamMessages(stream chat.ChatService_StreamMessage
 					Status:           status,
 					Timestamp:        time.Now().Format(time.RFC3339),
 					EncryptionType:   req.EncryptionType,
+					FileName:         req.FileName,
+					FileType:         req.FileType,
+					FileSize:         req.FileSize,
 				}
 				if err := stream.Send(deliveryResponse); err != nil {
 					s.Logger.Errorf("Failed to send delivery confirmation to sender %d: %v", senderID, err)

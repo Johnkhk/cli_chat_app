@@ -45,7 +45,7 @@ func InitTestServer(t *testing.T, serverConfig TestServerConfig) (*sql.DB, *Serv
 	lis = bufconn.Listen(BufSize)
 	secretKey := os.Getenv("CLI_CHAT_APP_JWT_SECRET_KEY")
 	if secretKey == "" {
-		log.Fatal("JWT secret key is not set.")
+		log.Fatal("JWT secret key is not set in bufconn setup.")
 	}
 	tokenValidator := app.NewJWTTokenValidator(secretKey)
 

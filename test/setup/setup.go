@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/joho/godotenv"
 	"github.com/sirupsen/logrus"
 
 	"github.com/johnkhk/cli_chat_app/client/app"
@@ -17,13 +18,15 @@ import (
 // NewDefaultTestServerConfig creates a TestServerConfig with default values
 func NewDefaultTestServerConfig(t *testing.T) (*TestServerConfig, error) {
 	// Load environment variables from .env file
-	// if err := godotenv.Load("../../.env"); err != nil {
-	// 	if t != nil {
-	// 		t.Fatalf("Error loading .env file: %v", err)
-	// 	} else {
-	// 		t.Fatalf("Error loading .env file: %v", err)
-	// 	}
-	// }
+	if _, err := os.Stat("../../.env"); err == nil {
+		if err := godotenv.Load("../../.env"); err != nil {
+			if t != nil {
+				t.Fatalf("Error loading .env file: %v", err)
+			} else {
+				t.Fatalf("Error loading .env file: %v", err)
+			}
+		}
+	}
 	// Get the log directory from the environment variable
 	logDir := os.Getenv("TEST_LOG_DIR")
 	if logDir == "" {

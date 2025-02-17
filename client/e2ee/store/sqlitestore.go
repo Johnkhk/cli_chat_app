@@ -119,6 +119,10 @@ func CreateTables(db *sql.DB) error {
 		sender_id INTEGER NOT NULL,
 		receiver_id INTEGER NOT NULL,
 		message TEXT NOT NULL,
+		media BLOB,                         -- Binary data for media (if stored in DB)
+		file_type TEXT,
+		file_size INTEGER,
+		file_name TEXT,
 		timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,  -- Timestamp of when the message was sent/received
 		delivered INTEGER DEFAULT 0  -- 0: Not delivered, 1: Delivered
 	);

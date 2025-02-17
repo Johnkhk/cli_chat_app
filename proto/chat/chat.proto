@@ -43,4 +43,7 @@ message MessageResponse {
   string status = 6;                // Status of the message (e.g., "delivered", "read", "received")
   string timestamp = 7;             // Timestamp of when the server processed or delivered the message
   EncryptionType encryption_type = 8; // Type of encryption (Plain, Signal, or PreKey)
+  string file_name = 9;             // (Optional) Original name of the file being sent (if any)
+  string file_type = 10;            // (Optional) MIME type of the file (e.g., "image/png", "application/pdf")
+  uint64 file_size = 11;            // (Optional) Size of the file in bytes
 }

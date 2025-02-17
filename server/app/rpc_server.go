@@ -19,7 +19,7 @@ func RunGRPCServer(ctx context.Context, port string, db *sql.DB, log *logrus.Log
 	// Initialize the token validator
 	secretKey := os.Getenv("CLI_CHAT_APP_JWT_SECRET_KEY")
 	if secretKey == "" {
-		log.Fatal("JWT secret key is not set.")
+		log.Fatal("JWT secret key is not set in GRPC server.")
 	}
 	tokenValidator := NewJWTTokenValidator(secretKey)
 
