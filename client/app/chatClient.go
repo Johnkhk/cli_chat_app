@@ -176,13 +176,6 @@ func (cc *ChatClient) EncryptMessage(ctx context.Context, recipientID, deviceID 
 
 func (cc *ChatClient) SendMessage(ctx context.Context, recipientID, deviceID uint32, messageBytes []byte, opts *lib.SendMessageOptions) error {
 	// If opts is nil, assume it's a text message
-	if opts == nil {
-		opts = &lib.SendMessageOptions{
-			FileType: "text",
-			FileSize: 0,
-			FileName: "",
-		}
-	}
 
 	ciphertext, err := cc.EncryptMessage(ctx, recipientID, deviceID, messageBytes)
 	if err != nil {
@@ -223,6 +216,7 @@ func (cc *ChatClient) SendMessage(ctx context.Context, recipientID, deviceID uin
 	}
 
 	// Store the message in the sender's local chat history with delivered status set to 0 (false) after successfully sending
+
 	if err := cc.Store.SaveChatMessage(msgRequest.MessageId, cc.AuthClient.ParentClient.CurrentUserID, recipientID, []byte(messageBytes), 0, opts); err != nil {
 		cc.Logger.Errorf("Failed to store sent message in chat history: %v", err)
 	}
@@ -246,6 +240,9 @@ func (cc *ChatClient) SendUnencryptedMessage(ctx context.Context, recipientID ui
 		MessageId:        messageId,                       // Generate a unique message ID
 		Timestamp:        time.Now().Format(time.RFC3339), // Timestamp in ISO 8601 format
 		EncryptionType:   chat.EncryptionType_PLAIN,       // Set the message type to PLAIN
+		FileType:         "text",
+		FileSize:         uint64(len(messageBytes)),
+		FileName:         "",
 	}
 
 	// Send the message using the persistent stream

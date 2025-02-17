@@ -11,13 +11,18 @@ import (
 	"github.com/charmbracelet/lipgloss"
 
 	"github.com/johnkhk/cli_chat_app/client/app"
+	"github.com/johnkhk/cli_chat_app/client/lib"
 	"github.com/johnkhk/cli_chat_app/genproto/chat"
 )
 
 // ChatMessage represents a message in the chat.
 type ChatMessage struct {
-	Sender  string // "self" or "other"
-	Message string
+	Sender   string // "self" or "other"
+	Message  string
+	FileType string
+	FileSize uint64
+	FileName string
+	FileData []byte
 }
 
 // Define a custom message type for received messages.
@@ -197,7 +202,11 @@ func (m ChatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.viewport.GotoBottom()
 
 			// Send the message to the server. NIL for now as it's a text message.
-			err := m.rpcClient.ChatClient.SendMessage(m.ctx, uint32(m.activeUserID), m.rpcClient.CurrentDeviceID, []byte(userMessage), nil)
+			err := m.rpcClient.ChatClient.SendMessage(m.ctx, uint32(m.activeUserID), m.rpcClient.CurrentDeviceID, []byte(userMessage), &lib.SendMessageOptions{
+				FileType: "text",
+				FileSize: uint64(len([]byte(userMessage))),
+				FileName: "",
+			})
 			if err != nil {
 				m.rpcClient.Logger.Errorf("Failed to send message: %v", err)
 				return m, tea.Quit
@@ -313,13 +322,17 @@ func (m *ChatModel) SetActiveUser(userID int32, username string) {
 
 	// Load chat history into the model.
 	for _, msg := range chatHistory {
+		m.rpcClient.Logger.Infof("YOOOOOOOOOOOOO %s: %s", msg.FileType, msg.Message)
 		sender := "self"
 		if msg.SenderID != m.rpcClient.CurrentUserID {
 			sender = username
 		}
 		m.messages = append(m.messages, ChatMessage{
-			Sender:  sender,
-			Message: msg.Message,
+			Sender:   sender,
+			Message:  msg.Message,
+			FileType: msg.FileType,
+			FileSize: msg.FileSize,
+			FileName: msg.FileName,
 		})
 	}
 

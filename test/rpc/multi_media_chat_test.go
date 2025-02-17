@@ -38,6 +38,13 @@ func sendAndVerifyMultiMediaMessage(t *testing.T, sender *app.RpcClient, receive
 			t.Fatalf("Decrypted media does not match the original message")
 		}
 
+		// Write the decrypted bytes to a file
+		// decryptedFilePath := fmt.Sprintf("decrypted_%s", fileOpts.FileName)
+		// err = os.WriteFile(decryptedFilePath, decryptedBytes, 0644)
+		// if err != nil {
+		// 	t.Fatalf("Failed to write decrypted file: %v", err)
+		// }
+
 		// Compare the file type, size, and name
 		if fileOpts.FileType != msg.FileType {
 			t.Fatalf("Expected file type %s, but got: %s", fileOpts.FileType, msg.FileType)
@@ -72,7 +79,7 @@ func TestMultiMediaChat(t *testing.T) {
 		t.Fatalf("Failed to read .jpeg file: %v", err)
 	}
 	sendAndVerifyMultiMediaMessage(t, client1, client2, jpegFileContent, chat.EncryptionType_PREKEY, &lib.SendMessageOptions{
-		FileType: "image/jpeg",
+		FileType: "image",
 		FileSize: uint64(len(jpegFileContent)),
 		FileName: "cat.jpeg",
 	})
@@ -87,11 +94,11 @@ func TestMultiMediaChat(t *testing.T) {
 
 	// Check if the message is saved in the chat history of User1
 	message := chatHistory1[0]
-	if message.Message != string(jpegFileContent) {
+	if string(message.Media) != string(jpegFileContent) {
 		t.Fatalf("Expected message %s, but got: %s", string(jpegFileContent), message.Message)
 	}
-	if message.FileType != "image/jpeg" {
-		t.Fatalf("Expected file type %s, but got: %s", "image/jpeg", message.FileType)
+	if message.FileType != "image" {
+		t.Fatalf("Expected file type %s, but got: %s", "image", message.FileType)
 	}
 	if message.FileSize != uint64(len(jpegFileContent)) {
 		t.Fatalf("Expected file size %d, but got: %d", len(jpegFileContent), message.FileSize)
@@ -105,11 +112,11 @@ func TestMultiMediaChat(t *testing.T) {
 
 	// Check if the message is saved in the chat history of User2
 	message = chatHistory2[0]
-	if message.Message != string(jpegFileContent) {
+	if string(message.Media) != string(jpegFileContent) {
 		t.Fatalf("Expected message %s, but got: %s", string(jpegFileContent), message.Message)
 	}
-	if message.FileType != "image/jpeg" {
-		t.Fatalf("Expected file type %s, but got: %s", "image/jpeg", message.FileType)
+	if message.FileType != "image" {
+		t.Fatalf("Expected file type %s, but got: %s", "image", message.FileType)
 	}
 	if message.FileSize != uint64(len(jpegFileContent)) {
 		t.Fatalf("Expected file size %d, but got: %d", len(jpegFileContent), message.FileSize)

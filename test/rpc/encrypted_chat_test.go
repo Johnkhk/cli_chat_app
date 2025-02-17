@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/johnkhk/cli_chat_app/client/app"
+	"github.com/johnkhk/cli_chat_app/client/lib"
 	"github.com/johnkhk/cli_chat_app/genproto/chat"
 	utils "github.com/johnkhk/cli_chat_app/test"
 	"github.com/johnkhk/cli_chat_app/test/setup"
@@ -13,7 +14,11 @@ import (
 
 // Helper function for sending and verifying encrypted messages
 func sendAndVerifyMessage(t *testing.T, sender *app.RpcClient, receiver *app.RpcClient, message []byte, expectedType chat.EncryptionType) {
-	err := sender.ChatClient.SendMessage(context.Background(), receiver.CurrentUserID, 0, message, nil)
+	err := sender.ChatClient.SendMessage(context.Background(), receiver.CurrentUserID, 0, message, &lib.SendMessageOptions{
+		FileType: "text",
+		FileSize: uint64(len(message)),
+		FileName: "",
+	})
 	if err != nil {
 		t.Fatalf("Failed to send message: %v", err)
 	}

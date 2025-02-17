@@ -12,6 +12,7 @@ type ChatMessage struct {
 	SenderID   uint32    `json:"senderId"`
 	ReceiverID uint32    `json:"receiverId"`
 	Message    string    `json:"message"`
+	Media      []byte    `json:"media"`
 	FileType   string    `json:"fileType"`
 	FileSize   uint64    `json:"fileSize"`
 	FileName   string    `json:"fileName"`
@@ -30,12 +31,24 @@ func (s *SQLiteStore) SaveChatMessage(messageID string, senderID, receiverID uin
 		}
 	}
 
-	query := `
-		INSERT INTO chat_history (messageId, sender_id, receiver_id, message, delivered, file_type, file_size, file_name)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?);` // `delivered` is set to 0 (false) initially.
-	_, err := s.DB.Exec(query, messageID, senderID, receiverID, message, delivered, fileOpts.FileType, fileOpts.FileSize, fileOpts.FileName)
-	if err != nil {
-		return fmt.Errorf("failed to save chat message: %v", err)
+	if fileOpts.FileType == "text" {
+		query := `
+			INSERT INTO chat_history (messageId, sender_id, receiver_id, message, delivered, file_type, file_size, file_name)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?);` // `delivered` is set to 0 (false) initially.
+		_, err := s.DB.Exec(query, messageID, senderID, receiverID, string(message), delivered, fileOpts.FileType, fileOpts.FileSize, fileOpts.FileName)
+		if err != nil {
+			return fmt.Errorf("failed to save chat message: %v", err)
+		}
+	} else if fileOpts.FileType == "image" {
+		query := `
+			INSERT INTO chat_history (messageId, sender_id, receiver_id, message, media, delivered, file_type, file_size, file_name)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);` // `delivered` is set to 0 (false) initially.
+		_, err := s.DB.Exec(query, messageID, senderID, receiverID, "", message, delivered, fileOpts.FileType, fileOpts.FileSize, fileOpts.FileName)
+		if err != nil {
+			return fmt.Errorf("failed to save chat message: %v", err)
+		}
+	} else {
+		return fmt.Errorf("invalid file type: %s", fileOpts.FileType)
 	}
 
 	return nil
@@ -57,7 +70,7 @@ func (s *SQLiteStore) UpdateMessageDeliveryStatus(messageID string, delivered bo
 // GetChatHistory retrieves all chat messages between a sender and receiver.
 func (s *SQLiteStore) GetChatHistory(senderID, receiverID uint32) ([]ChatMessage, error) {
 	query := `
-		SELECT messageId, sender_id, receiver_id, message, file_type, file_size, file_name, timestamp, delivered
+		SELECT messageId, sender_id, receiver_id, message, media, file_type, file_size, file_name, timestamp, delivered
 		FROM chat_history
 		WHERE (sender_id = ? AND receiver_id = ?)
 		   OR (sender_id = ? AND receiver_id = ?)
@@ -72,7 +85,7 @@ func (s *SQLiteStore) GetChatHistory(senderID, receiverID uint32) ([]ChatMessage
 	var messages []ChatMessage
 	for rows.Next() {
 		var msg ChatMessage
-		err := rows.Scan(&msg.MessageID, &msg.SenderID, &msg.ReceiverID, &msg.Message, &msg.FileType, &msg.FileSize, &msg.FileName, &msg.Timestamp, &msg.Delivered)
+		err := rows.Scan(&msg.MessageID, &msg.SenderID, &msg.ReceiverID, &msg.Message, &msg.Media, &msg.FileType, &msg.FileSize, &msg.FileName, &msg.Timestamp, &msg.Delivered)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan row: %v", err)
 		}
