@@ -179,6 +179,8 @@ func (m ChatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				})
 				m.messages = m.serverMessages
 				m.viewport.SetContent(m.renderMessages())
+				m.textarea.Reset()
+				m.viewport.GotoBottom()
 				return m, nil
 			}
 
