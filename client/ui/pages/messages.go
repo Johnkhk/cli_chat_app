@@ -62,3 +62,5 @@ type FriendSelectedMsg struct {
 	UserID   int32
 	Username string
 }
+
+type OpenFileMenuMsg struct{}

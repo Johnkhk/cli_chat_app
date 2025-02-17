@@ -163,6 +163,12 @@ func (m ChatModel) listenToMessageChannel() tea.Cmd {
 	}
 }
 
+func (m ChatModel) OpenFileMenu() tea.Cmd {
+	return func() tea.Msg {
+		return OpenFileMenuMsg{}
+	}
+}
+
 func (m ChatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var (
 		tiCmd tea.Cmd
@@ -186,6 +192,23 @@ func (m ChatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				// If the message is empty, don't send it.
 				m.rpcClient.Logger.Warn("Attempted to send an empty message.")
 				return m, nil
+			}
+
+			if userMessage == "/open" {
+				// var files []ChatMessage
+				// for _, msg := range m.messages {
+				// 	if msg.FileType != "text" {
+				// 		files = append(files, msg)
+				// 	}
+				// }
+				// // Create the file menu model.
+				// fileMenu := NewFileMenuModel(files)
+				// // Switch to the file menu. (For example, by returning fileMenu as the new model.)
+				// // return fileMenu, nil
+				// _ = fileMenu
+				// return NewDummyModel(), nil
+				return m, m.OpenFileMenu()
+
 			}
 
 			// Check for file sending command. For example: "/file /path/to/file.jpg"

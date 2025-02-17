@@ -52,6 +52,23 @@ func (m ChatPanelModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// m.friendsModel, _ = m.friendsModel.Update(msg)
 		// m.chatModel, _ = m.chatModel.Update(msg)
 
+	case OpenFileMenuMsg:
+		// Gather files from the chatModel's messages.
+		var files []ChatMessage
+		for _, msg := range m.chatModel.messages {
+			if msg.FileType != "text" {
+				files = append(files, msg)
+			}
+		}
+		// Create your file menu model.
+		fileMenu := NewFileMenuModel(m.rpcClient, files)
+		// Switch the current model to fileMenu.
+		// For example, you might have a field to track the active submodel:
+		// m.activeSubmodel = fileMenu
+		// and then update your View and Update accordingly.
+		// Or if you're doing a one-off switch, you can return fileMenu.
+		return fileMenu, nil
+
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "tab":
