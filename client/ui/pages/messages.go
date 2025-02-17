@@ -63,4 +63,10 @@ type FriendSelectedMsg struct {
 	Username string
 }
 
-type OpenFileMenuMsg struct{}
+type OpenFileMenuMsg struct {
+	OriginalServerMessages []ChatMessage
+	OriginalActiveUser     int32
+	OriginalActiveUsername string
+}
+
+type BackMsg struct{}

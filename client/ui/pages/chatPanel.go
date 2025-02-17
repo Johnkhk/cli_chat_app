@@ -61,12 +61,7 @@ func (m ChatPanelModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 		// Create your file menu model.
-		fileMenu := NewFileMenuModel(m.rpcClient, files)
-		// Switch the current model to fileMenu.
-		// For example, you might have a field to track the active submodel:
-		// m.activeSubmodel = fileMenu
-		// and then update your View and Update accordingly.
-		// Or if you're doing a one-off switch, you can return fileMenu.
+		fileMenu := NewFileMenuModel(m.rpcClient, files, m.terminalWidth, m.terminalHeight, msg.OriginalServerMessages, msg.OriginalActiveUser, msg.OriginalActiveUsername, m.friendsModel.selected)
 		return fileMenu, nil
 
 	case tea.KeyMsg:

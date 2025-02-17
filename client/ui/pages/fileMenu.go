@@ -18,14 +18,20 @@ import (
 
 // FileMenuModel displays a table of file messages.
 type FileMenuModel struct {
-	files     []ChatMessage
-	fileTable table.Model
-	rpcClient *app.RpcClient
+	files                  []ChatMessage
+	fileTable              table.Model
+	rpcClient              *app.RpcClient
+	terminalWidth          int
+	terminalHeight         int
+	originalServerMessages []ChatMessage
+	originalActiveUserID   int32
+	originalActiveUsername string
+	originalSelectedIdx    int
 }
 
 // NewFileMenuModel creates a new FileMenuModel.
 // The 'files' slice should include all ChatMessage entries with non-text FileType.
-func NewFileMenuModel(rpcClient *app.RpcClient, files []ChatMessage) FileMenuModel {
+func NewFileMenuModel(rpcClient *app.RpcClient, files []ChatMessage, terminalWidth int, terminalHeight int, originalServerMessages []ChatMessage, originalActiveUser int32, originalActiveUsername string, originalSelectedIdx int) FileMenuModel {
 	columns := []table.Column{
 		{Title: "File Name", Width: 30},
 		{Title: "Type", Width: 10},
@@ -60,9 +66,15 @@ func NewFileMenuModel(rpcClient *app.RpcClient, files []ChatMessage) FileMenuMod
 	t.SetStyles(s)
 
 	return FileMenuModel{
-		files:     files,
-		fileTable: t,
-		rpcClient: rpcClient,
+		files:                  files,
+		fileTable:              t,
+		rpcClient:              rpcClient,
+		terminalWidth:          terminalWidth,
+		terminalHeight:         terminalHeight,
+		originalServerMessages: originalServerMessages,
+		originalActiveUserID:   originalActiveUser,
+		originalActiveUsername: originalActiveUsername,
+		originalSelectedIdx:    originalSelectedIdx,
 	}
 }
 
@@ -80,6 +92,23 @@ func (m FileMenuModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.String() {
 		case "q", "esc", "ctrl+c":
 			return m, tea.Quit
+		case "b":
+			// Go back to the previous model.
+			chatPanelModel := NewChatPanelModel(m.rpcClient)
+
+			// Initialize the chat panel (e.g., fetch friends) and get the command for it
+			chatCmd := chatPanelModel.Init() // Init returns the command for loading friends
+			chatPanelModel.friendsModel.selected = m.originalSelectedIdx
+
+			// Update the chat panel to handle the incoming message
+			updatedChatPanelModel, updateCmd := chatPanelModel.Update(tea.WindowSizeMsg{Width: m.terminalWidth, Height: m.terminalHeight})
+			castedChatPanelModel, ok := updatedChatPanelModel.(ChatPanelModel)
+			if !ok {
+				m.rpcClient.Logger.Error("Failed to assert tea.Model to ChatPanelModel")
+				return m, nil
+			}
+			castedChatPanelModel.chatModel.serverMessages = m.originalServerMessages
+			return castedChatPanelModel, tea.Batch(chatCmd, updateCmd)
 		case "enter":
 			// When Enter is pressed, open the selected file.
 			selectedRow := m.fileTable.Cursor()
@@ -131,6 +160,6 @@ func (m FileMenuModel) View() string {
 	b.WriteString("\n\n")
 	b.WriteString(m.fileTable.View())
 	b.WriteString("\n")
-	b.WriteString("[ ↑/↓ to navigate | Enter to open | q/esc to quit ]")
+	b.WriteString("[ ↑/↓ to navigate | Enter to open | b to go back | q/esc to quit ]")
 	return b.String()
 }

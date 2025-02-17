@@ -163,9 +163,9 @@ func (m ChatModel) listenToMessageChannel() tea.Cmd {
 	}
 }
 
-func (m ChatModel) OpenFileMenu() tea.Cmd {
+func (m ChatModel) OpenFileMenu(originalServerMessages []ChatMessage, originalActiveUser int32, originalActiveUsername string) tea.Cmd {
 	return func() tea.Msg {
-		return OpenFileMenuMsg{}
+		return OpenFileMenuMsg{originalServerMessages, originalActiveUser, originalActiveUsername}
 	}
 }
 
@@ -195,19 +195,7 @@ func (m ChatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 
 			if userMessage == "/open" {
-				// var files []ChatMessage
-				// for _, msg := range m.messages {
-				// 	if msg.FileType != "text" {
-				// 		files = append(files, msg)
-				// 	}
-				// }
-				// // Create the file menu model.
-				// fileMenu := NewFileMenuModel(files)
-				// // Switch to the file menu. (For example, by returning fileMenu as the new model.)
-				// // return fileMenu, nil
-				// _ = fileMenu
-				// return NewDummyModel(), nil
-				return m, m.OpenFileMenu()
+				return m, m.OpenFileMenu(m.serverMessages, m.activeUserID, m.activeUsername)
 
 			}
 
