@@ -47,10 +47,10 @@ tail-user-log:
 	fi
 
 # Target to clean user JWT tokens
-# e.g., make clean-user-token USER_NUM=1
-clean-user-token:
+# e.g., make clean-user USER_NUM=1
+clean-user:
 	@if [ -z "$(USER_NUM)" ]; then \
-		echo "Please provide a USER_NUM, e.g., 'make clean-user-token USER_NUM=1'"; \
+		echo "Please provide a USER_NUM, e.g., 'make clean-user USER_NUM=1'"; \
 	else \
 		rm -f "$(APP_DIR_PATH)$(USER_NUM)/jwt_tokens"; \
 		rm -f "$(APP_DIR_PATH)$(USER_NUM)/store.db"; \

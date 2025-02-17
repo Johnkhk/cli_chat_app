@@ -62,7 +62,10 @@ func (s *ChatServiceServer) StreamMessages(stream chat.ChatService_StreamMessage
 		Status:           "connected",
 		Timestamp:        time.Now().Format(time.RFC3339),
 		EncryptionType:   chat.EncryptionType_PLAIN,
-		EncryptedMessage: []byte("Welcome to the CLI chat app!"),
+		EncryptedMessage: []byte(fmt.Sprintf("Welcome to the CLI chat app %s!", senderUsername)),
+		FileName:         "",
+		FileType:         "text",
+		FileSize:         0,
 	}
 	s.Logger.Infof("Sending server message!!!: %s", welcomeResponse.EncryptedMessage)
 

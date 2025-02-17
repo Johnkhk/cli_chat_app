@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/rand"
 	"database/sql"
-	"fmt"
 	"testing"
 
 	"github.com/Johnkhk/libsignal-go/protocol/address"
@@ -113,9 +112,7 @@ func TestPreKeyStore(t *testing.T) {
 	// Load pre-key
 	loadedPreKey, found, err := store.PreKeyStore().Load(ctx, preKeyID)
 	assert.NoError(t, err, "should load pre-key without error")
-	fmt.Printf("SUCC 3 %v\n", err)
 	assert.True(t, found, "pre-key should be found")
-	fmt.Println("SUCC 4")
 	assert.Equal(t, preKey, loadedPreKey, "loaded pre-key should match stored pre-key")
 
 	// Delete pre-key

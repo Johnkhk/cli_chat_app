@@ -164,7 +164,7 @@ func (c *AuthClient) CreateLocalIdentityIfNewUserDevice(userID uint32) error {
 		}
 	} else {
 		// Registration ID already exists, device is already registered
-		fmt.Println("Device is already registered with registration ID:", registrationID)
+		c.Logger.Infof("Device is already registered with registration ID: %d", registrationID)
 	}
 
 	return nil

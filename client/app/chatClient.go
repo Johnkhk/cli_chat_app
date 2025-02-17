@@ -216,7 +216,6 @@ func (cc *ChatClient) SendMessage(ctx context.Context, recipientID, deviceID uin
 	}
 
 	// Store the message in the sender's local chat history with delivered status set to 0 (false) after successfully sending
-
 	if err := cc.Store.SaveChatMessage(msgRequest.MessageId, cc.AuthClient.ParentClient.CurrentUserID, recipientID, []byte(messageBytes), 0, opts); err != nil {
 		cc.Logger.Errorf("Failed to store sent message in chat history: %v", err)
 	}

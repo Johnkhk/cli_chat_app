@@ -3,6 +3,8 @@ package pages
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/textarea"
@@ -30,6 +32,10 @@ type ReceivedMessage struct {
 	SenderID uint32
 	Sender   string
 	Message  string
+	FileType string
+	FileSize uint64
+	FileName string
+	FileData []byte
 }
 type ChatModel struct {
 	viewport       viewport.Model
@@ -135,6 +141,9 @@ func (m ChatModel) listenToMessageChannel() tea.Cmd {
 						SenderID: msg.SenderId,
 						Sender:   msg.SenderUsername,
 						Message:  decrypted,
+						FileType: msg.FileType,
+						FileSize: msg.FileSize,
+						FileName: msg.FileName,
 					}
 				} else {
 
@@ -144,6 +153,9 @@ func (m ChatModel) listenToMessageChannel() tea.Cmd {
 						SenderID: msg.SenderId,
 						Sender:   msg.SenderUsername,
 						Message:  string(msg.EncryptedMessage),
+						FileType: msg.FileType,
+						FileSize: msg.FileSize,
+						FileName: msg.FileName,
 					}
 				}
 			}
@@ -169,7 +181,6 @@ func (m ChatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case tea.KeyEnter:
 			m.rpcClient.Logger.Info("Enter key pressed.")
 
-			// Check if the textarea has content before sending the message.
 			userMessage := m.textarea.Value()
 			if strings.TrimSpace(userMessage) == "" {
 				// If the message is empty, don't send it.
@@ -177,7 +188,75 @@ func (m ChatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 
-			// Prevent sending messages to the server
+			// Check for file sending command. For example: "/file /path/to/file.jpg"
+			if strings.HasPrefix(userMessage, "/file ") {
+				filePath := strings.TrimSpace(strings.TrimPrefix(userMessage, "/file "))
+				m.rpcClient.Logger.Infof("Sending file: %s", filePath)
+
+				// Read the file.
+				fileData, err := os.ReadFile(filePath)
+				if err != nil {
+					m.rpcClient.Logger.Errorf("Failed to read file %s: %v", filePath, err)
+					// Optionally show an error in the chat.
+					m.messages = append(m.messages, ChatMessage{
+						Sender: "self",
+						// Message: fmt.Sprintf("Error reading file: %s", err),
+						Message:  fmt.Sprintf("Error reading file: %s", filePath),
+						FileType: "text",
+						FileSize: 0,
+						FileName: filePath,
+					})
+					m.viewport.SetContent(m.renderMessages())
+					m.textarea.Reset()
+					m.viewport.GotoBottom()
+					return m, nil
+				}
+
+				// Determine file type (simple logic based on file extension).
+				fileName := filepath.Base(filePath)
+				ext := strings.ToLower(filepath.Ext(fileName))
+				fileType := "file"
+				if ext == ".jpg" || ext == ".jpeg" || ext == ".png" || ext == ".gif" || ext == ".bmp" || ext == ".tiff" || ext == ".ico" || ext == ".webp" {
+					fileType = "image"
+				} else if ext == ".mp4" || ext == ".avi" || ext == ".mov" || ext == ".mkv" || ext == ".flv" || ext == ".wmv" {
+					fileType = "video"
+				} else {
+					fileType = "file"
+				}
+
+				// Send the file message. For images, your store logic will treat it differently.
+				err = m.rpcClient.ChatClient.SendMessage(m.ctx, uint32(m.activeUserID), m.rpcClient.CurrentDeviceID, fileData, &lib.SendMessageOptions{
+					FileType: fileType,
+					FileSize: uint64(len(fileData)),
+					FileName: fileName,
+				})
+				if err != nil {
+					m.rpcClient.Logger.Errorf("Failed to send file: %v", err)
+					m.messages = append(m.messages, ChatMessage{
+						Sender:   "self",
+						Message:  fmt.Sprintf("Error sending file: %s of type %s", fileName, fileType),
+						FileType: "text",
+						FileSize: 0,
+						FileName: fileName,
+					})
+				} else {
+					// Append a representation of the sent file to the chat history.
+					m.messages = append(m.messages, ChatMessage{
+						Sender:   "self",
+						Message:  fmt.Sprintf("[sent file] %s", fileName),
+						FileType: fileType,
+						FileSize: uint64(len(fileData)),
+						FileName: fileName,
+						FileData: fileData,
+					})
+				}
+				m.viewport.SetContent(m.renderMessages())
+				m.textarea.Reset()
+				m.viewport.GotoBottom()
+				return m, nil
+			}
+
+			// Prevent sending messages if activeUserID is not set.
 			if m.activeUserID == 0 {
 				m.serverMessages = append(m.serverMessages, ChatMessage{
 					Sender:  "server",
@@ -194,14 +273,17 @@ func (m ChatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 			// Add the user's message with "self" style and send it to the server.
 			m.messages = append(m.messages, ChatMessage{
-				Sender:  "self",
-				Message: userMessage,
+				Sender:   "self",
+				Message:  userMessage,
+				FileType: "text",
+				FileSize: uint64(len([]byte(userMessage))),
+				FileName: "",
 			})
 			m.viewport.SetContent(m.renderMessages())
 			m.textarea.Reset()
 			m.viewport.GotoBottom()
 
-			// Send the message to the server. NIL for now as it's a text message.
+			// Send the message to the server as a text message.
 			err := m.rpcClient.ChatClient.SendMessage(m.ctx, uint32(m.activeUserID), m.rpcClient.CurrentDeviceID, []byte(userMessage), &lib.SendMessageOptions{
 				FileType: "text",
 				FileSize: uint64(len([]byte(userMessage))),
@@ -215,8 +297,11 @@ func (m ChatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case tea.KeyCtrlA:
 			// Simulate receiving an "other" message on pressing Ctrl+A (for testing purposes).
 			m.messages = append(m.messages, ChatMessage{
-				Sender:  "other",
-				Message: "This is a reply from the other person.",
+				Sender:   "other",
+				Message:  "This is a reply from the other person.",
+				FileType: "text",
+				FileSize: 0,
+				FileName: "",
 			})
 			m.viewport.SetContent(m.renderMessages())
 			m.textarea.Reset()
@@ -227,8 +312,9 @@ func (m ChatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// If the message is from the server, add it to the server messages.
 		if m.activeUserID == 0 && msg.SenderID == 0 {
 			m.serverMessages = append(m.serverMessages, ChatMessage{
-				Sender:  msg.Sender,
-				Message: msg.Message,
+				Sender:   msg.Sender,
+				Message:  msg.Message,
+				FileType: "text",
 			})
 			m.messages = m.serverMessages
 			m.viewport.SetContent(m.renderMessages())
@@ -239,8 +325,12 @@ func (m ChatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.SenderID == uint32(m.activeUserID) {
 			m.rpcClient.Logger.Infof("Processing message from sender %s: %s", msg.Sender, msg.Message)
 			m.messages = append(m.messages, ChatMessage{
-				Sender:  msg.Sender,
-				Message: msg.Message,
+				Sender:   msg.Sender,
+				Message:  msg.Message,
+				FileType: msg.FileType,
+				FileSize: msg.FileSize,
+				FileName: msg.FileName,
+				FileData: msg.FileData,
 			})
 			m.viewport.SetContent(m.renderMessages())
 			m.textarea.Reset()
@@ -274,27 +364,38 @@ func (m ChatModel) renderMessages() string {
 
 	for _, msg := range m.messages {
 		var styledMessage string
-		switch msg.Sender {
-		case "self":
-			// Render self messages with the left-aligned style.
-			styledMessage = m.selfStyle.Render("You: ") + msg.Message
-			// styledMessage = msg.Message
-		default:
-			// Render messages from any other sender with a default style
+
+		// Determine sender prefix styling.
+		var senderPrefix string
+		if msg.Sender == "self" {
+			senderPrefix = m.selfStyle.Render("You: ")
+		} else {
 			defaultStyle := lipgloss.NewStyle().
-				Foreground(lipgloss.Color("6")). // Use a unique color for other usernames.
+				Foreground(lipgloss.Color("6")). // Unique color for other usernames.
 				Align(lipgloss.Left).
-				PaddingLeft(1) // Left padding to differentiate from "self"
-			// styledMessage = defaultStyle.Render(fmt.Sprintf("%s: %s", msg.Sender, msg.Message))
-			styledMessage = defaultStyle.Render(fmt.Sprintf("%s: ", msg.Sender)) + msg.Message
-			// styledMessage = msg.Message
+				PaddingLeft(1)
+			senderPrefix = defaultStyle.Render(fmt.Sprintf("%s: ", msg.Sender))
 		}
 
-		// Append the rendered message to the list
+		// Check if this message represents a file (non-text).
+		if msg.FileType != "text" {
+			// Create a special style for file messages.
+			fileStyle := lipgloss.NewStyle().
+				Bold(true).
+				Background(lipgloss.Color("21")). // blue background
+				Foreground(lipgloss.Color("15"))  // white text
+
+			fileDetails := fmt.Sprintf("%s (%s, %d bytes)", msg.FileName, msg.FileType, msg.FileSize)
+			styledMessage = senderPrefix + fileStyle.Render(fileDetails)
+		} else {
+			// Normal text message.
+			styledMessage = senderPrefix + msg.Message
+		}
+
 		renderedMessages = append(renderedMessages, styledMessage)
 	}
 
-	// Wrap content before setting it to ensure it fits within the viewport width.
+	// Wrap the content to fit the viewport.
 	return lipgloss.NewStyle().Width(m.viewport.Width).Render(strings.Join(renderedMessages, "\n"))
 }
 
@@ -322,7 +423,6 @@ func (m *ChatModel) SetActiveUser(userID int32, username string) {
 
 	// Load chat history into the model.
 	for _, msg := range chatHistory {
-		m.rpcClient.Logger.Infof("YOOOOOOOOOOOOO %s: %s", msg.FileType, msg.Message)
 		sender := "self"
 		if msg.SenderID != m.rpcClient.CurrentUserID {
 			sender = username
@@ -333,6 +433,7 @@ func (m *ChatModel) SetActiveUser(userID int32, username string) {
 			FileType: msg.FileType,
 			FileSize: msg.FileSize,
 			FileName: msg.FileName,
+			FileData: msg.Media,
 		})
 	}
 
