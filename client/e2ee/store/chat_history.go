@@ -39,7 +39,7 @@ func (s *SQLiteStore) SaveChatMessage(messageID string, senderID, receiverID uin
 		if err != nil {
 			return fmt.Errorf("failed to save chat message: %v", err)
 		}
-	} else if fileOpts.FileType == "image" {
+	} else {
 		query := `
 			INSERT INTO chat_history (messageId, sender_id, receiver_id, message, media, delivered, file_type, file_size, file_name)
 			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);` // `delivered` is set to 0 (false) initially.
@@ -47,8 +47,6 @@ func (s *SQLiteStore) SaveChatMessage(messageID string, senderID, receiverID uin
 		if err != nil {
 			return fmt.Errorf("failed to save chat message: %v", err)
 		}
-	} else {
-		return fmt.Errorf("invalid file type: %s", fileOpts.FileType)
 	}
 
 	return nil
