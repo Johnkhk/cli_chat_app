@@ -196,7 +196,7 @@ func (m ChatPanelModel) renderHelpBar() string {
 	if m.focusState == leftPanel {
 		helpBarContent = "\nPress Tab to switch panels | esc/ctrl+c: quit | f: friends management"
 	} else {
-		helpBarContent = "\nPress Tab to switch panels | esc/ctrl+c: quit"
+		helpBarContent = "\nPress Tab to switch panels | esc/ctrl+c: quit | /file <path/to/file> to send a file"
 	}
 
 	// Render and return the styled help bar

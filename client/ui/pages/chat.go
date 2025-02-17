@@ -199,8 +199,7 @@ func (m ChatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.rpcClient.Logger.Errorf("Failed to read file %s: %v", filePath, err)
 					// Optionally show an error in the chat.
 					m.messages = append(m.messages, ChatMessage{
-						Sender: "self",
-						// Message: fmt.Sprintf("Error reading file: %s", err),
+						Sender:   "self",
 						Message:  fmt.Sprintf("Error reading file: %s", filePath),
 						FileType: "text",
 						FileSize: 0,
@@ -259,8 +258,11 @@ func (m ChatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// Prevent sending messages if activeUserID is not set.
 			if m.activeUserID == 0 {
 				m.serverMessages = append(m.serverMessages, ChatMessage{
-					Sender:  "server",
-					Message: "Please select a user (that is not me) to chat with. Add friends to your friends list to chat with them.",
+					Sender:   "server",
+					Message:  "Please select a user (that is not me) to chat with. Add friends to your friends list to chat with them.",
+					FileType: "text",
+					FileSize: 0,
+					FileName: "",
 				})
 				m.messages = m.serverMessages
 				m.viewport.SetContent(m.renderMessages())
