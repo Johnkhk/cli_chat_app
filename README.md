@@ -9,7 +9,8 @@
   - [Examples](#examples)
     - [Run the app using an alias](#run-the-app-using-an-alias)
     - [Friend requests between two users](#friend-requests-between-two-users)
-    - [Sending messages between two users](#sending-messages-between-two-users)
+    - [Sending text messages between two users](#sending-text-messages-between-two-users)
+    - [Sending files between two users](#sending-files-between-two-users)
   - [Usage](#usage)
   - [Testing](#testing)
   - [Contributing](#contributing)
@@ -29,6 +30,7 @@ It is designed to be lightweight, fast, and easy to use, making it perfect for d
 - **User Authentication**: Register and log in with a username and password. JWTs are used to keep you signed in between sessions.
 - **Friend Management**: Send and receive friend requests, and manage your friend list.
 - **Real-time Communication**: Chat with your friends in real-time using a simple and intuitive interface.
+- **Multi-media support**: Send and receive images, videos, and files.
 - **Cross-Platform**: Available on Linux, macOS (Intel and ARM), and Windows.
 
 ## Getting Started
@@ -59,9 +61,13 @@ It is designed to be lightweight, fast, and easy to use, making it perfect for d
 
 <img src="./assets/usage3.gif" width="600" alt="Example of sending friend requests between two users">
 
-### Sending messages between two users
+### Sending text messages between two users
 
-<img src="./assets/usage2.gif" width="600" alt="Example of running the app with an alias">
+<img src="./assets/usage2.gif" width="600" alt="Example of sending text messages between two users">
+
+### Sending files between two users
+
+<img src="./assets/usage4.gif" width="600" alt="Example of sending files between two users">
 
 ## Usage
 

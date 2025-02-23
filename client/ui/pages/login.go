@@ -68,7 +68,7 @@ func (m loginModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.errorMsg = msg.err.Error()
 		return m, nil
 	case logInRespMsg:
-		return NewFriendManagementModel(m.rpcClient), tea.WindowSize()
+		return NewFriendManagementModel(m.rpcClient, 0, []ChatMessage{}), tea.WindowSize()
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "ctrl+c", "esc":

@@ -14,26 +14,30 @@ import (
 )
 
 type FriendManagementModel struct {
-	rpcClient      *app.RpcClient
-	terminalWidth  int
-	terminalHeight int
-	activeTab      int
-	tabs           []string
-	tabContent     []tea.Model
-	statusMessage  string // Message to display
-	statusIsError  bool   // True if it's an error message
+	rpcClient              *app.RpcClient
+	terminalWidth          int
+	terminalHeight         int
+	activeTab              int
+	tabs                   []string
+	tabContent             []tea.Model
+	statusMessage          string // Message to display
+	statusIsError          bool   // True if it's an error message
+	originalSelectedIdx    int
+	originalServerMessages []ChatMessage
 }
 
-func NewFriendManagementModel(rpcClient *app.RpcClient) FriendManagementModel {
+func NewFriendManagementModel(rpcClient *app.RpcClient, originalSelectedIdx int, originalServerMessages []ChatMessage) FriendManagementModel {
 	friendListModel := NewFriendListModel(rpcClient)
 	incomingModel := NewIncomingRequestsModel(rpcClient)
 	outgoingModel := NewOutgoingRequestsModel(rpcClient)
 
 	return FriendManagementModel{
-		rpcClient:  rpcClient,
-		tabs:       []string{"Friends", "Incoming", "Outgoing"},
-		activeTab:  0,
-		tabContent: []tea.Model{friendListModel, incomingModel, outgoingModel},
+		rpcClient:              rpcClient,
+		tabs:                   []string{"Friends", "Incoming", "Outgoing"},
+		activeTab:              0,
+		tabContent:             []tea.Model{friendListModel, incomingModel, outgoingModel},
+		originalSelectedIdx:    originalSelectedIdx,
+		originalServerMessages: originalServerMessages,
 	}
 }
 
@@ -109,17 +113,21 @@ func (m FriendManagementModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.rpcClient.Logger.Info("Refreshing friend list and friend requests")
 
 		case "c":
-			// Switch to the chat panel
 			chatPanelModel := NewChatPanelModel(m.rpcClient)
 
 			// Initialize the chat panel (e.g., fetch friends) and get the command for it
 			chatCmd := chatPanelModel.Init() // Init returns the command for loading friends
+			chatPanelModel.friendsModel.selected = m.originalSelectedIdx
 
 			// Update the chat panel to handle the incoming message
 			updatedChatPanelModel, updateCmd := chatPanelModel.Update(tea.WindowSizeMsg{Width: m.terminalWidth, Height: m.terminalHeight})
-
-			// Return only the updated chat model and its commands, ignoring the previous model's cmds
-			return updatedChatPanelModel, tea.Batch(chatCmd, updateCmd)
+			castedChatPanelModel, ok := updatedChatPanelModel.(ChatPanelModel)
+			if !ok {
+				m.rpcClient.Logger.Error("Failed to assert tea.Model to ChatPanelModel")
+				return m, nil
+			}
+			castedChatPanelModel.chatModel.serverMessages = m.originalServerMessages
+			return castedChatPanelModel, tea.Batch(chatCmd, updateCmd)
 
 		default:
 			m.rpcClient.Logger.Infoln("Key pressed:", keypress)

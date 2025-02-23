@@ -82,7 +82,7 @@ func (m ChatPanelModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			switch m.focusState {
 			case leftPanel:
 				if msg.String() == "f" {
-					friendManagementModel := NewFriendManagementModel(m.rpcClient)
+					friendManagementModel := NewFriendManagementModel(m.rpcClient, m.friendsModel.selected, m.chatModel.serverMessages)
 
 					// Initialize the chat panel (e.g., fetch friends) and get the command for it
 					chatCmd := friendManagementModel.Init() // Init returns the command for loading friends
@@ -208,7 +208,9 @@ func (m ChatPanelModel) renderHelpBar() string {
 	if m.focusState == leftPanel {
 		helpBarContent = "\nPress Tab to switch panels | esc/ctrl+c: quit | f: friends management"
 	} else {
-		helpBarContent = "\nPress Tab to switch panels | esc/ctrl+c: quit | /file <path/to/file> to send a file"
+		// helpBarContent = "\nPress Tab to switch panels | esc/ctrl+c: quit | /file <path/to/file> to send a file"
+		helpBarContent = "\nPress Tab to switch panels | esc/ctrl+c: quit"
+		helpBarContent += "\n/file <path/to/file> to send a file | /open to open a file"
 	}
 
 	// Render and return the styled help bar
