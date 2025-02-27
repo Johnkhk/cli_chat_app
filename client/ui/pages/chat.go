@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/bubbles/textarea"
 	"github.com/charmbracelet/bubbles/viewport"
@@ -19,24 +20,27 @@ import (
 
 // ChatMessage represents a message in the chat.
 type ChatMessage struct {
-	Sender   string // "self" or "other"
-	Message  string
-	FileType string
-	FileSize uint64
-	FileName string
-	FileData []byte
+	Sender    string // "self" or "other"
+	Message   string
+	FileType  string
+	FileSize  uint64
+	FileName  string
+	FileData  []byte
+	Timestamp time.Time // Changed from uint64 to time.Time
 }
 
 // Define a custom message type for received messages.
 type ReceivedMessage struct {
-	SenderID uint32
-	Sender   string
-	Message  string
-	FileType string
-	FileSize uint64
-	FileName string
-	FileData []byte
+	SenderID  uint32
+	Sender    string
+	Message   string
+	FileType  string
+	FileSize  uint64
+	FileName  string
+	FileData  []byte
+	Timestamp time.Time
 }
+
 type ChatModel struct {
 	viewport       viewport.Model
 	messages       []ChatMessage
@@ -138,24 +142,26 @@ func (m ChatModel) listenToMessageChannel() tea.Cmd {
 					// Log the decrypted message and return it as a ReceivedMessage.
 					m.rpcClient.Logger.Infof("Received decrypted message from channel: Sender=%s, Message=%s, Status=%s", msg.SenderUsername, decrypted, msg.Status)
 					return ReceivedMessage{
-						SenderID: msg.SenderId,
-						Sender:   msg.SenderUsername,
-						Message:  decrypted,
-						FileType: msg.FileType,
-						FileSize: msg.FileSize,
-						FileName: msg.FileName,
+						SenderID:  msg.SenderId,
+						Sender:    msg.SenderUsername,
+						Message:   decrypted,
+						FileType:  msg.FileType,
+						FileSize:  msg.FileSize,
+						FileName:  msg.FileName,
+						Timestamp: time.Now().UTC(),
 					}
 				} else {
 
 					// Log the received message and return it as a ReceivedMessage.
 					m.rpcClient.Logger.Infof("Received message from channel: Sender=%s, Message=%s, Status=%s", msg.SenderUsername, string(msg.EncryptedMessage), msg.Status)
 					return ReceivedMessage{
-						SenderID: msg.SenderId,
-						Sender:   msg.SenderUsername,
-						Message:  string(msg.EncryptedMessage),
-						FileType: msg.FileType,
-						FileSize: msg.FileSize,
-						FileName: msg.FileName,
+						SenderID:  msg.SenderId,
+						Sender:    msg.SenderUsername,
+						Message:   string(msg.EncryptedMessage),
+						FileType:  msg.FileType,
+						FileSize:  msg.FileSize,
+						FileName:  msg.FileName,
+						Timestamp: time.Now().UTC(),
 					}
 				}
 			}
@@ -286,11 +292,12 @@ func (m ChatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 			// Add the user's message with "self" style and send it to the server.
 			m.messages = append(m.messages, ChatMessage{
-				Sender:   "self",
-				Message:  userMessage,
-				FileType: "text",
-				FileSize: uint64(len([]byte(userMessage))),
-				FileName: "",
+				Sender:    "self",
+				Message:   userMessage,
+				FileType:  "text",
+				FileSize:  uint64(len([]byte(userMessage))),
+				FileName:  "",
+				Timestamp: time.Now().UTC(),
 			})
 			m.viewport.SetContent(m.renderMessages())
 			m.textarea.Reset()
@@ -338,12 +345,13 @@ func (m ChatModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.SenderID == uint32(m.activeUserID) {
 			m.rpcClient.Logger.Infof("Processing message from sender %s: %s", msg.Sender, msg.Message)
 			m.messages = append(m.messages, ChatMessage{
-				Sender:   msg.Sender,
-				Message:  msg.Message,
-				FileType: msg.FileType,
-				FileSize: msg.FileSize,
-				FileName: msg.FileName,
-				FileData: msg.FileData,
+				Sender:    msg.Sender,
+				Message:   msg.Message,
+				FileType:  msg.FileType,
+				FileSize:  msg.FileSize,
+				FileName:  msg.FileName,
+				FileData:  msg.FileData,
+				Timestamp: msg.Timestamp,
 			})
 			m.viewport.SetContent(m.renderMessages())
 			m.textarea.Reset()
@@ -378,37 +386,45 @@ func (m ChatModel) renderMessages() string {
 	for _, msg := range m.messages {
 		var styledMessage string
 
-		// Determine sender prefix styling.
+		// Format timestamp
+		timeStr := ""
+		if !msg.Timestamp.IsZero() {
+			timeStyle := lipgloss.NewStyle().
+				Foreground(lipgloss.Color("8")). // Subtle gray color for timestamp
+				Italic(true)
+			timeStr = timeStyle.Render(fmt.Sprintf("[%s] ", msg.Timestamp.Format("15:04")))
+		}
+
+		// Determine sender prefix styling
 		var senderPrefix string
 		if msg.Sender == "self" {
 			senderPrefix = m.selfStyle.Render("You: ")
 		} else {
 			defaultStyle := lipgloss.NewStyle().
-				Foreground(lipgloss.Color("6")). // Unique color for other usernames.
+				Foreground(lipgloss.Color("6")). // Unique color for other usernames
 				Align(lipgloss.Left).
 				PaddingLeft(1)
 			senderPrefix = defaultStyle.Render(fmt.Sprintf("%s: ", msg.Sender))
 		}
 
-		// Check if this message represents a file (non-text).
+		// Check if this message represents a file (non-text)
 		if msg.FileType != "text" {
-			// Create a special style for file messages.
 			fileStyle := lipgloss.NewStyle().
 				Bold(true).
 				Background(lipgloss.Color("21")). // blue background
 				Foreground(lipgloss.Color("15"))  // white text
 
 			fileDetails := fmt.Sprintf("%s (%s, %d bytes)", msg.FileName, msg.FileType, msg.FileSize)
-			styledMessage = senderPrefix + fileStyle.Render(fileDetails)
+			styledMessage = timeStr + senderPrefix + fileStyle.Render(fileDetails)
 		} else {
-			// Normal text message.
-			styledMessage = senderPrefix + msg.Message
+			// Normal text message
+			styledMessage = timeStr + senderPrefix + msg.Message
 		}
 
 		renderedMessages = append(renderedMessages, styledMessage)
 	}
 
-	// Wrap the content to fit the viewport.
+	// Wrap the content to fit the viewport
 	return lipgloss.NewStyle().Width(m.viewport.Width).Render(strings.Join(renderedMessages, "\n"))
 }
 
@@ -441,12 +457,13 @@ func (m *ChatModel) SetActiveUser(userID int32, username string) {
 			sender = username
 		}
 		m.messages = append(m.messages, ChatMessage{
-			Sender:   sender,
-			Message:  msg.Message,
-			FileType: msg.FileType,
-			FileSize: msg.FileSize,
-			FileName: msg.FileName,
-			FileData: msg.Media,
+			Sender:    sender,
+			Message:   msg.Message,
+			FileType:  msg.FileType,
+			FileSize:  msg.FileSize,
+			FileName:  msg.FileName,
+			FileData:  msg.Media,
+			Timestamp: msg.Timestamp,
 		})
 	}
 

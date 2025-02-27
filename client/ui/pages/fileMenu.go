@@ -36,13 +36,16 @@ func NewFileMenuModel(rpcClient *app.RpcClient, files []ChatMessage, terminalWid
 		{Title: "File Name", Width: 30},
 		{Title: "Type", Width: 10},
 		{Title: "Size", Width: 10},
+		{Title: "Timestamp", Width: 20}, // New timestamp column
 	}
 
 	// Build rows from file messages.
 	var rows []table.Row
 	for _, file := range files {
 		sizeStr := strconv.FormatUint(file.FileSize, 10)
-		rows = append(rows, table.Row{file.FileName, file.FileType, sizeStr})
+		timestampStr := file.Timestamp.Format("2006-01-02 15:04:05")
+		rows = append(rows, table.Row{file.FileName, file.FileType, sizeStr, timestampStr})
+
 	}
 
 	t := table.New(
