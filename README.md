@@ -6,11 +6,7 @@
   - [Getting Started](#getting-started)
     - [Installation](#installation)
       - [Client Installation](#client-installation)
-  - [Examples](#examples)
-    - [Run the app using an alias](#run-the-app-using-an-alias)
-    - [Friend requests between two users](#friend-requests-between-two-users)
-    - [Sending text messages between two users](#sending-text-messages-between-two-users)
-    - [Sending files between two users](#sending-files-between-two-users)
+  - [Demo](#demo)
   - [Usage](#usage)
   - [Testing](#testing)
   - [Contributing](#contributing)
@@ -51,30 +47,19 @@ It is designed to be lightweight, fast, and easy to use, making it perfect for d
    Alternatively, you can set the `SERVER_ADDRESS` environment variable by running `export SERVER_ADDRESS=clichatapp.click:50051` in your terminal.
 5. **Add an Alias (Optional)**: Add an alias to your `.bashrc` or `.zshrc` file to easily access the binary. For example, `alias cli_chat="~/path/to/cli_chat_app"`.
 
-## Examples
+## Demo
 
-### Run the app using an alias
+[![Watch the demo video](https://img.youtube.com/vi/E5gffV7ap5g/0.jpg)](https://youtu.be/E5gffV7ap5g?si=Mz2KRdsPKwo6KU22)
 
-<img src="./assets/usage1.gif" width="600" alt="Example of running the app with an alias">
+Click the image above to watch a demo video of the CLI Chat App in action!
 
-### Friend requests between two users
-
-<img src="./assets/usage3.gif" width="600" alt="Example of sending friend requests between two users">
-
-### Sending text messages between two users
-
-<img src="./assets/usage2.gif" width="600" alt="Example of sending text messages between two users">
-
-### Sending files between two users
-
-<img src="./assets/usage4.gif" width="600" alt="Example of sending files between two users">
 
 ## Usage
 
 - **Register**: Create a new account by selecting the "Register" option.
 - **Login**: Log in with your credentials to access the chat features.
 - **Send Friend Requests**: Add friends by sending them a request.
-- **Chat**: Start a conversation with your friends.
+- **Chat**: Start a conversation with your friends. (Send text or files)
 
 ## Testing
 
